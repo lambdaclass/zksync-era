@@ -470,7 +470,6 @@ impl EthTxAggregator {
                 f.encode_input(&op.get_eth_tx_args())
             }
         }
-        .expect("Failed to encode transaction data")
     }
 
     pub(super) async fn save_eth_tx(

@@ -222,6 +222,7 @@ impl L1BatchWithMetadata {
     /// following: logs, messages, bytecodes, and compressed state diffs.
     /// This data is currently part of calldata but will be submitted as part of the blob section post EIP-4844.
     pub fn construct_pubdata(&self) -> Vec<u8> {
+        println!("entered construct_pubdata()");
         let mut res: Vec<u8> = vec![];
 
         // Process and Pack Logs
@@ -236,6 +237,14 @@ impl L1BatchWithMetadata {
             res.extend((msg.len() as u32).to_be_bytes());
             res.extend(msg);
         }
+
+        res.extend(vec![1u8, 2u8, 3u8, 9u8]);
+
+        // Process and Pack Bytecodes
+        //res.extend((0u32).to_be_bytes());
+
+        // Extend with Compressed StateDiffs
+        // res.extend(&[0u8]);
 
         // Process and Pack Bytecodes
         res.extend((self.factory_deps.len() as u32).to_be_bytes());
