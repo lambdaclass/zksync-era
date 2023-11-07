@@ -1,13 +1,13 @@
+use ethers::abi::Abi;
+use ethers::providers::Http;
+use ethers::utils::parse_units;
 use std::str::FromStr;
-
-use ethers::{abi::Abi, providers::Http, utils::parse_units};
-use zksync_web3_rs::{
-    providers::{Middleware, Provider},
-    signers::{LocalWallet, Signer},
-    zks_provider::ZKSProvider,
-    zks_wallet::{CallRequest, DeployRequest, DepositRequest},
-    ZKSWallet,
-};
+use zksync_web3_rs::providers::{Middleware, Provider};
+use zksync_web3_rs::signers::{LocalWallet, Signer};
+use zksync_web3_rs::zks_provider::ZKSProvider;
+use zksync_web3_rs::zks_wallet::CallRequest;
+use zksync_web3_rs::zks_wallet::{DeployRequest, DepositRequest};
+use zksync_web3_rs::ZKSWallet;
 
 static ERA_PROVIDER_URL: &str = "http://127.0.0.1:3050";
 static PRIVATE_KEY: &str = "7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110";
