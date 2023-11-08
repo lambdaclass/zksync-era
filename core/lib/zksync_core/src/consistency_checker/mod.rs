@@ -36,9 +36,12 @@ impl ConsistencyChecker {
     async fn check_commitments(&self, batch_number: L1BatchNumber) -> Result<bool, error::Error> {
         let mut storage = self.db.access_storage().await.unwrap();
         let validium: bool = env::var("VALIDIUM")
-            .map(|v| match v.as_str() {
-                "true" => true,
-                _ => false,
+            .map(|v| {
+                println!("env var validium: {}", v);
+                match v.as_str() {
+                    "true" => true,
+                    _ => false,
+                }
             })
             .unwrap_or(false);
 
