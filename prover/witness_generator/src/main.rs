@@ -7,9 +7,8 @@ use structopt::StructOpt;
 use tokio::sync::watch;
 use zksync_config::configs::{FriWitnessGeneratorConfig, PrometheusConfig};
 use zksync_dal::{connection::DbVariant, ConnectionPool};
-use zksync_env_config::{
-    object_store::{ProverObjectStoreConfig, PublicObjectStoreConfig},
-    FromEnv,
+use zksync_config::{
+    ObjectStoreConfig
 };
 use zksync_object_store::ObjectStoreFactory;
 use zksync_prover_utils::get_stop_signal_receiver;
@@ -29,7 +28,6 @@ mod leaf_aggregation;
 mod node_aggregation;
 mod precalculated_merkle_paths_provider;
 mod scheduler;
-mod storage_oracle;
 mod utils;
 
 #[derive(Debug, StructOpt)]
@@ -81,8 +79,8 @@ async fn main() -> anyhow::Result<()> {
     let use_push_gateway = opt.batch_size.is_some();
 
     let object_store_config =
-        ProverObjectStoreConfig::from_env().context("ProverObjectStoreConfig::from_env()")?;
-    let store_factory = ObjectStoreFactory::new(object_store_config.0);
+        ObjectStoreConfig::from_env().context("ObjectStoreConfig::from_env()")?;
+    let store_factory = ObjectStoreFactory::new(object_store_config);
     let config =
         FriWitnessGeneratorConfig::from_env().context("FriWitnessGeneratorConfig::from_env()")?;
     let prometheus_config = PrometheusConfig::from_env().context("PrometheusConfig::from_env()")?;
