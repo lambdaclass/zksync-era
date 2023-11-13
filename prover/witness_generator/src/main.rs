@@ -6,10 +6,8 @@ use std::time::Instant;
 use structopt::StructOpt;
 use tokio::sync::watch;
 use zksync_config::configs::{FriWitnessGeneratorConfig, PrometheusConfig};
+use zksync_config::ObjectStoreConfig;
 use zksync_dal::{connection::DbVariant, ConnectionPool};
-use zksync_config::{
-    ObjectStoreConfig
-};
 use zksync_object_store::ObjectStoreFactory;
 use zksync_prover_utils::get_stop_signal_receiver;
 use zksync_queued_job_processor::JobProcessor;
