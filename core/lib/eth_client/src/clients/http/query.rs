@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use zksync_web3_rs::providers::Middleware;
 
-use std::sync::Arc;
+use std::{convert::TryFrom, sync::Arc};
 
 use crate::{
     clients::http::{Method, COUNTERS, LATENCIES},
@@ -94,6 +95,9 @@ impl EthInterface for QueryClient {
         block_count: usize,
         component: &'static str,
     ) -> Result<Vec<u64>, Error> {
+        let provider =
+            zksync_web3_rs::providers::Provider::try_from("http://localhost:8011".to_owned())
+                .unwrap();
         const MAX_REQUEST_CHUNK: usize = 1024;
 
         COUNTERS.call[&(Method::BaseFeeHistory, component)].inc();
@@ -107,12 +111,17 @@ impl EthInterface for QueryClient {
         for chunk_start in (from_block..=upto_block).step_by(MAX_REQUEST_CHUNK) {
             let chunk_end = (chunk_start + MAX_REQUEST_CHUNK).min(upto_block);
             let chunk_size = chunk_end - chunk_start;
-            let chunk = self
-                .web3
-                .eth()
-                .fee_history(chunk_size.into(), chunk_end.into(), None)
-                .await?
+            let chunk = provider
+                .fee_history(chunk_size, chunk_end.into(), &[])
+                .await
+                .unwrap()
                 .base_fee_per_gas;
+            // let chunk = self
+            //     .web3
+            //     .eth()
+            //     .fee_history(chunk_size.into(), chunk_end.into(), None)
+            //     .await?
+            //     .base_fee_per_gas;
 
             history.extend(chunk);
         }
