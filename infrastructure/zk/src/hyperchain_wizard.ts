@@ -49,7 +49,6 @@ async function initHyperchain() {
     const initArgs: InitArgs = {
         skipSubmodulesCheckout: false,
         skipEnvSetup: true,
-        skipPlonkStep: false,
         deployerL1ContractInputArgs: ['--private-key', deployerPrivateKey, '--governor-address', governorAddress],
         governorPrivateKeyArgs: ['--private-key', governorPrivateKey],
         deployerL2ContractInput: {

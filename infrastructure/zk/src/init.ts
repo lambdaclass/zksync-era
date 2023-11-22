@@ -21,7 +21,6 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     const {
         skipSubmodulesCheckout,
         skipEnvSetup,
-        skipPlonkStep,
         testTokens,
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         deployerL1ContractInputArgs,
@@ -34,7 +33,7 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         await announced('Checking environment', checkEnv());
         await announced('Checking git hooks', env.gitHooks());
         await announced('Setting up containers', up());
-        !skipPlonkStep && await announced('Checking PLONK setup', run.plonkSetup());
+        await announced('Checking PLONK setup', run.plonkSetup());
     }
     if (!skipSubmodulesCheckout) {
         await announced('Checkout system-contracts submodule', submoduleUpdate());
@@ -145,7 +144,6 @@ async function checkEnv() {
 export interface InitArgs {
     skipSubmodulesCheckout: boolean;
     skipEnvSetup: boolean;
-    skipPlonkStep: boolean;
     deployerL1ContractInputArgs: any[];
     governorPrivateKeyArgs: any[];
     deployerL2ContractInput: {
@@ -162,7 +160,6 @@ export interface InitArgs {
 const DEFAULT_ARGS: InitArgs = {
     skipSubmodulesCheckout: false,
     skipEnvSetup: false,
-    skipPlonkStep: false,
     deployerL1ContractInputArgs: [],
     governorPrivateKeyArgs: [],
     deployerL2ContractInput: { args: [], includePaymaster: true, includeL2WETH: true },
@@ -172,13 +169,11 @@ const DEFAULT_ARGS: InitArgs = {
 export const initCommand = new Command('init')
     .option('--skip-submodules-checkout')
     .option('--skip-env-setup')
-    .option('--skip-plonk-step')
     .description('perform zksync network initialization for development')
     .action(async (cmd: Command) => {
         const initArgs: InitArgs = {
             skipSubmodulesCheckout: cmd.skipSubmodulesCheckout,
             skipEnvSetup: cmd.skipEnvSetup,
-            skipPlonkStep: cmd.skipPlonkStep,
             deployerL1ContractInputArgs: [],
             governorPrivateKeyArgs: [],
             deployerL2ContractInput: { args: [], includePaymaster: true, includeL2WETH: true },
