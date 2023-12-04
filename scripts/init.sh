@@ -4,6 +4,12 @@ yarn && yarn zk build
 echo "> Pulling images"
 docker-compose pull 
 
+echo "> Check environment"
+COMMANDS=('node' 'yarn' 'docker' 'docker-compose' 'cargo')
+for c in ${COMMANDS[@]}; do
+        command -v $c >/dev/null 2>&1 || { echo "I require ${c} but it's not installed." >&2; exit 1; }
+done
+
 echo "> Setting up containers"
 docker-compose up -d geth postgres
 
