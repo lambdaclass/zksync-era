@@ -48,8 +48,19 @@ git submodule update
 
 # ----------------------------------
 
-echo "> Compiling contracts"
-make compile
+echo "> Compiling JS packages"
+yarn
+
+# ----------------------------------
+
+echo "> Compiling l2 contracts"
+
+yarn workspace zksync-erc20 build
+yarn workspace system-contracts build
+
+yarn workspace contracts-test-data build
+yarn ts-integration build
+yarn ts-integration build-yul
 
 # ----------------------------------
 
@@ -109,4 +120,9 @@ yarn --silent --cwd contracts/ethereum deploy-erc20 add-multi '
                 { "name": "GNTL",  "symbol": "GNTW",  "decimals": 18 },
                 { "name": "MLTTL", "symbol": "MLTTW", "decimals": 18 },
                 { "name": "Wrapped Ether", "symbol": "WETH", "decimals": 18, "implementation": "WETH9"}
-            ]' > etc/tokens/localhost.json
+            ]' > ./etc/tokens/localhost.json
+
+# ----------------------------------
+
+echo "> Deploying L1 verifier"
+yarn --cwd /contracts/ethereum deploy-no-build --only-verifier | tee deployL1.log
