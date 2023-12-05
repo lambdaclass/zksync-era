@@ -1,7 +1,12 @@
 # ----------------------------------
 
-cd $ZKSYNC_HOME
-yarn && yarn zk build
+if [ -z "$1" ]; then
+    cd $ZKSYNC_HOME
+    yarn && yarn zk build
+else
+    # can't start this with yarn since it has quirks with `--` as an argument
+    node -- $ZKSYNC_HOME/infrastructure/zk/build/index.js "$@"
+fi
 
 # ----------------------------------
 
@@ -86,3 +91,22 @@ yarn l2-contracts build
 # ----------------------------------
 
 echo "> Deploying localhost ERC20 tokens"
+yarn --silent --cwd contracts/ethereum deploy-erc20 add-multi '
+            [
+                { "name": "DAI",  "symbol": "DAI",  "decimals": 18 },
+                { "name": "wBTC", "symbol": "wBTC", "decimals":  8, "implementation": "RevertTransferERC20" },
+                { "name": "BAT",  "symbol": "BAT",  "decimals": 18 },
+                { "name": "GNT",  "symbol": "GNT",  "decimals": 18 },
+                { "name": "MLTT", "symbol": "MLTT", "decimals": 18 },
+                { "name": "DAIK",  "symbol": "DAIK",  "decimals": 18 },
+                { "name": "wBTCK", "symbol": "wBTCK", "decimals":  8, "implementation": "RevertTransferERC20" },
+                { "name": "BATK",  "symbol": "BATS",  "decimals": 18 },
+                { "name": "GNTK",  "symbol": "GNTS",  "decimals": 18 },
+                { "name": "MLTTK", "symbol": "MLTTS", "decimals": 18 },
+                { "name": "DAIL",  "symbol": "DAIL",  "decimals": 18 },
+                { "name": "wBTCL", "symbol": "wBTCP", "decimals":  8, "implementation": "RevertTransferERC20" },
+                { "name": "BATL",  "symbol": "BATW",  "decimals": 18 },
+                { "name": "GNTL",  "symbol": "GNTW",  "decimals": 18 },
+                { "name": "MLTTL", "symbol": "MLTTW", "decimals": 18 },
+                { "name": "Wrapped Ether", "symbol": "WETH", "decimals": 18, "implementation": "WETH9"}
+            ]' > etc/tokens/localhost.json
