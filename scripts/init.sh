@@ -24,6 +24,8 @@ done
 # ----------------------------------
 
 echo "> Setting up containers"
+mkdir -p volumes/geth
+mkdir -p volumes/postgres
 docker-compose up -d geth postgres
 
 # ----------------------------------
@@ -92,6 +94,7 @@ echo "Successfully removed db/"
 echo "> Clean backups"
 rm -rf backups
 echo "Successfully removed backups/"
+cd .. && cd .. && cd ..
 
 # ----------------------------------
 
@@ -102,27 +105,68 @@ yarn l2-contracts build
 # ----------------------------------
 
 echo "> Deploying localhost ERC20 tokens"
-yarn --silent --cwd contracts/ethereum deploy-erc20 add-multi '
-            [
-                { "name": "DAI",  "symbol": "DAI",  "decimals": 18 },
-                { "name": "wBTC", "symbol": "wBTC", "decimals":  8, "implementation": "RevertTransferERC20" },
-                { "name": "BAT",  "symbol": "BAT",  "decimals": 18 },
-                { "name": "GNT",  "symbol": "GNT",  "decimals": 18 },
-                { "name": "MLTT", "symbol": "MLTT", "decimals": 18 },
-                { "name": "DAIK",  "symbol": "DAIK",  "decimals": 18 },
-                { "name": "wBTCK", "symbol": "wBTCK", "decimals":  8, "implementation": "RevertTransferERC20" },
-                { "name": "BATK",  "symbol": "BATS",  "decimals": 18 },
-                { "name": "GNTK",  "symbol": "GNTS",  "decimals": 18 },
-                { "name": "MLTTK", "symbol": "MLTTS", "decimals": 18 },
-                { "name": "DAIL",  "symbol": "DAIL",  "decimals": 18 },
-                { "name": "wBTCL", "symbol": "wBTCP", "decimals":  8, "implementation": "RevertTransferERC20" },
-                { "name": "BATL",  "symbol": "BATW",  "decimals": 18 },
-                { "name": "GNTL",  "symbol": "GNTW",  "decimals": 18 },
-                { "name": "MLTTL", "symbol": "MLTTW", "decimals": 18 },
-                { "name": "Wrapped Ether", "symbol": "WETH", "decimals": 18, "implementation": "WETH9"}
-            ]' > ./etc/tokens/localhost.json
+    yarn --silent --cwd contracts/ethereum deploy-erc20 add-multi '
+                [
+                    { "name": "DAI",  "symbol": "DAI",  "decimals": 18 },
+                    { "name": "wBTC", "symbol": "wBTC", "decimals":  8, "implementation": "RevertTransferERC20" },
+                    { "name": "BAT",  "symbol": "BAT",  "decimals": 18 },
+                    { "name": "GNT",  "symbol": "GNT",  "decimals": 18 },
+                    { "name": "MLTT", "symbol": "MLTT", "decimals": 18 },
+                    { "name": "DAIK",  "symbol": "DAIK",  "decimals": 18 },
+                    { "name": "wBTCK", "symbol": "wBTCK", "decimals":  8, "implementation": "RevertTransferERC20" },
+                    { "name": "BATK",  "symbol": "BATS",  "decimals": 18 },
+                    { "name": "GNTK",  "symbol": "GNTS",  "decimals": 18 },
+                    { "name": "MLTTK", "symbol": "MLTTS", "decimals": 18 },
+                    { "name": "DAIL",  "symbol": "DAIL",  "decimals": 18 },
+                    { "name": "wBTCL", "symbol": "wBTCP", "decimals":  8, "implementation": "RevertTransferERC20" },
+                    { "name": "BATL",  "symbol": "BATW",  "decimals": 18 },
+                    { "name": "GNTL",  "symbol": "GNTW",  "decimals": 18 },
+                    { "name": "MLTTL", "symbol": "MLTTW", "decimals": 18 },
+                    { "name": "Wrapped Ether", "symbol": "WETH", "decimals": 18, "implementation": "WETH9"}
+                ]' > ./etc/tokens/localhost.json
 
 # ----------------------------------
 
 echo "> Deploying L1 verifier"
-yarn --cwd /contracts/ethereum deploy-no-build --only-verifier | tee deployL1.log
+yarn --cwd contracts/ethereum deploy-no-build --only-verifier | tee deployL1.log
+
+# ----------------------------------
+
+echo "> Running server genesis setup"
+cargo run --bin zksync_server --release -- --genesis | tee genesis.log
+
+# ----------------------------------
+
+echo "> Deploying L1 contracts"
+yarn --cwd contracts/ethereum deploy-no-build | tee deployL1.log
+
+# ----------------------------------
+
+echo "> Initializa Validator"
+yarn --cwd contracts/ethereum initialize-governance | tee initializeGovernance.log
+
+# ----------------------------------
+
+echo "> Initialize L1 allow list"
+yarn --cwd contracts/ethereum initialize-allow-list | tee initializeL1AllowList.log
+
+# ----------------------------------
+
+echo "> Deploying L2 contracts"
+yarn --cwd /contracts/zksync build
+yarn --cwd /contracts/ethereum initialize-bridges | tee deployL2.log
+
+yarn --cwd /contracts/zksync deploy-testnet-paymaster | tee -a deployL2.log
+yarn --cwd /contracts/zksync deploy-force-deploy-upgrader | tee -a deployL2.log
+
+yarn --cwd /contracts/ethereum initialize-weth-bridges | tee -a deployL1.log
+
+# ----------------------------------
+
+echo "> Initializing L2 WETH token"
+yarn --cwd /contracts/ethereum initialize-l2-weth-token instant-call | tee initializeWeth.log
+
+# ----------------------------------
+
+echo "> Initializing governance"
+yarn --cwd /contracts/ethereum initialize-governance | tee initializeGovernance.log
