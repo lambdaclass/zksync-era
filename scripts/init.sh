@@ -153,20 +153,22 @@ yarn --cwd contracts/ethereum initialize-allow-list | tee initializeL1AllowList.
 # ----------------------------------
 
 echo "> Deploying L2 contracts"
-yarn --cwd /contracts/zksync build
-yarn --cwd /contracts/ethereum initialize-bridges | tee deployL2.log
+yarn --cwd contracts/zksync build
+yarn --cwd contracts/ethereum initialize-bridges | tee deployL2.log
 
-yarn --cwd /contracts/zksync deploy-testnet-paymaster | tee -a deployL2.log
-yarn --cwd /contracts/zksync deploy-force-deploy-upgrader | tee -a deployL2.log
+yarn --cwd contracts/zksync deploy-testnet-paymaster | tee -a deployL2.log
+yarn --cwd contracts/zksync deploy-force-deploy-upgrader | tee -a deployL2.log
 
-yarn --cwd /contracts/ethereum initialize-weth-bridges | tee -a deployL1.log
+yarn --cwd contracts/ethereum initialize-weth-bridges | tee -a deployL1.log
 
 # ----------------------------------
 
 echo "> Initializing L2 WETH token"
-yarn --cwd /contracts/ethereum initialize-l2-weth-token instant-call | tee initializeWeth.log
+yarn --cwd contracts/ethereum initialize-l2-weth-token instant-call | tee initializeWeth.log
 
 # ----------------------------------
 
 echo "> Initializing governance"
-yarn --cwd /contracts/ethereum initialize-governance | tee initializeGovernance.log
+yarn --cwd contracts/ethereum initialize-governance | tee initializeGovernance.log
+
+# python3 scripts/reloader.py contracts deployL1.log
