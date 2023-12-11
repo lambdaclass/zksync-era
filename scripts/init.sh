@@ -129,16 +129,19 @@ echo "> Deploying localhost ERC20 tokens"
 
 echo "> Deploying L1 verifier"
 yarn --cwd contracts/ethereum deploy-no-build --only-verifier | tee deployL1.log
+python3 scripts/reloader.py contracts deployL1.log
 
 # ----------------------------------
 
 echo "> Running server genesis setup"
 cargo run --bin zksync_server --release -- --genesis | tee genesis.log
+python3 scripts/reloader.py genesis genesis.log
 
 # ----------------------------------
 
 echo "> Deploying L1 contracts"
 yarn --cwd contracts/ethereum deploy-no-build | tee deployL1.log
+python3 scripts/reloader.py contracts deployL1.log
 
 # ----------------------------------
 
@@ -158,8 +161,10 @@ yarn --cwd contracts/ethereum initialize-bridges | tee deployL2.log
 
 yarn --cwd contracts/zksync deploy-testnet-paymaster | tee -a deployL2.log
 yarn --cwd contracts/zksync deploy-force-deploy-upgrader | tee -a deployL2.log
+python3 scripts/reloader.py L2deploy deployL2.log
 
 yarn --cwd contracts/ethereum initialize-weth-bridges | tee -a deployL1.log
+python3 scripts/reloader.py contracts deployL1.log
 
 # ----------------------------------
 
@@ -171,4 +176,3 @@ yarn --cwd contracts/ethereum initialize-l2-weth-token instant-call | tee initia
 echo "> Initializing governance"
 yarn --cwd contracts/ethereum initialize-governance | tee initializeGovernance.log
 
-# python3 scripts/reloader.py contracts deployL1.log
