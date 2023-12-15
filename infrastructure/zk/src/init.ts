@@ -18,8 +18,14 @@ const success = chalk.green;
 const timestamp = chalk.grey;
 
 export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
-    const { skipSubmodulesCheckout, skipEnvSetup, testTokens, governorPrivateKeyArgs, deployerL2ContractInput, validium } =
-        initArgs;
+    const {
+        skipSubmodulesCheckout,
+        skipEnvSetup,
+        testTokens,
+        governorPrivateKeyArgs,
+        deployerL2ContractInput,
+        validium
+    } = initArgs;
 
     if (!process.env.CI && !skipEnvSetup) {
         await announced('Pulling images', docker.pull());
@@ -176,7 +182,7 @@ export const initCommand = new Command('init')
             governorPrivateKeyArgs: [],
             deployerL2ContractInput: { args: [], includePaymaster: true, includeL2WETH: true },
             testTokens: { deploy: true, args: [] },
-            validium: cmd.validium,
+            validium: cmd.validium
         };
         await init(initArgs);
     });

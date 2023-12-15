@@ -1,7 +1,6 @@
 #![allow(clippy::upper_case_acronyms, clippy::derive_partial_eq_without_eq)]
 
-use std::env;
-use std::{net::Ipv4Addr, str::FromStr, sync::Arc, time::Instant};
+use std::{env, net::Ipv4Addr, str::FromStr, sync::Arc, time::Instant};
 
 use anyhow::Context as _;
 use futures::channel::oneshot;
