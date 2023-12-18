@@ -5,7 +5,7 @@ In order to start the node as a validium:
 - Make sure `zk` has been built and then run `zk init --validium`. This will set up the Ethereum node with the validium
   contracts, and also define an env var which the server will pick up in order to run as a validium node
 - Start the server (`zk server`)
-- Execute transactions. For testing, `cargo run --bin zksync_full_stack` inits a wallet, deploys a contract and executes
+- Execute transactions. For testing, `cargo run --release --bin zksync_full_stack` inits a wallet, deploys a contract and executes
   a tx
 - Query the node for the tx hash (output of the zksync_full_stack binary):
 
@@ -33,7 +33,7 @@ curl -X POST -H 'content-type: application/json' 127.0.0.1:3050 -d '{"jsonrpc": 
 Not all the eth-related transaction hashes might be displayed depending on how much time passes between sending the tx
 and querying the node, since the transactions are bundled into batches which get entered into the batch pipeline
 
-- query the geth node with the commit tx hash
+- query the geth node with the `ethCommitTxHash` (remember to use your hash and not the one in the example below)
 
 ```
 curl -X POST -H 'content-type: application/json' 127.0.0.1:8545 -d '{"jsonrpc": "2.0", "id": 1, "method": "eth_getTransactionByHash", "params": ["0xf2daa7aeba7ded2c4dcb1ceb7892c6fa34ef57fec3a175f8593d313bf2c5d314"]}' | jq
@@ -68,8 +68,8 @@ curl -X POST -H 'content-type: application/json' 127.0.0.1:8545 -d '{"jsonrpc": 
 if the same process is followed for a non-validium node, there is more data in the input field (see after the `01020309`
 sub-array which was put in place for detecting these changes):
 
-````
- block-explorer git:(main) ✗ curl -X POST -H 'content-type: application/json' 127.0.0.1:8545 -d '{"jsonrpc": "2.0", "id": 1, "method": "eth_getTransactionByHash", "params": ["0xf2daa7aeba7ded2c4dcb1ceb7892c6fa34ef57fec3a175f8593d313bf2c5d314"]}' | jq
+```
+curl -X POST -H 'content-type: application/json' 127.0.0.1:8545 -d '{"jsonrpc": "2.0", "id": 1, "method": "eth_getTransactionByHash", "params": ["0xf2daa7aeba7ded2c4dcb1ceb7892c6fa34ef57fec3a175f8593d313bf2c5d314"]}' | jq
 
 
 {
@@ -96,5 +96,5 @@ sub-array which was put in place for detecting these changes):
     "r": "0x69874fbaab6e00210cbdc03b15aab565eeb0c706e1845601d194e243e71bd618",
     "s": "0xdab5e41a8cfbe73295f57e1bd1ac409170ba251eefc822b8e2c6936aaf3ed"
   }
-}```
-````
+}
+```
