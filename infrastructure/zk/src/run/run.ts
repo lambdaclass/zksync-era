@@ -46,12 +46,12 @@ export async function deployERC20(
                 { "name": "MLTTL", "symbol": "MLTTW", "decimals": 18 },
                 { "name": "Wrapped Ether", "symbol": "WETH", "decimals": 18, "implementation": "WETH9"}
             ]' ${args.join(' ')} > ./etc/tokens/${destinationFile}.json`);
-        console.error("yarn deploy-erc20 add-multi worked!");
+        console.error('yarn deploy-erc20 add-multi worked!');
         const WETH = getTokens(destinationFile).find((token) => token.symbol === 'WETH')!;
         console.error(getTokens(destinationFile));
-        console.error("WETH GET TOKENS worked!");
+        console.error('WETH GET TOKENS worked!');
         env.modify('CONTRACTS_L1_WETH_TOKEN_ADDR', `CONTRACTS_L1_WETH_TOKEN_ADDR=${WETH.address}`);
-        console.error("env var modification worked!");
+        console.error('env var modification worked!');
     } else if (command == 'new') {
         await utils.spawn(
             `yarn --silent --cwd contracts/ethereum deploy-erc20 add --token-name ${name} --symbol ${symbol} --decimals ${decimals}`
