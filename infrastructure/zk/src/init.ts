@@ -51,6 +51,8 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         await announced('Deploying localhost ERC20 tokens', run.deployERC20('dev', '', '', '', testTokens.args));
     }
 
+    await announced('Deploying L1 contracts finished!!!!!!!');
+    
     if (nativeERC20) {
         // TODO: Deploy and set native ERC20 token.
         await announced('Setting up native L2 ERC20 token', run.deployERC20('new', 'lambdacoin', 'LBC', '18'));
