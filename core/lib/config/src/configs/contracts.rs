@@ -15,7 +15,6 @@ pub struct ContractsConfig {
     pub governance_addr: Address,
     pub mailbox_facet_addr: Address,
     pub executor_facet_addr: Address,
-    pub validium: bool,
     pub admin_facet_addr: Address,
     pub getters_facet_addr: Address,
     pub verifier_addr: Address,
@@ -52,7 +51,6 @@ impl ContractsConfig {
         Self {
             mailbox_facet_addr: Address::repeat_byte(0x01),
             executor_facet_addr: Address::repeat_byte(0x02),
-            validium: false,
             admin_facet_addr: Address::repeat_byte(0x03),
             getters_facet_addr: Address::repeat_byte(0x05),
             verifier_addr: Address::repeat_byte(0x06),
