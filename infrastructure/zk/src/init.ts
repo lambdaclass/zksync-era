@@ -182,7 +182,7 @@ export const initCommand = new Command('init')
             validium: cmd.validium,
             governorPrivateKeyArgs: [],
             deployerL2ContractInput: { args: [], includePaymaster: true, includeL2WETH: true },
-            testTokens: { deploy: true, args: [] },
+            testTokens: { deploy: true, args: [] }
         };
         await init(initArgs);
     });
