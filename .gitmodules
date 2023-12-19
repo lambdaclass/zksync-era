@@ -1,6 +1,8 @@
 [submodule "etc/system-contracts"]
 path = etc/system-contracts
-url = https://github.com/matter-labs/era-system-contracts.git
+url = https://github.com/lambdaclass/era-system-contracts.git
+branch = validium_mode
 [submodule "contracts"]
 path = contracts
 url = https://github.com/lambdaclass/era-contracts.git
+branch = validium-changes
