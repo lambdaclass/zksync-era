@@ -1,5 +1,6 @@
 //! This module determines the fees to pay in txs containing blocks submitted to the L1.
 
+use ::metrics::atomics::AtomicU64;
 use tokio::sync::watch;
 
 use std::{
@@ -18,6 +19,64 @@ mod tests;
 use self::metrics::METRICS;
 use super::{L1GasPriceProvider, L1TxParamsProvider};
 
+use serde::Deserialize;
+use serde::Serialize;
+#[derive(Deserialize, Serialize, Debug)]
+struct EthValue {
+    eth: serde_json::value::Number,
+}
+#[derive(Deserialize, Serialize, Debug)]
+struct Request {
+    dai: EthValue,
+}
+
+/// Dedicated tether <-> eth value fetcher.
+#[derive(Debug)]
+struct ERC20Fetcher {
+    value: u64,
+    url: String,
+}
+
+impl ERC20Fetcher {
+    async fn new() -> Self {
+        let url = "https://api.coingecko.com/api/v3/simple/price?x_cg_demo_api_key=CG-FEgodj8AJN55Va4c6uKPUWLe&ids=dai&vs_currencies=eth".to_string();
+        let value = Self::fetch_it(&url).await;
+        Self {
+            value: Self::erc20_value_in_wei(&value),
+            url,
+        }
+    }
+
+    async fn fetch_it(url: &str) -> String {
+        let response = reqwest::get(url)
+            .await
+            .expect("Failed request for ERC-20")
+            .json::<Request>()
+            .await
+            .unwrap();
+        return response.dai.eth.to_string();
+    }
+
+    fn erc20_value_in_wei(value: &str) -> u64 {
+        let vec: Vec<&str> = value.split(".").collect();
+        let whole_part: u64 = u64::from_str_radix(vec.first().unwrap(), 10).unwrap();
+        let whole_part_to_wei = Self::to_wei(whole_part, 0_u32);
+        let decimal_length = vec.last().unwrap().len() as u32;
+        let decimal_part = u64::from_str_radix(vec.last().unwrap(), 10).unwrap();
+        let decimal_part_to_wei = Self::to_wei(decimal_part, decimal_length);
+        return whole_part_to_wei + decimal_part_to_wei;
+    }
+
+    fn to_wei(in_eth: u64, modifier: u32) -> u64 {
+        in_eth * 10_u64.pow(18_u32 - modifier)
+    }
+    async fn update_value(&mut self) {
+        let new_value = Self::fetch_it(&self.url).await;
+
+        self.value = Self::erc20_value_in_wei(&new_value);
+    }
+}
+
 /// This component keeps track of the median base_fee from the last `max_base_fee_samples` blocks.
 /// It is used to adjust the base_fee of transactions sent to L1.
 #[derive(Debug)]
@@ -25,6 +84,8 @@ pub struct GasAdjuster<E> {
     pub(super) statistics: GasStatistics,
     pub(super) config: GasAdjusterConfig,
     eth_client: E,
+    erc_20_fetcher: ERC20Fetcher,
+    erc_20_value_in_wei: AtomicU64,
 }
 
 impl<E: EthInterface> GasAdjuster<E> {
@@ -40,10 +101,14 @@ impl<E: EthInterface> GasAdjuster<E> {
         let history = eth_client
             .base_fee_history(current_block, config.max_base_fee_samples, "gas_adjuster")
             .await?;
+        let erc_20_fetcher = ERC20Fetcher::new().await;
+        let erc_20_value = erc_20_fetcher.value.clone();
         Ok(Self {
             statistics: GasStatistics::new(config.max_base_fee_samples, current_block, &history),
             eth_client,
             config,
+            erc_20_fetcher,
+            erc_20_value_in_wei: AtomicU64::new(erc_20_value),
         })
     }
 
@@ -78,7 +143,26 @@ impl<E: EthInterface> GasAdjuster<E> {
                 .set(*history.last().unwrap());
             self.statistics.add_samples(&history);
         }
+        let new_value =
+            ERC20Fetcher::fetch_it("https://api.coingecko.com/api/v3/simple/price?x_cg_demo_api_key=CG-FEgodj8AJN55Va4c6uKPUWLe&ids=dai&vs_currencies=eth").await;
+        println!("Dai value in eth: {}", new_value);
+        println!(
+            "Dai value in wei: {}",
+            ERC20Fetcher::erc20_value_in_wei(&new_value)
+        );
+        self.erc_20_value_in_wei.store(
+            ERC20Fetcher::erc20_value_in_wei(&new_value),
+            std::sync::atomic::Ordering::Relaxed,
+        );
+        println!("Gas price {}", self.estimate_effective_gas_price());
+        println!("Price in erc 20: {}", self.erc_20_gas_price());
         Ok(())
+    }
+
+    pub fn erc_20_gas_price(&self) -> u64 {
+        self.erc_20_value_in_wei
+            .load(std::sync::atomic::Ordering::Relaxed)
+            / self.estimate_effective_gas_price()
     }
 
     pub async fn run(self: Arc<Self>, stop_receiver: watch::Receiver<bool>) -> anyhow::Result<()> {
