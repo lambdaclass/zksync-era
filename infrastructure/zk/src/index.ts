@@ -22,6 +22,7 @@ import { command as db } from './database';
 import { command as verifyUpgrade } from './verify-upgrade';
 import { proverCommand } from './prover_setup';
 import { command as status } from './status';
+import { command as mint } from './mint';
 import * as env from './env';
 
 const COMMANDS = [
@@ -33,6 +34,7 @@ const COMMANDS = [
     db,
     contract,
     init,
+    mint,
     reinit,
     lightweightInit,
     initHyperchain,
