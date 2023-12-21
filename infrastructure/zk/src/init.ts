@@ -45,7 +45,7 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     await announced('Setup postgres db', db.setup());
     await announced('Clean rocksdb', clean('db'));
     await announced('Clean backups', clean('backups'));
-    await announced('Building contracts', contract.build());
+    await announced('Building contracts', contract.build_l2_contracts());
 
     if (testTokens.deploy) {
         await announced('Deploying localhost ERC20 tokens', run.deployERC20('dev', '', '', '', testTokens.args));
@@ -55,6 +55,7 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         // TODO: Deploy and set native ERC20 token.
         await announced('Setting up native L2 ERC20 token', run.deployERC20('new', 'lambdacoin', 'LBC', '18'));
     }
+    await announced('Building contracts', contract.build_l1_contracts());
     await announced('Deploying L1 verifier', contract.deployVerifier([]));
     await announced('Reloading env', env.reload());
     await announced('Running server genesis setup', server.genesisFromSources());
@@ -93,11 +94,12 @@ export async function reinit() {
     await announced('Setup postgres db', db.setup());
     await announced('Clean rocksdb', clean('db'));
     await announced('Clean backups', clean('backups'));
-    await announced('Building contracts', contract.build());
+    await announced('Building contracts', contract.build_l2_contracts());
     await announced('Deploying L1 verifier', contract.deployVerifier([]));
     await announced('Reloading env', env.reload());
     await announced('Running server genesis setup', server.genesisFromSources());
     await announced('Deploying L1 contracts', contract.redeployL1([]));
+    await announced('Building contracts', contract.build_l1_contracts());
     await announced('Initializing L1 Allow list', contract.initializeL1AllowList());
     await announced('Deploying L2 contracts', contract.deployL2([], true, true));
     await announced('Initializing L2 WETH token', contract.initializeWethToken());

@@ -3,9 +3,13 @@ import * as utils from './utils';
 import * as env from './env';
 import fs from 'fs';
 
-export async function build() {
-    await utils.spawn('yarn l1-contracts build');
+export async function build_l2_contracts() {
     await utils.spawn('yarn l2-contracts build');
+}
+
+export async function build_l1_contracts() {
+    console.log("BUILDING L1 CONTRACTS")
+    await utils.spawn('yarn l1-contracts build');
 }
 
 export async function verifyL1Contracts() {
@@ -169,7 +173,8 @@ command
     .description('redeploy contracts')
     .action(redeployL1);
 command.command('deploy [deploy-opts...]').allowUnknownOption(true).description('deploy contracts').action(deployL1);
-command.command('build').description('build contracts').action(build);
+command.command('build_l2_contracts').description('build l2 contracts').action(build_l2_contracts);
+command.command('build_l1_contracts').description('build l1 contracts').action(build_l1_contracts);
 command.command('initialize-validator').description('initialize validator').action(initializeValidator);
 command
     .command('initialize-l1-allow-list-contract')

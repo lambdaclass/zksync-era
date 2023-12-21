@@ -88,7 +88,8 @@ function defaultTagList(image: string, imageTagSha: string, imageTagShaTS: strin
 
 async function _build(image: string, tagList: string[], dockerOrg: string) {
     if (image === 'server-v2' || image === 'external-node' || image === 'prover') {
-        await contract.build();
+        await contract.build_l2_contracts();
+        await contract.build_l1_contracts();
     }
     let tagsToBuild = '';
 

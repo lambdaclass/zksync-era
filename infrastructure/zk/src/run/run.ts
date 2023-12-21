@@ -46,7 +46,9 @@ export async function deployERC20(
                 { "name": "MLTTL", "symbol": "MLTTW", "decimals": 18 },
                 { "name": "Wrapped Ether", "symbol": "WETH", "decimals": 18, "implementation": "WETH9"}
             ]' ${args.join(' ')} > ./etc/tokens/${destinationFile}.json`);
+        console.error('tokens: ', getTokens(destinationFile))
         const WETH = getTokens(destinationFile).find((token) => token.symbol === 'WETH')!;
+        console.error(`WETH: ${WETH}`);
         env.modify('CONTRACTS_L1_WETH_TOKEN_ADDR', `CONTRACTS_L1_WETH_TOKEN_ADDR=${WETH.address}`);
     } else if (command == 'new') {
         let destinationFile = 'native_erc20';

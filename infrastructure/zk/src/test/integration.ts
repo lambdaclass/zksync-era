@@ -101,7 +101,8 @@ export async function testkit(args: string[], timeout: number) {
 
     process.env.CHAIN_ETH_NETWORK = 'test';
     await compiler.compileAll();
-    await contract.build();
+    await contract.build_l2_contracts();
+    await contract.build_l1_contracts();
 
     await utils.spawn(`cargo run --release --bin zksync_testkit -- ${args.join(' ')}`);
 }
