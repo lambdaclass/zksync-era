@@ -8,7 +8,7 @@ export async function build_l2_contracts() {
 }
 
 export async function build_l1_contracts() {
-    console.log("BUILDING L1 CONTRACTS")
+    console.log('BUILDING L1 CONTRACTS');
     await utils.spawn('yarn l1-contracts build');
 }
 
