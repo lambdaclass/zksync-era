@@ -40,4 +40,7 @@ impl<G: L1GasPriceProvider> L1GasPriceProvider for BoundedGasAdjuster<G> {
         }
         default_gas_price
     }
+    fn estimate_erc_20_gas_price(&self) -> u64 {
+        self.default_gas_adjuster.estimate_erc_20_gas_price()
+    }
 }
