@@ -49,10 +49,27 @@ export async function deployERC20(
         const WETH = getTokens(destinationFile).find((token) => token.symbol === 'WETH')!;
         env.modify('CONTRACTS_L1_WETH_TOKEN_ADDR', `CONTRACTS_L1_WETH_TOKEN_ADDR=${WETH.address}`);
     } else if (command == 'new') {
+        let destinationFile = 'native_erc20';
         await utils.spawn(
-            `yarn --silent --cwd contracts/ethereum deploy-erc20 add --token-name ${name} --symbol ${symbol} --decimals ${decimals}`
+            `yarn --silent --cwd contracts/ethereum deploy-erc20 add --token-name ${name} --symbol ${symbol} --decimals ${decimals} > ./etc/tokens/${destinationFile}.json`
         );
     }
+}
+
+export async function approve() {
+    let path = `${process.env.ZKSYNC_HOME}/etc/tokens/native_erc20.json`;
+    let rawData = fs.readFileSync(path, "utf8");
+    let address = "0x52312AD6f01657413b2eaE9287f6B9ADaD93D5FE";
+    try {
+        let jsonConfig = JSON.parse(rawData);
+        address = jsonConfig.address;
+    } catch (_e) {
+        address = "0x52312AD6f01657413b2eaE9287f6B9ADaD93D5FE";
+    }
+
+    await utils.spawn(
+        `yarn --silent --cwd contracts/ethereum deploy-erc20 approve --token-address ${address} --spender-address ${process.env.CONTRACTS_DIAMOND_PROXY_ADDR}`
+    );
 }
 
 export async function tokenInfo(address: string) {

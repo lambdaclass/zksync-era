@@ -55,13 +55,21 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         // TODO: Deploy and set native ERC20 token.
         await announced('Setting up native L2 ERC20 token', run.deployERC20('new', 'lambdacoin', 'LBC', '18'));
     }
+
+    await announced('Building contracts', contract.build());
     await announced('Deploying L1 verifier', contract.deployVerifier([]));
     await announced('Reloading env', env.reload());
     await announced('Running server genesis setup', server.genesisFromSources());
     await announced('Deploying L1 contracts', contract.redeployL1(governorPrivateKeyArgs));
     await announced('Initializing validator', contract.initializeValidator(governorPrivateKeyArgs));
     await announced('Initialize L1 allow list', contract.initializeL1AllowList(governorPrivateKeyArgs));
-    // THE FIRST DEPOSIT IS HERE
+
+    await announced('Reloading env', env.reload());
+
+    if (nativeERC20) {
+        await announced('Approving Proxy Contract for deployer deposits', run.approve());
+    }   
+
     await announced(
         'Deploying L2 contracts',
         contract.deployL2(
