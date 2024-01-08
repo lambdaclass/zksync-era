@@ -12,7 +12,7 @@ use zksync_config::GasAdjusterConfig;
 use zksync_eth_client::{types::Error, EthInterface};
 
 pub mod bounded_gas_adjuster;
-mod erc_20_fetcher;
+pub mod erc_20_fetcher;
 mod metrics;
 #[cfg(test)]
 mod tests;
@@ -126,7 +126,6 @@ impl<E: EthInterface> L1GasPriceProvider for GasAdjuster<E> {
     fn estimate_erc_20_gas_price(&self) -> u64 {
         self.erc_20_value_in_wei
             .load(std::sync::atomic::Ordering::Relaxed)
-            / self.estimate_effective_gas_price()
     }
 }
 
