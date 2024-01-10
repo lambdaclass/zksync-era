@@ -17,7 +17,7 @@ pub trait L1GasPriceProvider {
     /// Return value is in wei.
     fn estimate_effective_gas_price(&self) -> u64;
 
-    fn estimate_erc_20_gas_price(&self) -> u64;
+    fn get_erc20_conversion_rate(&self) -> u64;
 }
 
 /// Extended version of `L1GasPriceProvider` that can provide parameters
