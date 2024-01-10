@@ -123,7 +123,7 @@ impl<E: EthInterface> L1GasPriceProvider for GasAdjuster<E> {
 
     /// TODO: This is for an easy refactor to test things,
     /// let's discuss where this should actually be.
-    fn estimate_erc_20_gas_price(&self) -> u64 {
+    fn get_erc20_conversion_rate(&self) -> u64 {
         self.erc_20_value_in_wei
             .load(std::sync::atomic::Ordering::Relaxed)
     }

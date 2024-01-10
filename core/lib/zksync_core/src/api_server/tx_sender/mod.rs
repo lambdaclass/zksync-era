@@ -878,13 +878,12 @@ impl<G: L1GasPriceProvider> TxSender<G> {
 
     pub fn gas_price(&self) -> u64 {
         let gas_price = self.0.l1_gas_price_source.estimate_effective_gas_price();
-        // let gas_price = self.0.l1_gas_price_source.estimate_erc_20_gas_price();
         let l1_gas_price = (gas_price as f64 * self.0.sender_config.gas_price_scale_factor).round();
         let (base_fee, _) = derive_base_fee_and_gas_per_pubdata(
             l1_gas_price as u64,
             self.0.sender_config.fair_l2_gas_price,
         );
-        base_fee * self.0.l1_gas_price_source.estimate_erc_20_gas_price()
+        base_fee * self.0.l1_gas_price_source.get_erc20_conversion_rate()
     }
 
     fn ensure_tx_executable(

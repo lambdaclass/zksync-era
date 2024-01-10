@@ -51,6 +51,7 @@ pub fn to_wei(in_eth: u64, modifier: u32) -> u64 {
 }
 
 pub async fn get_erc_20_value_in_wei() -> u64 {
-    let erc_20_value_in_eth = fetch_it().await.unwrap();
-    erc20_value_from_eth_to_wei(&erc_20_value_in_eth).unwrap()
+    // let erc_20_value_in_eth = fetch_it().await.unwrap();
+    // erc20_value_from_eth_to_wei(&erc_20_value_in_eth).unwrap()
+    11
 }
