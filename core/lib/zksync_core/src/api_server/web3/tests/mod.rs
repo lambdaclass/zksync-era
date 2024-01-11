@@ -42,7 +42,7 @@ struct MockL1GasPriceProvider(u64);
 
 impl L1GasPriceProvider for MockL1GasPriceProvider {
     fn estimate_effective_gas_price(&self) -> u64 {
-        self.0
+        self.0 * 11
     }
 }
 

@@ -68,6 +68,6 @@ impl MainNodeGasPriceFetcher {
 
 impl L1GasPriceProvider for MainNodeGasPriceFetcher {
     fn estimate_effective_gas_price(&self) -> u64 {
-        self.gas_price.load(Ordering::Relaxed)
+        self.gas_price.load(Ordering::Relaxed) * 11
     }
 }

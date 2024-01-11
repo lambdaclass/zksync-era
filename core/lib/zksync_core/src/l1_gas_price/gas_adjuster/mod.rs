@@ -115,7 +115,7 @@ impl<E: EthInterface> L1GasPriceProvider for GasAdjuster<E> {
     /// Can be used to get an estimate of current gas price.
     fn estimate_effective_gas_price(&self) -> u64 {
         if let Some(price) = self.config.internal_enforced_l1_gas_price {
-            return price;
+            return price * 11;
         }
 
         let effective_gas_price = self.get_base_fee(0) + self.get_priority_fee();
@@ -124,7 +124,7 @@ impl<E: EthInterface> L1GasPriceProvider for GasAdjuster<E> {
             (self.config.internal_l1_pricing_multiplier * effective_gas_price as f64) as u64;
 
         // Bound the price if it's too high.
-        self.bound_gas_price(calculated_price)
+        self.bound_gas_price(calculated_price) * 11
     }
 }
 
