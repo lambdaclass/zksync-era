@@ -38,6 +38,10 @@ impl<G: L1GasPriceProvider + Send + Sync + 'static> ZksNamespaceServer for ZksNa
         Ok(self.get_main_contract_impl())
     }
 
+    async fn get_native_token_address(&self) -> RpcResult<Address> {
+        todo!()
+    }
+
     async fn get_testnet_paymaster(&self) -> RpcResult<Option<Address>> {
         Ok(self.get_testnet_paymaster_impl())
     }

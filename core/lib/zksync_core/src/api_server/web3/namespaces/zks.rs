@@ -125,6 +125,11 @@ impl<G: L1GasPriceProvider> ZksNamespace<G> {
         self.state.api_config.diamond_proxy_addr
     }
 
+    #[tracing::instrument(skip_all)]
+    pub fn get_native_token_address_impl(&self) -> Address {
+        todo!()
+    }
+
     #[tracing::instrument(skip(self))]
     pub fn get_testnet_paymaster_impl(&self) -> Option<Address> {
         self.state.api_config.l2_testnet_paymaster_addr
