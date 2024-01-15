@@ -2,20 +2,23 @@
 
 In order to start the node as a validium:
 
-- Make sure `zk` has been built and then run
-`zk && zk clean --all && zk init --validium-mode`
-This will set up the Ethereum node with the validium contracts, and also define an env var which the server will pick up in order to run as a validium node. 
+- Make sure `zk` has been built and then run `zk && zk clean --all && zk init --validium-mode` This will set up the
+  Ethereum node with the validium contracts, and also define an env var which the server will pick up in order to run as
+  a validium node.
 - Start the server (`zk server`)
-- Execute transactions. For testing, run `cargo run --release --bin validium_mode_example`, this test does the following: 
-  - Inits a wallet 
+- Execute transactions. For testing, run `cargo run --release --bin validium_mode_example`, this test does the
+  following:
+  - Inits a wallet
   - Deposits some funds into the wallet
   - Deploys a sample ERC20 contract
   - Query the contract for the token name and symbol
   - Mint 100000 tokens into the address `CD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826`
   - Transfer 1000 tokens from `CD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826` to `bBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB`
 
-### Logs and prints 
-- For each transaction, we use the rpc client to query the transaction details and print them out. The following fields are printed:
+### Logs and prints
+
+- For each transaction, we use the rpc client to query the transaction details and print them out. The following fields
+  are printed:
   - `Transaction hash`: The hash of the transaction
   - `Transaction gas used`: The gas used to perform this transaction.
   - `L2 fee`: The total cost of this transaction.
@@ -23,6 +26,7 @@ This will set up the Ethereum node with the validium contracts, and also define 
   - `L1 Gas price`: The gas price used to run the transaction.
 
 ### Example output
+
 ```
 Deposit transaction hash: 0xc01cf32c699943f8d751047514393a5e98d8cbeaa128fa50c32a3d7804b876a5
 Deploy
