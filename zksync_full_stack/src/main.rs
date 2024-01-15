@@ -105,7 +105,12 @@ async fn main() {
         let transaction_hash_formatted_deploy =
             format!("{:#?}", transaction_receipt.transaction_hash);
         println!("transaction hash {}", transaction_hash_formatted_deploy);
-
+        let transaction_gas_used_formatted_deploy =
+            format!("{:#?}", transaction_receipt.gas_used.unwrap());
+        println!(
+            "transaction gas_used {}",
+            transaction_gas_used_formatted_deploy.cyan()
+        );
         let l2_transaction_deploy = {
             loop {
                 let l2_transaction = l2_rpc_client
@@ -124,7 +129,6 @@ async fn main() {
 
         let l2_tx_fee_formatted_deploy = format!("{:#?}", l2_transaction_deploy.fee);
         println!("L2 fee: {}", l2_tx_fee_formatted_deploy.green());
-
         let l1_transaction = l1_rpc_client
             .get_transaction_by_hash(l2_transaction_deploy.eth_commit_tx_hash.unwrap())
             .await
@@ -188,6 +192,11 @@ async fn main() {
     let transaction_hash_mint = receipt_mint.transaction_hash;
     let transaction_hash_formatted_mint = format!("{:#?}", receipt_mint.transaction_hash);
     println!("transaction hash {}", transaction_hash_formatted_mint);
+    let transaction_gas_used_formatted_mint = format!("{:#?}", receipt_mint.gas_used.unwrap());
+    println!(
+        "transaction gas_used {}",
+        transaction_gas_used_formatted_mint.cyan()
+    );
     let l2_transaction_mint = {
         // println!("{}", "Getting l2 transaction details with rpc...");
         loop {
@@ -259,6 +268,12 @@ async fn main() {
         let transaction_hash_formatted_transfer =
             format!("{:#?}", receipt_transfer.transaction_hash);
         println!("transaction hash {}", transaction_hash_formatted_transfer);
+        let transaction_gas_used_formatted_transfer =
+            format!("{:#?}", receipt_transfer.gas_used.unwrap());
+        println!(
+            "transaction gas_used {}",
+            transaction_gas_used_formatted_transfer.cyan()
+        );
         let l2_transaction_transfer = {
             // println!("{}", "Getting l2 transaction details with rpc...");
             loop {
