@@ -132,14 +132,16 @@ impl<G: L1GasPriceProvider> ZksNamespace<G> {
 
         // read the address from the native_erc20.json file.
         // in the future it should be read from .init.env file
-        let native_erc20_file =
-            File::open(NATIVE_ERC20_FILE_PATH).map_err(|err| internal_error(METHOD_NAME, err))?;
+        let native_erc20_file = File::open(NATIVE_ERC20_FILE_PATH)
+            .map_err(|_err| internal_error(METHOD_NAME, "unable to read native_erc20.json file"))?;
         let native_erc20_json: serde_json::Value =
-            serde_json::from_reader(BufReader::new(native_erc20_file))
-                .map_err(|err| internal_error(METHOD_NAME, err))?;
+            serde_json::from_reader(BufReader::new(native_erc20_file)).map_err(|_err| {
+                internal_error(METHOD_NAME, "unable to read native_erc20.json file")
+            })?;
 
-        let native_erc20_address = native_erc20_json["address"]
-            .as_str()
+        let native_erc20_address = native_erc20_json
+            .get("address")
+            .and_then(|addr| addr.as_str())
             .ok_or_else(|| internal_error(METHOD_NAME, "address not found in json"))?;
 
         H160::from_str(native_erc20_address).map_err(|err| internal_error(METHOD_NAME, err))
