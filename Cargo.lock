@@ -8591,6 +8591,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "validium_mode_example"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "ethers",
+ "hex",
+ "loadnext",
+ "tokio",
+ "zksync-web3-rs",
+ "zksync_web3_decl",
+]
+
+[[package]]
 name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9877,19 +9890,6 @@ dependencies = [
  "zksync_storage",
  "zksync_types",
  "zksync_utils",
- "zksync_web3_decl",
-]
-
-[[package]]
-name = "zksync_full_stack"
-version = "0.1.0"
-dependencies = [
- "colored",
- "ethers",
- "hex",
- "loadnext",
- "tokio",
- "zksync-web3-rs",
  "zksync_web3_decl",
 ]
 

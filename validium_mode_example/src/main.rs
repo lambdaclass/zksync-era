@@ -13,7 +13,7 @@ use zksync_web3_rs::{
     providers::{Middleware, Provider},
     signers::{LocalWallet, Signer},
     zks_provider::ZKSProvider,
-    zks_wallet::{CallRequest, DeployRequest, DepositRequest},
+    zks_wallet::{DeployRequest, DepositRequest},
     ZKSWallet,
 };
 
@@ -104,11 +104,11 @@ async fn main() {
         let transaction_hash_deploy = transaction_receipt.transaction_hash;
         let transaction_hash_formatted_deploy =
             format!("{:#?}", transaction_receipt.transaction_hash);
-        println!("transaction hash {}", transaction_hash_formatted_deploy);
+        println!("Transaction hash {}", transaction_hash_formatted_deploy);
         let transaction_gas_used_formatted_deploy =
             format!("{:#?}", transaction_receipt.gas_used.unwrap());
         println!(
-            "transaction gas_used {}",
+            "Transaction gas used {}",
             transaction_gas_used_formatted_deploy.cyan()
         );
         let l2_transaction_deploy = {
@@ -143,26 +143,6 @@ async fn main() {
 
         address
     };
-
-    {
-        let era_provider = zk_wallet.get_era_provider().unwrap();
-        let call_request_name = CallRequest::new(contract_address, "name()(string)".to_owned());
-
-        let name_message = ZKSProvider::call(era_provider.as_ref(), &call_request_name)
-            .await
-            .unwrap();
-
-        println!("Token name: {}", name_message[0]);
-
-        let call_request_symbol = CallRequest::new(contract_address, "symbol()(string)".to_owned());
-
-        let symbol_message = ZKSProvider::call(era_provider.as_ref(), &call_request_symbol)
-            .await
-            .unwrap();
-
-        println!("Token symbol: {}", symbol_message[0]);
-    }
-
     println!();
 
     println!("{}", "Mint".bright_magenta());
@@ -191,10 +171,10 @@ async fn main() {
 
     let transaction_hash_mint = receipt_mint.transaction_hash;
     let transaction_hash_formatted_mint = format!("{:#?}", receipt_mint.transaction_hash);
-    println!("transaction hash {}", transaction_hash_formatted_mint);
+    println!("Transaction hash {}", transaction_hash_formatted_mint);
     let transaction_gas_used_formatted_mint = format!("{:#?}", receipt_mint.gas_used.unwrap());
     println!(
-        "transaction gas_used {}",
+        "Transaction gas used {}",
         transaction_gas_used_formatted_mint.cyan()
     );
     let l2_transaction_mint = {
@@ -267,11 +247,11 @@ async fn main() {
         let transaction_hash_transfer = receipt_transfer.transaction_hash;
         let transaction_hash_formatted_transfer =
             format!("{:#?}", receipt_transfer.transaction_hash);
-        println!("transaction hash {}", transaction_hash_formatted_transfer);
+        println!("Transaction hash {}", transaction_hash_formatted_transfer);
         let transaction_gas_used_formatted_transfer =
             format!("{:#?}", receipt_transfer.gas_used.unwrap());
         println!(
-            "transaction gas_used {}",
+            "Transaction gas used {}",
             transaction_gas_used_formatted_transfer.cyan()
         );
         let l2_transaction_transfer = {
