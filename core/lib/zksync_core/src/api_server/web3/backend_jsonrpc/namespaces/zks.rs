@@ -146,7 +146,12 @@ impl<G: L1GasPriceProvider + Send + Sync + 'static> ZksNamespaceT for ZksNamespa
     }
 
     fn get_native_token_address(&self) -> BoxFuture<Result<Address>> {
-        todo!()
+        let self_ = self.clone();
+        Box::pin(async move {
+            self_
+                .get_native_token_address_impl()
+                .map_err(into_jsrpc_error)
+        })
     }
 
     fn get_miniblock_range(&self, batch: L1BatchNumber) -> BoxFuture<Result<Option<(U64, U64)>>> {

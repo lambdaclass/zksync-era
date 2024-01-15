@@ -39,7 +39,8 @@ impl<G: L1GasPriceProvider + Send + Sync + 'static> ZksNamespaceServer for ZksNa
     }
 
     async fn get_native_token_address(&self) -> RpcResult<Address> {
-        todo!()
+        self.get_native_token_address_impl()
+            .map_err(into_jsrpc_error)
     }
 
     async fn get_testnet_paymaster(&self) -> RpcResult<Option<Address>> {
