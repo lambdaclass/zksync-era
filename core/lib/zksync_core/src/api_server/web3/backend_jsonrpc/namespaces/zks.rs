@@ -145,7 +145,7 @@ impl<G: L1GasPriceProvider + Send + Sync + 'static> ZksNamespaceT for ZksNamespa
         Box::pin(async move { Ok(self_.get_main_contract_impl()) })
     }
 
-    fn get_native_token_address(&self) -> BoxFuture<Result<Address> > {
+    fn get_native_token_address(&self) -> BoxFuture<Result<Address>> {
         todo!()
     }
 
