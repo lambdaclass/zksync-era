@@ -135,12 +135,6 @@ async fn main() {
             .unwrap()
             .unwrap();
 
-        let l1_transaction_gas_formatted = format!("{:#?}", l1_transaction.gas);
-        println!("L1 Gas: {}", l1_transaction_gas_formatted.yellow());
-
-        let gas_price_formatted = format!("{:#?}", l1_transaction.gas_price.unwrap());
-        println!("L1 Gas price: {}", gas_price_formatted.yellow());
-
         address
     };
     println!();
@@ -209,11 +203,6 @@ async fn main() {
         "L1 max fee per gas: {}",
         l1_max_fee_per_gas_formatted_mint.cyan()
     );
-    let l1_transaction_gas_formatted_mint = format!("{:#?}", l1_transaction_transfer.gas);
-    println!("L1 Gas: {}", l1_transaction_gas_formatted_mint.yellow());
-
-    let gas_price_formatted_mint = format!("{:#?}", l1_transaction_transfer.gas_price.unwrap());
-    println!("L1 Gas price: {}", gas_price_formatted_mint.yellow());
     println!();
 
     let values: Vec<&str> = vec!["1000"];
@@ -286,12 +275,6 @@ async fn main() {
             "L1 max fee per gas: {}",
             l1_max_fee_per_gas_formatted_transfer.cyan()
         );
-        let l1_transaction_gas_formatted_transfer = format!("{:#?}", l1_transaction_transfer.gas);
-        println!("L1 Gas: {}", l1_transaction_gas_formatted_transfer.yellow());
-
-        let gas_price_formatted_transfer =
-            format!("{:#?}", l1_transaction_transfer.gas_price.unwrap());
-        println!("L1 Gas price: {}", gas_price_formatted_transfer.yellow());
         println!();
     }
 }
