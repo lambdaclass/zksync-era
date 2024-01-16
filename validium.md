@@ -45,3 +45,6 @@ Transaction gas used 125466
 L2 fee: 31366500000000
 L1 max fee per gas: 1000000010
 ```
+
+> [!NOTE]
+> The `transaction hash` field changes with each deployment.
