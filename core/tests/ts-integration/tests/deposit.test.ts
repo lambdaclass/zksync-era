@@ -49,27 +49,30 @@ describe('Deposit', () => {
         console.log('alice inicital balance', initialEthBalanceL1.toString());
 
         console.log('alice L2 address', alice.address);
-        const deposit = await alice.deposit({
-            token: tokenDetails.l1Address,
-            amount,
-            approveERC20: true,
-            approveOverrides: {
-                gasPrice
+        const deposit = await alice.deposit(
+            {
+                token: tokenDetails.l1Address,
+                amount,
+                approveERC20: true,
+                approveOverrides: {
+                    gasPrice
+                },
+                overrides: {
+                    gasPrice
+                }
             },
-            overrides: {
-                gasPrice
-            }
-        }, tokenDetails.l1Address);
+            tokenDetails.l1Address
+        );
         console.log('deposit', deposit);
         const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
         await sleep(3000);
         const finalEthBalanceL1 = await alice.getBalanceL1(tokenDetails.l1Address);
         console.log('alice final balance', finalEthBalanceL1.toString());
-        
+
         // const finalTokenBalanceL1 = await aliceErc20.getBalance(alice.address);
         // const finalNativeTokenBalanceL2 = await alice.getBalance(tokenDetails.l2Address);
-        
+
         expect(finalEthBalanceL1).bnToBeEq(initialEthBalanceL1.sub(amount));
         // expect(finalTokenBalanceL1).bnToBeEq(initialTokenBalanceL1.sub(amount));
         // expect(finalNativeTokenBalanceL2).bnToBeEq(initialNativeTokenBalanceL2.add(amount));
