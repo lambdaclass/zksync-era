@@ -23,8 +23,6 @@ Once the server is running, run this command in other terminal:
 ```sh
 cargo run --release --bin zksync_full_stack
 ```
-> [!IMPORTANT]
-> Make sure that you are in the `validium_mode_example` directory.
 
 This test does the following:
   - Inits a wallet
@@ -68,4 +66,4 @@ L1 max fee per gas: 1000000010
 ```
 
 > [!NOTE]
-> You can observe how the diferent fields evolve depending on the operation. The `transaction hash` is a changing field and the value of the other fields may change depending on the server mode (`rollup` or `validium`).
+> You can observe how the diferent fields evolve depending on the operation. The `transaction hash` is a changing field.
