@@ -1,9 +1,15 @@
-use crate::interface::{TxExecutionMode, VmExecutionMode, VmInterface};
-use crate::vm_latest::tests::tester::{DeployContractsTx, TxType, VmTesterBuilder};
-use crate::vm_latest::tests::utils::read_test_contract;
-
-use crate::vm_latest::types::internals::TransactionData;
-use crate::vm_latest::HistoryEnabled;
+use crate::{
+    interface::{TxExecutionMode, VmExecutionMode, VmInterface},
+    vm_latest::{
+        tests::{
+            tester::{DeployContractsTx, TxType, VmTesterBuilder},
+            utils::read_test_contract,
+        },
+        types::internals::TransactionData,
+        utils::fee::get_batch_gas_per_pubdata,
+        HistoryEnabled,
+    },
+};
 
 #[test]
 fn test_predetermined_refunded_gas() {
@@ -55,7 +61,7 @@ fn test_predetermined_refunded_gas() {
         .build();
 
     let tx: TransactionData = tx.into();
-    let block_gas_per_pubdata_byte = vm.vm.batch_env.block_gas_price_per_pubdata();
+    let block_gas_per_pubdata_byte = get_batch_gas_per_pubdata(&vm.vm.batch_env);
     // Overhead
     let overhead = tx.overhead_gas(block_gas_per_pubdata_byte as u32);
     vm.vm

@@ -2,7 +2,6 @@ use std::{collections::HashMap, convert::TryInto};
 
 use bigdecimal::{BigDecimal, Zero};
 use zksync_dal::StorageProcessor;
-
 use zksync_mini_merkle_tree::MiniMerkleTree;
 use zksync_types::{
     api::{
@@ -10,6 +9,7 @@ use zksync_types::{
         ProtocolVersion, StorageProof, TransactionDetails,
     },
     fee::Fee,
+    fee_model::FeeParams,
     l1::L1Tx,
     l2::L2Tx,
     l2_to_l1_log::L2ToL1Log,
@@ -22,30 +22,21 @@ use zksync_types::{
 use zksync_utils::{address_to_h256, ratio_to_big_decimal_normalized};
 use zksync_web3_decl::{
     error::Web3Error,
-    types::{Address, Filter, Log, Token, H256},
+    types::{Address, Token, H256},
 };
 
 use crate::api_server::{
     tree::TreeApiClient,
-    web3::{backend_jsonrpc::error::internal_error, metrics::API_METRICS, RpcState},
+    web3::{backend_jsonrpsee::internal_error, metrics::API_METRICS, RpcState},
 };
-use crate::l1_gas_price::L1GasPriceProvider;
 
 #[derive(Debug)]
-pub struct ZksNamespace<G> {
-    pub state: RpcState<G>,
+pub struct ZksNamespace {
+    pub state: RpcState,
 }
 
-impl<G> Clone for ZksNamespace<G> {
-    fn clone(&self) -> Self {
-        Self {
-            state: self.state.clone(),
-        }
-    }
-}
-
-impl<G: L1GasPriceProvider> ZksNamespace<G> {
-    pub fn new(state: RpcState<G>) -> Self {
+impl ZksNamespace {
+    pub fn new(state: RpcState) -> Self {
         Self { state }
     }
 
@@ -283,7 +274,7 @@ impl<G: L1GasPriceProvider> ZksNamespace<G> {
                 .get_logs(
                     GetLogsFilter {
                         from_block: first_miniblock_of_l1_batch,
-                        to_block: Some(block_number.0.into()),
+                        to_block: block_number,
                         addresses: vec![L1_MESSENGER_ADDRESS],
                         topics: vec![(2, vec![address_to_h256(&sender)]), (3, vec![msg])],
                     },
@@ -592,11 +583,29 @@ impl<G: L1GasPriceProvider> ZksNamespace<G> {
             .state
             .tx_sender
             .0
-            .l1_gas_price_source
-            .estimate_effective_gas_price();
+            .batch_fee_input_provider
+            .get_batch_fee_input()
+            .l1_gas_price();
 
         method_latency.observe();
         gas_price.into()
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub fn get_fee_params_impl(&self) -> FeeParams {
+        const METHOD_NAME: &str = "get_fee_params";
+
+        let method_latency = API_METRICS.start_call(METHOD_NAME);
+        let fee_model_params = self
+            .state
+            .tx_sender
+            .0
+            .batch_fee_input_provider
+            .get_fee_model_params();
+
+        method_latency.observe();
+
+        fee_model_params
     }
 
     #[tracing::instrument(skip(self))]
@@ -632,14 +641,6 @@ impl<G: L1GasPriceProvider> ZksNamespace<G> {
 
         method_latency.observe();
         protocol_version
-    }
-
-    #[tracing::instrument(skip_all)]
-    pub async fn get_logs_with_virtual_blocks_impl(
-        &self,
-        filter: Filter,
-    ) -> Result<Vec<Log>, Web3Error> {
-        self.state.translate_get_logs(filter).await
     }
 
     #[tracing::instrument(skip_all)]

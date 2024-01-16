@@ -12,14 +12,14 @@ pub const GUARANTEED_PUBDATA_PER_L1_BATCH: u64 = 4000;
 
 /// The maximum number of pubdata per L1 batch. This limit is due to the fact that the Ethereum
 /// nodes do not accept transactions that have more than 128kb of pubdata.
-/// The 18kb margin is left in case of any inpreciseness of the pubdata calculation.
+/// The 18kb margin is left in case of any impreciseness of the pubdata calculation.
 pub const MAX_PUBDATA_PER_L1_BATCH: u64 = 110000;
 
-// TODO: import from zkevm_opcode_defs once VM1.3 is supported
+// TODO: import from `zkevm_opcode_defs` once `VM1.3` is supported
 pub const MAX_L2_TX_GAS_LIMIT: u64 = 80000000;
 
 // The users should always be able to provide `MAX_GAS_PER_PUBDATA_BYTE` gas per pubdata in their
-// transactions so that they are able to send at least GUARANTEED_PUBDATA_PER_L1_BATCH bytes per
+// transactions so that they are able to send at least `GUARANTEED_PUBDATA_PER_L1_BATCH` bytes per
 // transaction.
 pub const MAX_GAS_PER_PUBDATA_BYTE: u64 = MAX_L2_TX_GAS_LIMIT / GUARANTEED_PUBDATA_PER_L1_BATCH;
 
