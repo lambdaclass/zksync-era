@@ -46,5 +46,4 @@ L2 fee: 31366500000000
 L1 max fee per gas: 1000000010
 ```
 
-> [!NOTE]
-> The `transaction hash` field changes with each deployment.
+> [!NOTE] The `transaction hash` is a changing field and the value of the other fields may change depending on the server mode (`rollup` or `validium`).
