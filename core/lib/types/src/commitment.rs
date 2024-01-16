@@ -27,6 +27,10 @@ use crate::{
     H256, KNOWN_CODES_STORAGE_ADDRESS, U256,
 };
 
+pub struct Pubdata {
+    pubdata: Vec<u8>,
+}
+
 /// Type that can be serialized for commitment.
 pub trait SerializeCommitment {
     /// Size of the structure in bytes.
@@ -248,6 +252,22 @@ impl L1BatchWithMetadata {
 
             // Extend with Compressed StateDiffs
             res.extend(&self.metadata.state_diffs_compressed);
+        } else {
+            // Store the pubdata in memory
+            let user_logs = dbg!(self.header.l2_to_l1_logs.clone());
+            self.header
+                .l2_to_l1_messages
+                .clone()
+                .into_iter()
+                .for_each(|msg| {
+                    let user_messages = msg;
+                    dbg!(user_messages);
+                });
+            let user_bytecodes = self.factory_deps.clone().into_iter().for_each(|bytecode| {
+                let user_bytecodes = bytecode;
+                dbg!(user_bytecodes);
+            });
+            let user_state_diffs = dbg!(self.metadata.state_diffs_compressed.clone());
         }
 
         res
