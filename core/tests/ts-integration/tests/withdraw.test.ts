@@ -42,10 +42,7 @@ describe('ERC20 contract checks', () => {
         // First, a withdraw transaction is done on the L2,
         const withdraw = await alice.withdraw({ token: ETH_ADDRESS, amount });
         const withdrawalHash = withdraw.hash;
-        withdraw.waitFinalize();
-
-        // sleep for 10 seconds to wait for the transaction to be mined
-        await sleep(10000);
+        await withdraw.waitFinalize();
 
         // Balance should be 1gwei + Xgwei (fee) less than the initial balance
         // TODO: check if there is a way to get the specific fee value.
@@ -55,11 +52,9 @@ describe('ERC20 contract checks', () => {
         expect(actual <= expected);
 
         // Afterwards, a withdraw-finalize is done on the L1,
-        await sleep(1000);
         (await alice.finalizeWithdrawal(withdrawalHash)).wait();
 
         // make sure that the balance on the L1 has increased by the amount withdrawn
-        await sleep(1000);
         const finalBalanceL1 = await alice.getBalanceL1(tokenDetails.l1Address);
         expected = initialBalanceL1.add(amount).toString();
         actual = finalBalanceL1.toString();
