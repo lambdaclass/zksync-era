@@ -129,11 +129,6 @@ async fn main() {
 
         let l2_tx_fee_formatted_deploy = format!("{:#?}", l2_transaction_deploy.fee);
         println!("L2 fee: {}", l2_tx_fee_formatted_deploy.green());
-        let l1_transaction = l1_rpc_client
-            .get_transaction_by_hash(l2_transaction_deploy.eth_commit_tx_hash.unwrap())
-            .await
-            .unwrap()
-            .unwrap();
 
         address
     };
