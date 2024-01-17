@@ -5,6 +5,7 @@ use std::{
     str::FromStr,
     time::Duration,
 };
+
 use colored::Colorize;
 use ethers::{abi::Abi, providers::Http, utils::parse_units};
 use loadnext::config::LoadtestConfig;
@@ -47,7 +48,7 @@ fn initialize_report(path: &str) -> Result<(), Error> {
 }
 
 fn write_line_to_report(
-    path:  &str,
+    path: &str,
     operation: &str,
     value: &str,
     transaction_gas_used: &str,
@@ -67,7 +68,7 @@ fn write_line_to_report(
 async fn main() {
     let args: Vec<String> = env::args().collect();
     let mut path = "./validium_mode_example/rollup_gas_report.csv".to_string();
-    if args.len() > 1 && args[1] == "--validium-mode"{
+    if args.len() > 1 && args[1] == "--validium-mode" {
         path = "./validium_mode_example/validium_gas_report.csv".to_string();
     }
 
