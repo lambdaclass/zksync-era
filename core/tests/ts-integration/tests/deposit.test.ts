@@ -80,6 +80,29 @@ describe('Deposit', () => {
         expect(finalBalances.nativeTokenL1).bnToBeLt(initialBalances.nativeTokenL1.sub(amount));
     });
 
+    test('Cant deposit', async () => {
+        // Amount sending to the L2.
+        // BigNumber Max value
+        const amount = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+        const gasPrice = scaledGasPrice(alice);
+
+        const deposit = await alice.deposit(
+            {
+                token: tokenDetails.l1Address,
+                amount,
+                approveERC20: true,
+                approveOverrides: {
+                    gasPrice
+                },
+                overrides: {
+                    gasPrice
+                }
+            },
+            tokenDetails.l1Address
+        );
+        await deposit.waitFinalize();
+    });
+
     afterAll(async () => {
         await testMaster.deinitialize();
     });
