@@ -18,12 +18,20 @@ import * as ethers from 'ethers';
 import { scaledGasPrice, waitUntilBlockFinalized } from '../src/helpers';
 import { L2_ETH_PER_ACCOUNT } from '../src/context-owner';
 
+async function get_wallet_balances(wallet: zksync.Wallet, tokenDetails: Token) {
+    return {
+        nativeTokenL2: await wallet.getBalance(),
+        ethL1: await wallet.getBalanceL1(),
+        nativeTokenL1: await wallet.getBalanceL1(tokenDetails.l1Address)
+    };
+}
+
 describe('Deposit', () => {
     let testMaster: TestMaster;
     let alice: zksync.Wallet;
     let bob: zksync.Wallet;
     let tokenDetails: Token;
-    let aliceErc20: zksync.Contract;
+    let erc20: zksync.Contract;
 
     beforeAll(async () => {
         testMaster = TestMaster.getInstance(__filename); // Configures env vars for the test.
@@ -31,24 +39,20 @@ describe('Deposit', () => {
         bob = testMaster.newEmptyAccount(); // empty account.
 
         tokenDetails = testMaster.environment().erc20Token; // Contains the native token details.
-        aliceErc20 = new zksync.Contract(tokenDetails.l2Address, zksync.utils.IERC20, alice); //
-    });
-
-    test('Token properties are correct', async () => {
-        // expect(aliceErc20.name()).resolves.toBe(tokenDetails.name);
-        // expect(aliceErc20.decimals()).resolves.toBe(tokenDetails.decimals);
-        // expect(aliceErc20.symbol()).resolves.toBe(tokenDetails.symbol);
-        // expect(aliceErc20.balanceOf(alice.address)).resolves.bnToBeGt(0, 'Alice should have non-zero balance');
+        erc20 = new zksync.Contract(tokenDetails.l2Address, zksync.utils.IERC20, alice); //
     });
 
     test('Can perform a deposit', async () => {
-        const amount = 1;
+        console.log('alice L2 address', alice.address);
+
+        // Amount sending to the L2.
+        const amount = 2836168500000000;
         const gasPrice = scaledGasPrice(alice);
 
-        const initialEthBalanceL1 = await alice.getBalanceL1(tokenDetails.l1Address);
-        console.log('alice inicital balance', initialEthBalanceL1.toString());
+        // Initil balance checking.
+        const initialBalances = await get_wallet_balances(alice, tokenDetails);
+        console.log('alice initial balances', initialBalances);
 
-        console.log('alice L2 address', alice.address);
         const deposit = await alice.deposit(
             {
                 token: tokenDetails.l1Address,
@@ -63,19 +67,17 @@ describe('Deposit', () => {
             },
             tokenDetails.l1Address
         );
+        await deposit.waitFinalize();
         console.log('deposit', deposit);
-        const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-        await sleep(3000);
-        const finalEthBalanceL1 = await alice.getBalanceL1(tokenDetails.l1Address);
-        console.log('alice final balance', finalEthBalanceL1.toString());
+        // Final balance checking.
+        const finalBalances = await get_wallet_balances(alice, tokenDetails);
+        console.log('alice final balances', finalBalances);
 
-        // const finalTokenBalanceL1 = await aliceErc20.getBalance(alice.address);
-        // const finalNativeTokenBalanceL2 = await alice.getBalance(tokenDetails.l2Address);
-
-        expect(finalEthBalanceL1).bnToBeEq(initialEthBalanceL1.sub(amount));
-        // expect(finalTokenBalanceL1).bnToBeEq(initialTokenBalanceL1.sub(amount));
-        // expect(finalNativeTokenBalanceL2).bnToBeEq(initialNativeTokenBalanceL2.add(amount));
+        // Check that the balances are correct.
+        expect(finalBalances.nativeTokenL2).bnToBeGte(initialBalances.nativeTokenL2.add(amount));
+        expect(finalBalances.ethL1).bnToBeLt(initialBalances.ethL1);
+        expect(finalBalances.nativeTokenL1).bnToBeLt(initialBalances.nativeTokenL1.sub(amount));
     });
 
     afterAll(async () => {
