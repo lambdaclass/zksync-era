@@ -1,10 +1,10 @@
 use std::{
+    env,
     fs::OpenOptions,
     io::{Error, Write},
     str::FromStr,
     time::Duration,
 };
-
 use colored::Colorize;
 use ethers::{abi::Abi, providers::Http, utils::parse_units};
 use loadnext::config::LoadtestConfig;
@@ -30,14 +30,12 @@ static CONTRACT_ABI: &str = include_str!("../ERC20.abi");
 
 static L1_URL: &str = "http://localhost:8545";
 
-static REPORT_PATH: &str = "report.csv";
-
-fn initialize_report() -> Result<(), Error> {
+fn initialize_report(path: &str) -> Result<(), Error> {
     let file = OpenOptions::new()
         .write(true)
-        .truncate(true) // Trunca el archivo (borra su contenido)
-        .create(true) // Crea el archivo si no existe
-        .open(REPORT_PATH);
+        .truncate(true)
+        .create(true)
+        .open(path);
 
     match file {
         Ok(mut f) => writeln!(
@@ -49,13 +47,14 @@ fn initialize_report() -> Result<(), Error> {
 }
 
 fn write_line_to_report(
+    path:  &str,
     operation: &str,
     value: &str,
     transaction_gas_used: &str,
     l2_fee: &str,
     l1_max_fee_per_gas: &str,
 ) {
-    let mut file = OpenOptions::new().append(true).open(REPORT_PATH).unwrap();
+    let mut file = OpenOptions::new().append(true).open(path).unwrap();
 
     writeln!(
         file,
@@ -66,10 +65,17 @@ fn write_line_to_report(
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    match initialize_report() {
-        Ok(_) => println!("Report CSV created."),
+    let args: Vec<String> = env::args().collect();
+    let mut path = "./validium_mode_example/rollup_gas_report.csv".to_string();
+    if args.len() > 1 && args[1] == "--validium-mode"{
+        path = "./validium_mode_example/validium_gas_report.csv".to_string();
+    }
+
+    match initialize_report(&path) {
+        Ok(_) => println!("CSV report created."),
         Err(e) => println!("Error initializing the CSV report: {}", e),
     }
+
     let l1_provider =
         Provider::<Http>::try_from(L1_URL).expect("Could not instantiate L1 Provider");
     let zk_wallet = {
@@ -174,6 +180,7 @@ async fn main() {
         println!("L2 fee: {}", l2_tx_fee_formatted_deploy.green());
 
         write_line_to_report(
+            &path,
             "Deploy",
             "nill",
             &transaction_gas_used_formatted_deploy,
@@ -258,6 +265,7 @@ async fn main() {
     println!();
 
     write_line_to_report(
+        &path,
         "Mint",
         "nill",
         &transaction_gas_used_formatted_mint,
@@ -338,6 +346,7 @@ async fn main() {
         println!();
 
         write_line_to_report(
+            &path,
             "Transfer",
             &value,
             &transaction_gas_used_formatted_transfer,
