@@ -55,6 +55,24 @@ async fn main() {
         .build(config.l2_rpc_address)
         .unwrap();
 
+    println!("");
+    println!("{}", "Gas prices".bright_magenta());
+    let l1_gas_price = l1_rpc_client.gas_price().await.unwrap();
+    println!(
+        "L1 gas price [RPC L1]: {}",
+        l1_gas_price.to_string().truecolor(255, 122, 67)
+    );
+    let l1_gas_price_l2 = l2_rpc_client.get_l1_gas_price().await.unwrap();
+    println!(
+        "L1 gas price [RPC L2]: {}",
+        l1_gas_price_l2.to_string().truecolor(255, 122, 67)
+    );
+    let l2_gas_price_l2 = l2_rpc_client.gas_price().await.unwrap();
+    println!(
+        "L2 gas price [RPC L2]: {}",
+        l2_gas_price_l2.to_string().truecolor(255, 122, 67)
+    );
+
     let deposit_transaction_hash = {
         let amount = parse_units("11", "ether").unwrap();
         let request = DepositRequest::new(amount.into());
