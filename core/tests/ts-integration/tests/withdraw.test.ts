@@ -4,15 +4,10 @@
 
 import { TestMaster } from '../src/index';
 import { Token } from '../src/types';
-import { shouldChangeTokenBalances, shouldOnlyTakeFee } from '../src/modifiers/balance-checker';
 
 import * as zksync from 'zksync-web3';
-import { BigNumber, utils as etherUtils } from 'ethers';
 import * as ethers from 'ethers';
-import { scaledGasPrice, waitUntilBlockFinalized } from '../src/helpers';
-import { L2_ETH_PER_ACCOUNT } from '../src/context-owner';
 import { ETH_ADDRESS } from 'zksync-web3/build/src/utils';
-import { sleep } from 'zk/build/utils';
 
 describe('ERC20 contract checks', () => {
     let testMaster: TestMaster;
@@ -44,20 +39,22 @@ describe('ERC20 contract checks', () => {
         const withdrawalHash = withdraw.hash;
         await withdraw.waitFinalize();
 
-        // Balance should be 1gwei + Xgwei (fee) less than the initial balance
-        // TODO: check if there is a way to get the specific fee value.
+        // Get receipt of withdraw transaction, and check the gas cost (fee)
+        const receipt = await alice.provider.getTransactionReceipt(withdrawalHash);
+        const fee = receipt.effectiveGasPrice.mul(receipt.gasUsed);
+
         const finalBalanceL2 = await alice.getBalance();
-        let expected = initialBalanceL2.sub(amount).toString();
-        let actual = finalBalanceL2.toString();
-        expect(actual <= expected);
+        let expected = initialBalanceL2.sub(amount).sub(fee);
+        let actual = finalBalanceL2;
+        expect(actual == expected);
 
         // Afterwards, a withdraw-finalize is done on the L1,
         (await alice.finalizeWithdrawal(withdrawalHash)).wait();
 
         // make sure that the balance on the L1 has increased by the amount withdrawn
         const finalBalanceL1 = await alice.getBalanceL1(tokenDetails.l1Address);
-        expected = initialBalanceL1.add(amount).toString();
-        actual = finalBalanceL1.toString();
+        expected = initialBalanceL1.add(amount);
+        actual = finalBalanceL1;
         expect(actual == expected);
     });
 
