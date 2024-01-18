@@ -79,8 +79,15 @@ export class TestContextOwner {
             this.l2Provider.pollingInterval = 100;
         }
 
-        this.mainEthersWallet = new ethers.Wallet("0xe131bc3f481277a8f73d680d9ba404cc6f959e64296e0914dded403030d4f705", this.l1Provider);
-        this.mainSyncWallet = new zksync.Wallet("0xe131bc3f481277a8f73d680d9ba404cc6f959e64296e0914dded403030d4f705", this.l2Provider, this.l1Provider);
+        this.mainEthersWallet = new ethers.Wallet(
+            '0xe131bc3f481277a8f73d680d9ba404cc6f959e64296e0914dded403030d4f705',
+            this.l1Provider
+        );
+        this.mainSyncWallet = new zksync.Wallet(
+            '0xe131bc3f481277a8f73d680d9ba404cc6f959e64296e0914dded403030d4f705',
+            this.l2Provider,
+            this.l1Provider
+        );
     }
 
     // Returns the required amount of L1 ETH
@@ -278,20 +285,23 @@ export class TestContextOwner {
 
         // Deposit ERC20.
         const erc20DepositPromise = this.mainSyncWallet
-            .deposit({
-                to: this.mainEthersWallet.address,
-                token: erc20Token,
-                amount: l2erc20DepositAmount,
-                approveERC20: true,
-                // approveOverrides: {
-                //     nonce: nonce++,
-                //     gasPrice
-                // },
-                // overrides: {  
-                //     nonce: nonce++,
-                //     gasPrice
-                // }
-            }, erc20Token)
+            .deposit(
+                {
+                    to: this.mainEthersWallet.address,
+                    token: erc20Token,
+                    amount: l2erc20DepositAmount,
+                    approveERC20: true
+                    // approveOverrides: {
+                    //     nonce: nonce++,
+                    //     gasPrice
+                    // },
+                    // overrides: {
+                    //     nonce: nonce++,
+                    //     gasPrice
+                    // }
+                },
+                erc20Token
+            )
             .then((tx) => {
                 // Note: there is an `approve` tx, not listed here.
                 this.reporter.debug(`Sent ERC20 deposit transaction. Hash: ${tx.hash}, nonce: ${tx.nonce}`);
