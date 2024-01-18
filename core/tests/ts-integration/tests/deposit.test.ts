@@ -43,15 +43,12 @@ describe('Deposit', () => {
     });
 
     test('Can perform a deposit', async () => {
-        console.log('alice L2 address', alice.address);
-
         // Amount sending to the L2.
         const amount = 2836168500000000;
         const gasPrice = scaledGasPrice(alice);
 
         // Initil balance checking.
         const initialBalances = await get_wallet_balances(alice, tokenDetails);
-        console.log('alice initial balances', initialBalances);
 
         const deposit = await alice.deposit(
             {
@@ -68,39 +65,40 @@ describe('Deposit', () => {
             tokenDetails.l1Address
         );
         await deposit.waitFinalize();
-        console.log('deposit', deposit);
 
         // Final balance checking.
         const finalBalances = await get_wallet_balances(alice, tokenDetails);
-        console.log('alice final balances', finalBalances);
 
         // Check that the balances are correct.
-        expect(finalBalances.nativeTokenL2).bnToBeGte(initialBalances.nativeTokenL2.add(amount));
+        expect(finalBalances.nativeTokenL2).bnToBeGt(initialBalances.nativeTokenL2.add(amount));
         expect(finalBalances.ethL1).bnToBeLt(initialBalances.ethL1);
         expect(finalBalances.nativeTokenL1).bnToBeLt(initialBalances.nativeTokenL1.sub(amount));
     });
 
-    test('Cant deposit', async () => {
+    test('Not enough balance should revert', async () => {
         // Amount sending to the L2.
-        // BigNumber Max value
         const amount = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
         const gasPrice = scaledGasPrice(alice);
-
-        const deposit = await alice.deposit(
-            {
-                token: tokenDetails.l1Address,
-                amount,
-                approveERC20: true,
-                approveOverrides: {
-                    gasPrice
+        const gasLimit = 1_000_000_000_000;
+        await expect(
+            alice.deposit(
+                {
+                    token: tokenDetails.l1Address,
+                    amount,
+                    approveERC20: true,
+                    approveOverrides: {
+                        gasPrice,
+                        gasLimit
+                    },
+                    overrides: {
+                        gasPrice,
+                        gasLimit
+                    },
+                    l2GasLimit: gasLimit
                 },
-                overrides: {
-                    gasPrice
-                }
-            },
-            tokenDetails.l1Address
-        );
-        await deposit.waitFinalize();
+                tokenDetails.l1Address
+            )
+        ).toBeRejected('Not enough balance');
     });
 
     afterAll(async () => {
