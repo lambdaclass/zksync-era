@@ -135,11 +135,7 @@ pub struct ConsistencyChecker {
 impl ConsistencyChecker {
     const DEFAULT_SLEEP_INTERVAL: Duration = Duration::from_secs(5);
 
-    pub fn new(
-        web3_url: &str,
-        max_batches_to_recheck: u32,
-        pool: ConnectionPool,
-    ) -> Self {
+    pub fn new(web3_url: &str, max_batches_to_recheck: u32, pool: ConnectionPool) -> Self {
         let web3 = QueryClient::new(web3_url).unwrap();
         Self {
             contract: zksync_contracts::zksync_contract(),
@@ -289,9 +285,7 @@ impl ConsistencyChecker {
             // The batch might be already committed but not yet processed by the external node's tree
             // OR the batch might be processed by the external node's tree but not yet committed.
             // We need both.
-            let Some(local) =
-                LocalL1BatchCommitData::new(&mut storage, batch_number).await?
-            else {
+            let Some(local) = LocalL1BatchCommitData::new(&mut storage, batch_number).await? else {
                 tokio::time::sleep(self.sleep_interval).await;
                 continue;
             };
