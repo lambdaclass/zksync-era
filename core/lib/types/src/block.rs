@@ -7,6 +7,7 @@ use zksync_system_constants::SYSTEM_BLOCK_INFO_BLOCK_NUMBER_MULTIPLIER;
 use zksync_utils::concat_and_hash;
 
 use crate::{
+    fee_model::BatchFeeInput,
     l2_to_l1_log::{SystemL2ToL1Log, UserL2ToL1Log},
     priority_op_onchain_data::PriorityOpOnchainData,
     web3::signing::keccak256,
@@ -65,10 +66,11 @@ pub struct L1BatchHeader {
     pub system_logs: Vec<SystemL2ToL1Log>,
     /// Version of protocol used for the L1 batch.
     pub protocol_version: Option<ProtocolVersionId>,
+    pub pubdata_input: Option<Vec<u8>>,
 }
 
 /// Holder for the miniblock metadata that is not available from transactions themselves.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MiniblockHeader {
     pub number: MiniblockNumber,
     pub timestamp: u64,
@@ -77,8 +79,8 @@ pub struct MiniblockHeader {
     pub l2_tx_count: u16,
     pub base_fee_per_gas: u64, // Min wei per gas that txs in this miniblock need to have.
 
-    pub l1_gas_price: u64, // L1 gas price assumed in the corresponding batch
-    pub l2_fair_gas_price: u64, // L2 gas price assumed in the corresponding batch
+    pub batch_fee_input: BatchFeeInput,
+    pub gas_per_pubdata_limit: u64,
     pub base_system_contracts_hashes: BaseSystemContractsHashes,
     pub protocol_version: Option<ProtocolVersionId>,
     /// The maximal number of virtual blocks to be created in the miniblock.
@@ -121,6 +123,7 @@ impl L1BatchHeader {
             base_system_contracts_hashes,
             system_logs: vec![],
             protocol_version: Some(protocol_version),
+            pubdata_input: Some(vec![]),
         }
     }
 

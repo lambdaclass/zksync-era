@@ -201,6 +201,14 @@ describe('web3 API compatibility tests', () => {
         });
     });
 
+    test('Should test various token methods', async () => {
+        const tokens = await alice.provider.getConfirmedTokens();
+        expect(tokens).not.toHaveLength(0); // Should not be an empty array.
+
+        const price = await alice.provider.getTokenPrice(l2Token);
+        expect(+price!).toEqual(expect.any(Number));
+    });
+
     test('Should check transactions from API / Legacy tx', async () => {
         const LEGACY_TX_TYPE = 0;
         const legacyTx = await alice.sendTransaction({
@@ -779,7 +787,7 @@ describe('web3 API compatibility tests', () => {
     test('Should check transaction signature', async () => {
         const CHAIN_ID = +process.env.CHAIN_ETH_ZKSYNC_NETWORK_ID!;
         const value = 1;
-        const gasLimit = 300000;
+        const gasLimit = 350000;
         const gasPrice = await alice.provider.getGasPrice();
         const data = '0x';
         const to = alice.address;

@@ -38,7 +38,7 @@ Steps to handle such instructions:
 6. Return the value as the result of the original instruction.
 
 For reference, see
-[the LLVM IR codegen source code](https://github.com/matter-labs/era-compiler-llvm-context/blob/main/src/eravm/context/function/runtime/system_request.rs).
+[the LLVM IR codegen source code](https://github.com/matter-labs/era-compiler-llvm-context/blob/main/src/eravm/context/function/llvm_runtime.rs).
 
 ### KECCAK256 Hash Function
 
@@ -48,7 +48,7 @@ Since EVM also uses heap to store the calldata for `KECCAK256`, the required mem
 generator, and zkSync Era compiler does not need to use [the auxiliary heap](#auxiliary-heap).
 
 For reference, see
-[the LLVM IR codegen source code](https://github.com/matter-labs/era-compiler-llvm-context/blob/main/src/eravm/context/function/runtime/keccak256.rs).
+[the LLVM IR codegen source code](https://github.com/matter-labs/era-compiler-llvm-context/blob/main/src/eravm/context/function/llvm_runtime.rs).
 
 ### Contract Deployer
 

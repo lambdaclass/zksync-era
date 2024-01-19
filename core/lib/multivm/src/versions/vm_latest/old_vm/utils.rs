@@ -1,4 +1,4 @@
-use zk_evm_1_4_0::{
+use zk_evm_1_4_1::{
     aux_structures::{MemoryPage, Timestamp},
     vm_state::PrimitiveValue,
     zkevm_opcode_defs::{
@@ -115,7 +115,7 @@ pub(crate) fn vm_may_have_ended_inner<S: WriteStorage, H: HistoryMode>(
         }
         (false, _) => None,
         (true, l) if l == outer_eh_location => {
-            // check r1,r2,r3
+            // check `r1,r2,r3`
             if vm.local_state.flags.overflow_or_less_than_flag {
                 Some(VmExecutionResult::Panic)
             } else {
