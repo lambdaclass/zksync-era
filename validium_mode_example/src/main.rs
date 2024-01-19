@@ -67,9 +67,9 @@ fn write_line_to_report(
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut path = "./validium_mode_example/rollup_gas_report.csv".to_string();
+    let mut path = "../gas_reports/rollup_gas_report.csv".to_string();
     if args.len() > 1 && args[1] == "--validium-mode" {
-        path = "./validium_mode_example/validium_gas_report.csv".to_string();
+        path = "../gas_reports/validium_gas_report.csv".to_string();
     }
 
     match initialize_report(&path) {

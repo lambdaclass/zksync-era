@@ -71,30 +71,33 @@ L1 max fee per gas: 1000000010
 > [!NOTE] You can observe how the diferent fields evolve depending on the operation. The `transaction hash` is a
 > changing field.
 
-
 ### Create graphs and reports automatically
 
-You can run all this steps automatically and genrate graphs comparing the validium mode with the rollup mode. For that you need to run `validium_report.sh` script in the two diferent modes and then run `create_gas_report.py`
+You can run all this steps automatically and genrate graphs comparing the validium mode with the rollup mode. For that
+you need to run `validium_report.sh` script in the two diferent modes and then run `create_gas_report.py`
 
 In `validium_mode_example/scripts/` directory
 
 - For Validium report run:
-    
-    ```
-    ./validium_report.sh validium
-    ```
-This will carate `validium_gas_report.csv`.
+
+      ```
+      ./validium_report.sh validium
+      ```
+
+  This will carate `validium_gas_report.csv` inside `gas_reports` directory.
 
 - For Rollup report run:
-    
-    ```
-    ./validium_report.sh rollup
-    ```
-This will carate `rollup_gas_report.csv`.
 
--  To create the graph run:
+      ```
+      ./validium_report.sh rollup
+      ```
 
-    ```
-    python3 create_gas_report.py
-    ```
- This will create a `graph.png` in that directory.
+  This will carate `rollup_gas_report.csv` inside `gas_reports` directory.
+
+- To create the graph run:
+
+  ```
+  python3 create_gas_report.py
+  ```
+
+  This will create a `graph.png` inside `gas_reports` directory.

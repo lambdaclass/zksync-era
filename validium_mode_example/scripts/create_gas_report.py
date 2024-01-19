@@ -4,8 +4,8 @@ import pandas as pd
 
 def main():
     try:
-        df_rollup = pd.read_csv('../rollup_gas_report.csv', header=0)
-        df_validium = pd.read_csv('../validium_gas_report.csv', header=0)
+        df_rollup = pd.read_csv('../gas_reports/rollup_gas_report.csv', header=0)
+        df_validium = pd.read_csv('../gas_reports/validium_gas_report.csv', header=0)
     except:
         print("Error: Report not found.")
         return
@@ -18,7 +18,7 @@ def main():
     results_df.plot(x='operation', 
         kind='bar', 
         stacked=False) 
-    plt.savefig("graph")
+    plt.savefig('../gas_reports/report_graph.png')
 
 if __name__ == "__main__":
     main()
