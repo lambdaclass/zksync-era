@@ -189,11 +189,6 @@ async fn main() {
             "nill",
         );
 
-        let l1_transaction = l1_rpc_client
-            .get_transaction_by_hash(l2_transaction_deploy.eth_commit_tx_hash.unwrap())
-            .await
-            .unwrap()
-            .unwrap();
 
         address
     };
