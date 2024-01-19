@@ -224,14 +224,14 @@ impl L1BatchWithMetadata {
     pub fn construct_pubdata(&self, validium_mode: bool) -> Vec<u8> {
         let mut res: Vec<u8> = vec![];
 
-        // Process and Pack Logs
-        res.extend((self.header.l2_to_l1_logs.len() as u32).to_be_bytes());
-        for l2_to_l1_log in &self.header.l2_to_l1_logs {
-            res.extend(l2_to_l1_log.0.to_bytes());
-        }
-
-        // We do not want to publish L2->L1 msgs, bytecodes, and state diffs in validium mode.
+        // We do not want to publish L2-L1 logs, L2->L1 msgs, bytecodes, and state diffs in validium mode.
         if !validium_mode {
+            // Process and Pack Logs
+            res.extend((self.header.l2_to_l1_logs.len() as u32).to_be_bytes());
+            for l2_to_l1_log in &self.header.l2_to_l1_logs {
+                res.extend(l2_to_l1_log.0.to_bytes());
+            }
+
             // Process and Pack Msgs
             res.extend((self.header.l2_to_l1_messages.len() as u32).to_be_bytes());
             for msg in &self.header.l2_to_l1_messages {

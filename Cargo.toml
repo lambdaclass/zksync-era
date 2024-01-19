@@ -50,7 +50,7 @@ members = [
     "sdk/zksync-rs",
 
     # Validium Example
-    "zksync_full_stack",
+    "validium_mode_example",
 ]
 resolver = "2"
 
