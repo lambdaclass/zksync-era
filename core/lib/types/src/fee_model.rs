@@ -53,7 +53,9 @@ impl BatchFeeInput {
         let validium_mode =
             std::env::var("ETH_SENDER_SENDER_VALIDIUM_MODE") == Ok("true".to_string());
 
-        if (!validium_mode) {
+        if validium_mode {
+            0
+        } else {
             match self {
                 BatchFeeInput::L1Pegged(input) => {
                     input.l1_gas_price * L1_GAS_PER_PUBDATA_BYTE as u64
@@ -61,7 +63,6 @@ impl BatchFeeInput {
                 BatchFeeInput::PubdataIndependent(input) => input.fair_pubdata_price,
             }
         }
-        0
     }
 
     pub fn fair_l2_gas_price(&self) -> u64 {
