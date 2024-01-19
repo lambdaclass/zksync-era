@@ -18,6 +18,7 @@ fi
 
 zk clean && \
 zk init $MODE && \
+echo "------- START SERVER -------"
 zk server > /dev/null 2>&1 &
 
 sleep 10
