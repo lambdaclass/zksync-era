@@ -209,7 +209,6 @@ async fn init_tasks(
             .build()
             .await
             .context("failed to build connection pool for ConsistencyChecker")?,
-        config.validium_mode,
     );
 
     let batch_status_updater = BatchStatusUpdater::new(

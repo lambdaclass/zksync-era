@@ -66,7 +66,6 @@ impl LocalL1BatchCommitData {
     async fn new(
         storage: &mut StorageProcessor<'_>,
         batch_number: L1BatchNumber,
-        validium_mode: bool,
     ) -> anyhow::Result<Option<Self>> {
         let Some(storage_l1_batch) = storage
             .blocks_dal()
@@ -114,7 +113,7 @@ impl LocalL1BatchCommitData {
 
         Ok(Some(Self {
             is_pre_boojum,
-            l1_commit_data: l1_batch.l1_commit_data(validium_mode),
+            l1_commit_data: l1_batch.l1_commit_data(),
             commit_tx_hash,
         }))
     }
@@ -131,7 +130,6 @@ pub struct ConsistencyChecker {
     l1_batch_updater: Box<dyn UpdateCheckedBatch>,
     l1_data_mismatch_behavior: L1DataMismatchBehavior,
     pool: ConnectionPool,
-    validium_mode: bool,
 }
 
 impl ConsistencyChecker {
@@ -141,7 +139,6 @@ impl ConsistencyChecker {
         web3_url: &str,
         max_batches_to_recheck: u32,
         pool: ConnectionPool,
-        validium_mode: bool,
     ) -> Self {
         let web3 = QueryClient::new(web3_url).unwrap();
         Self {
@@ -152,7 +149,6 @@ impl ConsistencyChecker {
             l1_batch_updater: Box::new(()),
             l1_data_mismatch_behavior: L1DataMismatchBehavior::Log,
             pool,
-            validium_mode,
         }
     }
 
@@ -294,7 +290,7 @@ impl ConsistencyChecker {
             // OR the batch might be processed by the external node's tree but not yet committed.
             // We need both.
             let Some(local) =
-                LocalL1BatchCommitData::new(&mut storage, batch_number, self.validium_mode).await?
+                LocalL1BatchCommitData::new(&mut storage, batch_number).await?
             else {
                 tokio::time::sleep(self.sleep_interval).await;
                 continue;

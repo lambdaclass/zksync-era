@@ -29,7 +29,6 @@ fn l1_batch_range_from_batches(
 pub struct L1BatchCommitOperation {
     pub last_committed_l1_batch: L1BatchWithMetadata,
     pub l1_batches: Vec<L1BatchWithMetadata>,
-    pub validium_mode: bool,
 }
 
 impl L1BatchCommitOperation {
@@ -38,7 +37,7 @@ impl L1BatchCommitOperation {
         let l1_batches_to_commit = self
             .l1_batches
             .iter()
-            .map(|batch| L1BatchWithMetadata::l1_commit_data(batch, self.validium_mode))
+            .map(|batch| L1BatchWithMetadata::l1_commit_data(batch))
             .collect();
 
         vec![stored_batch_info, Token::Array(l1_batches_to_commit)]

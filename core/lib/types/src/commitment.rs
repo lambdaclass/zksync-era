@@ -159,7 +159,7 @@ impl L1BatchWithMetadata {
     }
 
     /// Encodes the L1Batch into CommitBatchInfo (see IExecutor.sol).
-    pub fn l1_commit_data(&self, validium_mode: bool) -> Token {
+    pub fn l1_commit_data(&self) -> Token {
         if self.header.protocol_version.unwrap().is_pre_boojum() {
             Token::Tuple(vec![
                 Token::Uint(U256::from(self.header.number.0)),
@@ -233,22 +233,23 @@ impl L1BatchWithMetadata {
                     self.header
                         .pubdata_input
                         .clone()
-                        .unwrap_or(self.construct_pubdata(validium_mode)),
+                        .unwrap_or(self.construct_pubdata()),
                 ),
             ])
         }
     }
 
-    pub fn l1_commit_data_size(&self, validium_mode: bool) -> usize {
-        crate::ethabi::encode(&[Token::Array(vec![self.l1_commit_data(validium_mode)])]).len()
+    pub fn l1_commit_data_size(&self) -> usize {
+        crate::ethabi::encode(&[Token::Array(vec![self.l1_commit_data()])]).len()
     }
 
     /// Packs all pubdata needed for batch commitment in boojum into one bytes array. The packing contains the
     /// following: logs, messages, bytecodes, and compressed state diffs.
     /// This data is currently part of calldata but will be submitted as part of the blob section post EIP-4844.
-    pub fn construct_pubdata(&self, validium_mode: bool) -> Vec<u8> {
+    pub fn construct_pubdata(&self) -> Vec<u8> {
         let mut res: Vec<u8> = vec![];
-
+        let validium_mode =
+            std::env::var("ETH_SENDER_SENDER_VALIDIUM_MODE") == Ok("true".to_string());
         // We do not want to publish L2-L1 logs, L2->L1 msgs, bytecodes, and state diffs in validium mode.
         if !validium_mode {
             // Process and Pack Logs
