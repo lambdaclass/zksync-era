@@ -479,17 +479,9 @@ fn get_pubdata_price_bytes(initial_value: U256, final_value: U256, is_initial: b
         compress_with_best_strategy(initial_value, final_value).len() as u32;
 
     if is_initial {
-        println!("is initial");
-        let pubdata_price_bytes = (BYTES_PER_DERIVED_KEY as u32) + compressed_value_size;
-        println!("pubdata_price_bytes: {}", pubdata_price_bytes);
-        pubdata_price_bytes
-        // (BYTES_PER_DERIVED_KEY as u32) + compressed_value_size
+        (BYTES_PER_DERIVED_KEY as u32) + compressed_value_size
     } else {
-        println!("is repeated");
-        let pubdata_price_bytes = (BYTES_PER_ENUMERATION_INDEX as u32) + compressed_value_size;
-        println!("pubdata_price_bytes: {}", pubdata_price_bytes);
-        pubdata_price_bytes
-        // (BYTES_PER_ENUMERATION_INDEX as u32) + compressed_value_size
+        (BYTES_PER_ENUMERATION_INDEX as u32) + compressed_value_size
     }
 }
 
