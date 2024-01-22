@@ -632,15 +632,11 @@ export function getTokens(network: string): L1Token[] {
 
 export function getNativeToken(): L1Token {
     const configPath = `${process.env.ZKSYNC_HOME}/etc/tokens/native_erc20.json`;
-    try {
-        return JSON.parse(
-            fs.readFileSync(configPath, {
-                encoding: 'utf-8'
-            })
-        );
-    } catch (e) {
-        throw e;
-    }
+    return JSON.parse(
+        fs.readFileSync(configPath, {
+            encoding: 'utf-8'
+        })
+    );
 }
 
 async function selectHyperchainConfiguration() {
