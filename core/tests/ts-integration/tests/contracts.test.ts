@@ -321,7 +321,8 @@ describe('Smart contract behavior checks', () => {
             data: '0x'
         });
 
-        // We check if it is the validium mode because in this mode this transaction will not be rejected.
+        // If L1_GAS_PER_PUBDATA_BYTE is zero it is assumed to be running in validium mode,
+        // there is no pubdata and the transaction will not be rejected.
         if (SYSTEM_CONFIG['L1_GAS_PER_PUBDATA_BYTE'] > 0) {
             await expect(
                 alice.sendTransaction({
