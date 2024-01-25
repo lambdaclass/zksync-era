@@ -241,7 +241,7 @@ export class TestContextOwner {
         const gasPrice = await scaledGasPrice(this.mainEthersWallet);
 
         // Deposit L2 tokens (if needed). Depositing ETH with current native implementation is not supported.
-        if (!l2ETHAmountToDeposit.isZero() && !this.env.nativeErc20Testing) {
+        if (!l2ETHAmountToDeposit.isZero()) {
             // Given that we've already sent a number of transactions,
             // we have to correctly send nonce.
             const depositHandle = this.mainSyncWallet
@@ -341,23 +341,17 @@ export class TestContextOwner {
         this.reporter.startAction(`Distributing tokens on L2`);
         let l2startNonce = await this.mainSyncWallet.getTransactionCount();
 
-        // All the promises we send in this function.
-        const l2TxPromises: Promise<any>[] = [];
-
         // ETH transfers.
-        if (!this.env.nativeErc20Testing) {
-            const ethPromises = await sendTransfers(
-                zksync.utils.ETH_ADDRESS,
-                this.mainSyncWallet,
-                wallets,
-                L2_ETH_PER_ACCOUNT,
-                l2startNonce,
-                undefined,
-                this.reporter
-            );
-            l2startNonce += l2TxPromises.length;
-            l2TxPromises.push(...ethPromises);
-        }
+        const l2TxPromises = await sendTransfers(
+            zksync.utils.ETH_ADDRESS,
+            this.mainSyncWallet,
+            wallets,
+            L2_ETH_PER_ACCOUNT,
+            l2startNonce,
+            undefined,
+            this.reporter
+        );
+        l2startNonce += l2TxPromises.length;
 
         // ERC20 transfers.
         const l2TokenAddress = await this.mainSyncWallet.l2TokenAddress(this.env.erc20Token.l1Address);
