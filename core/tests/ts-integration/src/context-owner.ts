@@ -246,11 +246,12 @@ export class TestContextOwner {
             // we have to correctly send nonce.
             const depositHandle = this.mainSyncWallet
                 .deposit({
-                    to: this.mainEthersWallet.address,
-                    approveERC20: true,
-                    token: this.env.erc20Token.l1Address,
+                    token: zksync.utils.ETH_ADDRESS,
                     amount: l2ETHAmountToDeposit,
-                    refundRecipient: this.mainEthersWallet.address
+                    overrides: {
+                        nonce: nonce++,
+                        gasPrice
+                    }
                 })
                 .then((tx) => {
                     const amount = ethers.utils.formatEther(l2ETHAmountToDeposit);
