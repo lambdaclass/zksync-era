@@ -28,23 +28,22 @@ describe('ERC20 contract checks', () => {
         aliceErc20 = new zksync.Contract(tokenDetails.l2Address, zksync.utils.IERC20, alice);
     });
 
-
     test('Can perform a deposit', async () => {
         const amount = 1;
         const gasPrice = scaledGasPrice(alice);
 
         const initialTokenBalance = await alice.getBalanceL1(tokenDetails.l1Address);
         await alice.deposit({
-                token: tokenDetails.l1Address,
-                amount,
-                approveERC20: true,
-                approveOverrides: {
-                    gasPrice
-                },
-                overrides: {
-                    gasPrice
-                }
-            });
+            token: tokenDetails.l1Address,
+            amount,
+            approveERC20: true,
+            approveOverrides: {
+                gasPrice
+            },
+            overrides: {
+                gasPrice
+            }
+        });
 
         const finalTokenBalance = await alice.getBalanceL1(tokenDetails.l1Address);
         expect(finalTokenBalance.sub(initialTokenBalance)).toEqual(amount);
