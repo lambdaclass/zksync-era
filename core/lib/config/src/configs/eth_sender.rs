@@ -35,6 +35,7 @@ impl ETHSenderConfig {
                 l1_batch_min_age_before_execute_seconds: None,
                 max_acceptable_priority_fee_in_gwei: 100000000000,
                 proof_loading_mode: ProofLoadingMode::OldProofFromDb,
+                pubdata_storage_mode: PubdataStorageMode::Rollup,
             },
             gas_adjuster: GasAdjusterConfig {
                 default_priority_fee_per_gas: 1000000000,
@@ -61,6 +62,12 @@ pub enum ProofSendingMode {
 pub enum ProofLoadingMode {
     OldProofFromDb,
     FriProofFromGcs,
+}
+
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
+pub enum PubdataStorageMode {
+    Rollup,
+    Validium,
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -96,6 +103,8 @@ pub struct SenderConfig {
 
     /// The mode in which proofs are loaded, either from DB/GCS for FRI/Old proof.
     pub proof_loading_mode: ProofLoadingMode,
+
+    pub pubdata_storage_mode: PubdataStorageMode,
 }
 
 impl SenderConfig {

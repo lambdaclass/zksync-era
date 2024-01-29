@@ -29,8 +29,6 @@ use crate::{
     utils::testonly::create_l1_batch,
 };
 
-use super::data_provider::{DataProvider, Rollup, Validium};
-
 // Alias to conveniently call static methods of `ETHSender`.
 type MockEthTxManager = EthTxManager;
 
@@ -45,21 +43,15 @@ static DUMMY_OPERATION: Lazy<AggregatedOperation> = Lazy::new(|| {
 });
 
 #[derive(Debug)]
-struct EthSenderTester<T>
-where
-    T: DataProvider,
-{
+struct EthSenderTester {
     conn: ConnectionPool,
     gateway: Arc<MockEthereum>,
     manager: MockEthTxManager,
-    aggregator: EthTxAggregator<T>,
+    aggregator: EthTxAggregator,
     gas_adjuster: Arc<GasAdjuster<Arc<MockEthereum>>>,
 }
 
-impl<T> EthSenderTester<T>
-where
-    T: DataProvider,
-{
+impl EthSenderTester {
     const WAIT_CONFIRMATIONS: u64 = 10;
     const MAX_BASE_FEE_SAMPLES: usize = 3;
 
@@ -102,9 +94,8 @@ where
             .unwrap(),
         );
         let store_factory = ObjectStoreFactory::mock();
-        let data_provider = Validium {};
 
-        let aggregator = EthTxAggregator::<DataProvider>::new(
+        let aggregator = EthTxAggregator::new(
             SenderConfig {
                 proof_sending_mode: ProofSendingMode::SkipEveryProof,
                 ..eth_sender_config.sender.clone()
@@ -120,7 +111,6 @@ where
             contracts_config.l1_multicall3_addr,
             Address::random(),
             0,
-            data_provider,
         );
 
         let manager = EthTxManager::new(
@@ -880,7 +870,7 @@ async fn get_multicall_data() {
     assert!(multicall_data.is_ok());
 }
 
-async fn insert_genesis_protocol_version<T: DataProvider>(tester: &EthSenderTester<T>) {
+async fn insert_genesis_protocol_version(tester: &EthSenderTester) {
     tester
         .storage()
         .await
@@ -889,10 +879,7 @@ async fn insert_genesis_protocol_version<T: DataProvider>(tester: &EthSenderTest
         .await;
 }
 
-async fn insert_l1_batch<T: DataProvider>(
-    tester: &EthSenderTester<T>,
-    number: L1BatchNumber,
-) -> L1BatchHeader {
+async fn insert_l1_batch(tester: &EthSenderTester, number: L1BatchNumber) -> L1BatchHeader {
     let header = create_l1_batch(number.0);
 
     // Save L1 batch to the database
@@ -918,8 +905,8 @@ async fn insert_l1_batch<T: DataProvider>(
     header
 }
 
-async fn execute_l1_batches<T: DataProvider>(
-    tester: &mut EthSenderTester<T>,
+async fn execute_l1_batches(
+    tester: &mut EthSenderTester,
     l1_batches: Vec<L1BatchHeader>,
     confirm: bool,
 ) -> H256 {
@@ -929,8 +916,8 @@ async fn execute_l1_batches<T: DataProvider>(
     send_operation(tester, operation, confirm).await
 }
 
-async fn prove_l1_batch<T: DataProvider>(
-    tester: &mut EthSenderTester<T>,
+async fn prove_l1_batch(
+    tester: &mut EthSenderTester,
     last_committed_l1_batch: L1BatchHeader,
     l1_batch: L1BatchHeader,
     confirm: bool,
@@ -944,8 +931,8 @@ async fn prove_l1_batch<T: DataProvider>(
     send_operation(tester, operation, confirm).await
 }
 
-async fn commit_l1_batch<T: DataProvider>(
-    tester: &mut EthSenderTester<T>,
+async fn commit_l1_batch(
+    tester: &mut EthSenderTester,
     last_committed_l1_batch: L1BatchHeader,
     l1_batch: L1BatchHeader,
     confirm: bool,
@@ -957,8 +944,8 @@ async fn commit_l1_batch<T: DataProvider>(
     send_operation(tester, operation, confirm).await
 }
 
-async fn send_operation<T: DataProvider>(
-    tester: &mut EthSenderTester<T>,
+async fn send_operation(
+    tester: &mut EthSenderTester,
     aggregated_operation: AggregatedOperation,
     confirm: bool,
 ) -> H256 {
@@ -989,7 +976,7 @@ async fn send_operation<T: DataProvider>(
     hash
 }
 
-async fn confirm_tx<T: DataProvider>(tester: &mut EthSenderTester<T>, hash: H256) {
+async fn confirm_tx(tester: &mut EthSenderTester, hash: H256) {
     tester
         .gateway
         .execute_tx(hash, true, EthSenderTester::WAIT_CONFIRMATIONS);

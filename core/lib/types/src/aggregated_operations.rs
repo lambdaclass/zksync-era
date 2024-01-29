@@ -8,6 +8,7 @@ use zkevm_test_harness::{
     witness::oracle::VmWitnessOracle,
 };
 use zksync_basic_types::{ethabi::Token, L1BatchNumber};
+use zksync_config::configs::eth_sender::PubdataStorageMode;
 
 use crate::{commitment::L1BatchWithMetadata, ProtocolVersionId, U256};
 
@@ -32,12 +33,12 @@ pub struct L1BatchCommitOperation {
 }
 
 impl L1BatchCommitOperation {
-    pub fn get_eth_tx_args(&self) -> Vec<Token> {
+    pub fn get_eth_tx_args(&self, pubdata_storage_mode: &PubdataStorageMode) -> Vec<Token> {
         let stored_batch_info = self.last_committed_l1_batch.l1_header_data();
         let l1_batches_to_commit = self
             .l1_batches
             .iter()
-            .map(L1BatchWithMetadata::l1_commit_data)
+            .map(|batch| L1BatchWithMetadata::l1_commit_data(batch, pubdata_storage_mode))
             .collect();
 
         vec![stored_batch_info, Token::Array(l1_batches_to_commit)]

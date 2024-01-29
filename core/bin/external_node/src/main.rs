@@ -7,7 +7,7 @@ use metrics::EN_METRICS;
 use prometheus_exporter::PrometheusExporterConfig;
 use tokio::{sync::watch, task, time::sleep};
 use zksync_basic_types::{Address, L2ChainId};
-use zksync_config::configs::database::MerkleTreeMode;
+use zksync_config::configs::{database::MerkleTreeMode, eth_sender::PubdataStorageMode};
 use zksync_core::{
     api_server::{
         execution_sandbox::VmConcurrencyLimiter,
@@ -228,7 +228,8 @@ async fn init_tasks(
         .context("failed to build a tree_pool")?;
     let tree_handle = task::spawn(metadata_calculator.run(tree_pool, tree_stop_receiver));
 
-    let consistency_checker_handle = tokio::spawn(consistency_checker.run(stop_receiver.clone()));
+    let consistency_checker_handle =
+        tokio::spawn(consistency_checker.run(stop_receiver.clone(), &PubdataStorageMode::Rollup));
 
     let updater_handle = task::spawn(batch_status_updater.run(stop_receiver.clone()));
     let sk_handle = task::spawn(state_keeper.run());

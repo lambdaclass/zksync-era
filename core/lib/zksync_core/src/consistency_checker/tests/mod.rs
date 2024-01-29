@@ -43,7 +43,9 @@ fn create_pre_boojum_l1_batch_with_metadata(number: u32) -> L1BatchWithMetadata 
 }
 
 fn build_commit_tx_input_data(batches: &[L1BatchWithMetadata]) -> Vec<u8> {
-    let commit_tokens = batches.iter().map(L1BatchWithMetadata::l1_commit_data);
+    let commit_tokens = batches
+        .iter()
+        .map(|batch| L1BatchWithMetadata::l1_commit_data(batch, &PubdataStorageMode::Rollup));
     let commit_tokens = ethabi::Token::Array(commit_tokens.collect());
 
     let mut encoded = vec![];
@@ -93,7 +95,10 @@ fn build_commit_tx_input_data_is_correct() {
             batch.header.number,
         )
         .unwrap();
-        assert_eq!(commit_data, batch.l1_commit_data());
+        assert_eq!(
+            commit_data,
+            batch.l1_commit_data(&PubdataStorageMode::Rollup)
+        );
     }
 }
 
@@ -325,7 +330,7 @@ async fn normal_checker_function(
     };
 
     let (stop_sender, stop_receiver) = watch::channel(false);
-    let checker_task = tokio::spawn(checker.run(stop_receiver));
+    let checker_task = tokio::spawn(checker.run(stop_receiver, &PubdataStorageMode::Rollup));
 
     // Add new batches to the storage.
     for save_action in save_actions_mapper(&l1_batches) {
@@ -399,7 +404,7 @@ async fn checker_processes_pre_boojum_batches(
     };
 
     let (stop_sender, stop_receiver) = watch::channel(false);
-    let checker_task = tokio::spawn(checker.run(stop_receiver));
+    let checker_task = tokio::spawn(checker.run(stop_receiver, &PubdataStorageMode::Rollup));
 
     // Add new batches to the storage.
     for save_action in save_actions_mapper(&l1_batches) {
@@ -469,7 +474,7 @@ async fn checker_functions_after_snapshot_recovery(delay_batch_insertion: bool) 
         ..create_mock_checker(client, pool.clone())
     };
     let (stop_sender, stop_receiver) = watch::channel(false);
-    let checker_task = tokio::spawn(checker.run(stop_receiver));
+    let checker_task = tokio::spawn(checker.run(stop_receiver, &PubdataStorageMode::Rollup));
 
     if delay_batch_insertion {
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -593,10 +598,13 @@ async fn checker_detects_incorrect_tx_data(kind: IncorrectDataKind, snapshot_rec
     let checker = create_mock_checker(client, pool);
     let (_stop_sender, stop_receiver) = watch::channel(false);
     // The checker must stop with an error.
-    tokio::time::timeout(Duration::from_secs(30), checker.run(stop_receiver))
-        .await
-        .expect("Timed out waiting for checker to stop")
-        .unwrap_err();
+    tokio::time::timeout(
+        Duration::from_secs(30),
+        checker.run(stop_receiver, &PubdataStorageMode::Rollup),
+    )
+    .await
+    .expect("Timed out waiting for checker to stop")
+    .unwrap_err();
 }
 
 #[tokio::test]

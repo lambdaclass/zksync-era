@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use zksync_config::configs::eth_sender::{ProofLoadingMode, ProofSendingMode, SenderConfig};
+use zksync_config::configs::eth_sender::{
+    ProofLoadingMode, ProofSendingMode, PubdataStorageMode, SenderConfig,
+};
 use zksync_contracts::BaseSystemContractsHashes;
 use zksync_dal::StorageProcessor;
 use zksync_object_store::{ObjectStore, ObjectStoreError};
@@ -157,6 +159,7 @@ impl Aggregator {
             &mut self.execute_criteria,
             ready_for_execute_batches,
             last_sealed_l1_batch,
+            &self.config.pubdata_storage_mode,
         )
         .await;
 
@@ -215,6 +218,7 @@ impl Aggregator {
             &mut self.commit_criteria,
             ready_for_commit_l1_batches,
             last_sealed_batch,
+            &self.config.pubdata_storage_mode,
         )
         .await;
 
@@ -316,6 +320,7 @@ impl Aggregator {
             &mut self.proof_criteria,
             ready_for_proof_l1_batches,
             last_sealed_l1_batch,
+            &self.config.pubdata_storage_mode,
         )
         .await?;
 
@@ -400,11 +405,17 @@ async fn extract_ready_subrange(
     publish_criteria: &mut [Box<dyn L1BatchPublishCriterion>],
     unpublished_l1_batches: Vec<L1BatchWithMetadata>,
     last_sealed_l1_batch: L1BatchNumber,
+    pubdata_storage_mode: &PubdataStorageMode,
 ) -> Option<Vec<L1BatchWithMetadata>> {
     let mut last_l1_batch: Option<L1BatchNumber> = None;
     for criterion in publish_criteria {
         let l1_batch_by_criterion = criterion
-            .last_l1_batch_to_publish(storage, &unpublished_l1_batches, last_sealed_l1_batch)
+            .last_l1_batch_to_publish(
+                storage,
+                &unpublished_l1_batches,
+                last_sealed_l1_batch,
+                &pubdata_storage_mode,
+            )
             .await;
         if let Some(l1_batch) = l1_batch_by_criterion {
             last_l1_batch = Some(last_l1_batch.map_or(l1_batch, |number| number.min(l1_batch)));

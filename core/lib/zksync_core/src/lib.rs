@@ -52,7 +52,6 @@ use crate::{
         web3::{state::InternalApiConfig, ApiServerHandles, Namespace},
     },
     basic_witness_input_producer::BasicWitnessInputProducer,
-    eth_sender::data_provider::{DataProvider, Rollup, Validium},
     eth_sender::{Aggregator, EthTxAggregator, EthTxManager},
     eth_watch::start_eth_watch,
     house_keeper::{
@@ -551,7 +550,6 @@ pub async fn initialize_components(
         let eth_client =
             PKSigningClient::from_config(&eth_sender, &contracts_config, &eth_client_config);
         let nonce = eth_client.pending_nonce("eth_sender").await.unwrap();
-        let data_provider = Validium {};
         let eth_tx_aggregator_actor = EthTxAggregator::new(
             eth_sender.sender.clone(),
             Aggregator::new(
@@ -563,7 +561,6 @@ pub async fn initialize_components(
             contracts_config.l1_multicall3_addr,
             main_zksync_contract_address,
             nonce.as_u64(),
-            data_provider,
         );
         task_futures.push(tokio::spawn(
             eth_tx_aggregator_actor.run(eth_sender_pool, stop_receiver.clone()),

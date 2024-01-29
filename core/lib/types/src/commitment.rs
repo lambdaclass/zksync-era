@@ -9,6 +9,7 @@
 use std::{collections::HashMap, convert::TryFrom};
 
 use serde::{Deserialize, Serialize};
+use zksync_config::configs::eth_sender::PubdataStorageMode;
 use zksync_mini_merkle_tree::MiniMerkleTree;
 use zksync_system_constants::{
     L2_TO_L1_LOGS_TREE_ROOT_KEY, STATE_DIFF_HASH_KEY, ZKPORTER_IS_AVAILABLE,
@@ -159,7 +160,7 @@ impl L1BatchWithMetadata {
     }
 
     /// Encodes the L1Batch into CommitBatchInfo (see IExecutor.sol).
-    pub fn l1_commit_data(&self) -> Token {
+    pub fn l1_commit_data(&self, pubdata_storage_mode: &PubdataStorageMode) -> Token {
         if self.header.protocol_version.unwrap().is_pre_boojum() {
             Token::Tuple(vec![
                 Token::Uint(U256::from(self.header.number.0)),
@@ -192,6 +193,19 @@ impl L1BatchWithMetadata {
                 ),
             ])
         } else {
+            let total_l2_to_l1_pubdata = match pubdata_storage_mode {
+                PubdataStorageMode::Rollup =>
+                // `totalL2ToL1Pubdata`
+                {
+                    Token::Bytes(
+                        self.header
+                            .pubdata_input
+                            .clone()
+                            .unwrap_or(self.construct_pubdata()),
+                    )
+                }
+                PubdataStorageMode::Validium => Token::Bytes(vec![]),
+            };
             Token::Tuple(vec![
                 // `batchNumber`
                 Token::Uint(U256::from(self.header.number.0)),
@@ -228,19 +242,16 @@ impl L1BatchWithMetadata {
                 ),
                 // `systemLogs`
                 Token::Bytes(self.metadata.l2_l1_messages_compressed.clone()),
-                // `totalL2ToL1Pubdata`
-                Token::Bytes(
-                    self.header
-                        .pubdata_input
-                        .clone()
-                        .unwrap_or(self.construct_pubdata()),
-                ),
+                total_l2_to_l1_pubdata,
             ])
         }
     }
 
-    pub fn l1_commit_data_size(&self) -> usize {
-        crate::ethabi::encode(&[Token::Array(vec![self.l1_commit_data()])]).len()
+    pub fn l1_commit_data_size(&self, pubdata_storage_mode: &PubdataStorageMode) -> usize {
+        crate::ethabi::encode(&[Token::Array(
+            vec![self.l1_commit_data(pubdata_storage_mode)],
+        )])
+        .len()
     }
 
     /// Packs all pubdata needed for batch commitment in boojum into one bytes array. The packing contains the

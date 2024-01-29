@@ -26,7 +26,9 @@ impl FromEnv for GasAdjusterConfig {
 
 #[cfg(test)]
 mod tests {
-    use zksync_config::configs::eth_sender::{ProofLoadingMode, ProofSendingMode};
+    use zksync_config::configs::eth_sender::{
+        ProofLoadingMode, ProofSendingMode, PubdataStorageMode,
+    };
 
     use super::*;
     use crate::test_utils::{hash, EnvMutex};
@@ -54,6 +56,8 @@ mod tests {
                 l1_batch_min_age_before_execute_seconds: Some(1000),
                 max_acceptable_priority_fee_in_gwei: 100_000_000_000,
                 proof_loading_mode: ProofLoadingMode::OldProofFromDb,
+
+                pubdata_storage_mode: PubdataStorageMode::Rollup,
             },
             gas_adjuster: GasAdjusterConfig {
                 default_priority_fee_per_gas: 20000000000,

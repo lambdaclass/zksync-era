@@ -1,11 +1,16 @@
-pub trait DataProvider {}
+// pub enum DataProvider {
+//     Rollup(Rollup),
+//     Validium(Validium),
+// }
 
-#[derive(Debug)]
-pub struct Rollup {}
+// pub trait DataProvider {}
 
-#[derive(Debug)]
-pub struct Validium {}
+// #[derive(Debug)]
+// pub struct Rollup {}
 
-impl DataProvider for Rollup {}
+// #[derive(Debug)]
+// pub struct Validium {}
 
-impl DataProvider for Validium {}
+// impl DataProvider for Rollup {}
+
+// impl DataProvider for Validium {}
