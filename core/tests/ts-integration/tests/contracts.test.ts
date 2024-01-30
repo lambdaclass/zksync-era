@@ -15,6 +15,8 @@ import * as zksync from 'zksync-web3';
 import { Provider } from 'zksync-web3';
 import { RetryProvider } from '../src/retry-provider';
 
+const SYSTEM_CONFIG = require(`${process.env.ZKSYNC_HOME}/era-contracts-lambda/SystemConfig.json`);
+
 // TODO: Leave only important ones.
 const contracts = {
     counter: getTestContract('Counter'),
@@ -319,15 +321,29 @@ describe('Smart contract behavior checks', () => {
             data: '0x'
         });
 
-        await expect(
-            alice.sendTransaction({
-                to: alice.address,
-                gasLimit,
-                customData: {
-                    factoryDeps: [bytecode]
-                }
-            })
-        ).toBeRejected('not enough gas to publish compressed bytecodes');
+        // If L1_GAS_PER_PUBDATA_BYTE is zero it is assumed to be running in validium mode,
+        // there is no pubdata and the transaction will not be rejected.
+        if (SYSTEM_CONFIG['L1_GAS_PER_PUBDATA_BYTE'] > 0) {
+            await expect(
+                alice.sendTransaction({
+                    to: alice.address,
+                    gasLimit,
+                    customData: {
+                        factoryDeps: [bytecode]
+                    }
+                })
+            ).toBeRejected('not enough gas to publish compressed bytecodes');
+        } else {
+            await expect(
+                alice.sendTransaction({
+                    to: alice.address,
+                    gasLimit,
+                    customData: {
+                        factoryDeps: [bytecode]
+                    }
+                })
+            );
+        }
     });
 
     afterAll(async () => {
