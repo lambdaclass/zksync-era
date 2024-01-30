@@ -15,7 +15,7 @@ import * as zksync from 'zksync-web3';
 import { Provider } from 'zksync-web3';
 import { RetryProvider } from '../src/retry-provider';
 
-const SYSTEM_CONFIG = require(`${process.env.ZKSYNC_HOME}/era-contracts-lambda/SystemConfig.json`);
+const SYSTEM_CONFIG = require(`${process.env.ZKSYNC_HOME}/contracts/SystemConfig.json`);
 
 // TODO: Leave only important ones.
 const contracts = {

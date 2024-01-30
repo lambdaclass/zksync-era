@@ -21,7 +21,7 @@ const contracts = {
     events: getTestContract('Emitter')
 };
 
-const SYSTEM_CONFIG = require(`${process.env.ZKSYNC_HOME}/era-contracts-lambda/SystemConfig.json`);
+const SYSTEM_CONFIG = require(`${process.env.ZKSYNC_HOME}/contracts/SystemConfig.json`);
 
 describe('System behavior checks', () => {
     let testMaster: TestMaster;
