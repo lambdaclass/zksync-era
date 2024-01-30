@@ -53,7 +53,7 @@ minimal_l2_gas_price = 100000000
 # It has range from 0 to 1. If it is 0, the compute will not depend on the cost for closing the batch.
 # If it is 1, the gas limit per batch will have to cover the entire cost of closing the batch.
 # compute_overhead_part=0.0
-compute_overhead_part = 1.0
+compute_overhead_part = 0.0
 
 # The constant that represents the possibility that a batch can be sealed because of overuse of pubdata.
 # It has range from 0 to 1. If it is 0, the pubdata will not depend on the cost for closing the batch.

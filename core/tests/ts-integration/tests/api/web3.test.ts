@@ -885,7 +885,7 @@ export class MockMetamask {
     readonly networkVersion = parseInt(process.env.CHAIN_ETH_ZKSYNC_NETWORK_ID!, 10);
     readonly chainId: string = ethers.utils.hexlify(parseInt(process.env.CHAIN_ETH_ZKSYNC_NETWORK_ID!, 10));
 
-    constructor(readonly wallet: zksync.Wallet) {}
+    constructor(readonly wallet: zksync.Wallet) { }
 
     // EIP-1193
     async request(req: { method: string; params?: any[] }) {
