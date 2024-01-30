@@ -14,7 +14,6 @@ import * as run from './run/run';
 import * as server from './server';
 import { up } from './up';
 
-
 const entry = chalk.bold.yellow;
 const announce = chalk.yellow;
 const success = chalk.green;
