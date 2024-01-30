@@ -1,4 +1,6 @@
 import chalk from 'chalk';
+import path from 'path';
+import { promises as fs } from 'fs';
 import { Command } from 'commander';
 import * as utils from './utils';
 
@@ -11,6 +13,7 @@ import * as env from './env';
 import * as run from './run/run';
 import * as server from './server';
 import { up } from './up';
+
 
 const entry = chalk.bold.yellow;
 const announce = chalk.yellow;
@@ -27,6 +30,22 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         validiumMode
     } = initArgs;
 
+    const filePath = path.join(__dirname, '../../../contracts/SystemConfig.json');
+
+    try {
+        // Read the existing JSON data from the file
+        const jsonData = JSON.parse(await fs.readFile(filePath, 'utf-8'));
+
+        // Modify the JSON value based on validiumMode
+        jsonData.L1_GAS_PER_PUBDATA_BYTE = validiumMode ? 0 : 17;
+        console.log('Updated L1_GAS_PER_PUBDATA_BYTE:', jsonData.L1_GAS_PER_PUBDATA_BYTE);
+
+        // Write the updated JSON data back to the file
+        await fs.writeFile(filePath, JSON.stringify(jsonData, null, 2));
+        console.log('JSON value updated successfully.');
+    } catch (error) {
+        console.error('Error updating JSON value:', error);
+    }
     process.env.VALIDIUM_MODE = validiumMode.toString();
     await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
 
