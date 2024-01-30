@@ -168,4 +168,8 @@ impl ZksNamespaceServer for ZksNamespace {
             .await
             .map_err(into_jsrpc_error)
     }
+
+    async fn get_is_runnig_validium_mode(&self) -> RpcResult<bool> {
+        Ok(self.get_is_runnig_validium_mode_impl().await)
+    }
 }

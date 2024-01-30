@@ -118,4 +118,7 @@ pub trait ZksNamespace {
         keys: Vec<H256>,
         l1_batch_number: L1BatchNumber,
     ) -> RpcResult<Proof>;
+
+    #[method(name = "getIsRunningValidiumMode")]
+    async fn get_is_runnig_validium_mode(&self) -> RpcResult<bool>;
 }

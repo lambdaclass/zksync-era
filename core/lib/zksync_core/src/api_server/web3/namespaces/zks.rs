@@ -642,4 +642,9 @@ impl ZksNamespace {
             storage_proof,
         })
     }
+
+    #[tracing::instrument(skip(self))]
+    pub async fn get_is_runnig_validium_mode_impl(&self) -> bool {
+        std::env::var("VALIDIUM_MODE") == Ok("true".to_owned())
+    }
 }
