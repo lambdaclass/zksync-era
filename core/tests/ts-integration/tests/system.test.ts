@@ -21,6 +21,8 @@ const contracts = {
     events: getTestContract('Emitter')
 };
 
+const SYSTEM_CONFIG = require(`${process.env.ZKSYNC_HOME}/era-contracts-lambda/SystemConfig.json`);
+
 describe('System behavior checks', () => {
     let testMaster: TestMaster;
     let alice: zksync.Wallet;
@@ -73,8 +75,9 @@ describe('System behavior checks', () => {
     });
 
     test('Should accept transactions with small gasPerPubdataByte', async () => {
-        // The number "55" was chosen because we have a different error for lesser `smallGasPerPubdata`.
-        const smallGasPerPubdata = 55;
+        // The number "10" was chosen because we have a different error for lesser `smallGasPerPubdata`.
+        // In validium mode, this minimum value is "55"
+        const smallGasPerPubdata = SYSTEM_CONFIG['L1_GAS_PER_PUBDATA_BYTE'] > 0 ? 10: 55;
 
         // This tx should be accepted by the server, but would never be executed, so we don't wait for the receipt.
         await alice.sendTransaction({
