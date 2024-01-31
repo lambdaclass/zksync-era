@@ -321,19 +321,8 @@ describe('Smart contract behavior checks', () => {
             data: '0x'
         });
 
-        // If L1_GAS_PER_PUBDATA_BYTE is zero it is assumed to be running in validium mode,
-        // there is no pubdata and the transaction will not be rejected.
-        if (SYSTEM_CONFIG['L1_GAS_PER_PUBDATA_BYTE'] > 0) {
-            await expect(
-                alice.sendTransaction({
-                    to: alice.address,
-                    gasLimit,
-                    customData: {
-                        factoryDeps: [bytecode]
-                    }
-                })
-            ).toBeRejected('not enough gas to publish compressed bytecodes');
-        } else {
+        // If it is running in validium mode, there is no pubdata and the transaction will not be rejected.
+        if (SYSTEM_CONFIG['VALIDIUM_MODE']) {
             await expect(
                 alice.sendTransaction({
                     to: alice.address,
@@ -343,6 +332,16 @@ describe('Smart contract behavior checks', () => {
                     }
                 })
             );
+        } else {
+            await expect(
+                alice.sendTransaction({
+                    to: alice.address,
+                    gasLimit,
+                    customData: {
+                        factoryDeps: [bytecode]
+                    }
+                })
+            ).toBeRejected('not enough gas to publish compressed bytecodes');
         }
     });
 

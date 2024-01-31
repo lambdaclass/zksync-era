@@ -77,9 +77,8 @@ describe('System behavior checks', () => {
     test('Should accept transactions with small gasPerPubdataByte', async () => {
         // The number "10" was chosen because we have a different error for lesser `smallGasPerPubdata`.
         // In validium mode, this minimum value is "55"
-        const smallGasPerPubdata = SYSTEM_CONFIG['L1_GAS_PER_PUBDATA_BYTE'] > 0 ? 10 : 55;
-        const senderNonce =
-            SYSTEM_CONFIG['L1_GAS_PER_PUBDATA_BYTE'] > 0 ? await alice.getTransactionCount() : undefined;
+        const smallGasPerPubdata = SYSTEM_CONFIG['VALIDIUM_MODE'] ? 55 : 10;
+        const senderNonce = SYSTEM_CONFIG['VALIDIUM_MODE'] ? undefined : await alice.getTransactionCount();
 
         // This tx should be accepted by the server, but would never be executed, so we don't wait for the receipt.
         await alice.sendTransaction({
