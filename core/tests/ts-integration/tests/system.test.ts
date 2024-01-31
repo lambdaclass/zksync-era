@@ -21,7 +21,7 @@ const contracts = {
     events: getTestContract('Emitter')
 };
 
-const SYSTEM_CONFIG = require(`${process.env.ZKSYNC_HOME}/contracts/SystemConfig.json`);
+const ENV_CONFIG = require(`${process.env.ENV_FILE!}`);
 
 describe('System behavior checks', () => {
     let testMaster: TestMaster;
@@ -77,8 +77,8 @@ describe('System behavior checks', () => {
     test('Should accept transactions with small gasPerPubdataByte', async () => {
         // The number "10" was chosen because we have a different error for lesser `smallGasPerPubdata`.
         // In validium mode, this minimum value is "55"
-        const smallGasPerPubdata = SYSTEM_CONFIG['VALIDIUM_MODE'] ? 55 : 10;
-        const senderNonce = SYSTEM_CONFIG['VALIDIUM_MODE'] ? undefined : await alice.getTransactionCount();
+        const smallGasPerPubdata = ENV_CONFIG['VALIDIUM_MODE'] ? 55 : 10;
+        const senderNonce = ENV_CONFIG['VALIDIUM_MODE'] ? undefined : await alice.getTransactionCount();
 
         // This tx should be accepted by the server, but would never be executed, so we don't wait for the receipt.
         await alice.sendTransaction({

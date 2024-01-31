@@ -15,7 +15,7 @@ import * as zksync from 'zksync-web3';
 import { Provider } from 'zksync-web3';
 import { RetryProvider } from '../src/retry-provider';
 
-const SYSTEM_CONFIG = require(`${process.env.ZKSYNC_HOME}/contracts/SystemConfig.json`);
+const ENV_CONFIG = require(`${process.env.ENV_FILE!}`);
 
 // TODO: Leave only important ones.
 const contracts = {
@@ -322,7 +322,7 @@ describe('Smart contract behavior checks', () => {
         });
 
         // If it is running in validium mode, there is no pubdata and the transaction will not be rejected.
-        if (SYSTEM_CONFIG['VALIDIUM_MODE']) {
+        if (ENV_CONFIG['VALIDIUM_MODE']) {
             await expect(
                 alice.sendTransaction({
                     to: alice.address,
