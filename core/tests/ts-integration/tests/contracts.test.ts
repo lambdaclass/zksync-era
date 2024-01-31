@@ -14,8 +14,7 @@ import * as ethers from 'ethers';
 import * as zksync from 'zksync-web3';
 import { Provider } from 'zksync-web3';
 import { RetryProvider } from '../src/retry-provider';
-
-const ENV_CONFIG = require(`${process.env.ENV_FILE!}`);
+import { promises as fs } from 'fs';
 
 // TODO: Leave only important ones.
 const contracts = {
@@ -37,10 +36,25 @@ describe('Smart contract behavior checks', () => {
 
     // Contracts shared in several tests.
     let counterContract: zksync.Contract;
+    let is_validium: Boolean;
 
-    beforeAll(() => {
+    beforeAll(async () => {
         testMaster = TestMaster.getInstance(__filename);
         alice = testMaster.mainAccount();
+        const filePath = `${process.env.ZKSYNC_HOME}/etc/env/dev.env`;
+        try {
+            const fileContent = await fs.readFile(filePath, 'utf-8');
+            const keyValuePairs = fileContent.split('\n').map((line) => line.trim().split('='));
+            const configObject: { [key: string]: string } = {};
+            keyValuePairs.forEach((pair) => {
+                if (pair.length === 2) {
+                    configObject[pair[0]] = pair[1];
+                }
+            });
+            is_validium = configObject.VALIDIUM_MODE === 'true';
+        } catch (error) {
+            console.error(`Error reading or parsing the config file ${filePath}:`, error);
+        }
     });
 
     test('Should deploy & call a contract', async () => {
@@ -322,7 +336,7 @@ describe('Smart contract behavior checks', () => {
         });
 
         // If it is running in validium mode, there is no pubdata and the transaction will not be rejected.
-        if (ENV_CONFIG['VALIDIUM_MODE']) {
+        if (is_validium) {
             await expect(
                 alice.sendTransaction({
                     to: alice.address,
