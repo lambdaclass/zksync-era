@@ -33,19 +33,26 @@ describe('ERC20 contract checks', () => {
         const gasPrice = scaledGasPrice(alice);
 
         const initialTokenBalance = await alice.getBalanceL1(tokenDetails.l1Address);
-        await alice.deposit({
+        const deposit = await alice.deposit({
+            l2GasLimit: 500_000,
             token: tokenDetails.l1Address,
             amount,
             approveERC20: true,
             approveOverrides: {
-                gasPrice
+                gasPrice,
+                gasLimit: 5_000_000,
             },
             overrides: {
-                gasPrice
+                gasPrice,
+                gasLimit: 5_000_000,
             }
         });
 
+        await deposit.waitFinalize();
+
         const finalTokenBalance = await alice.getBalanceL1(tokenDetails.l1Address);
+        console.log('initialTokenBalance', initialTokenBalance.toString());
+        console.log('finalTokenBalance', finalTokenBalance.toString());
         expect(finalTokenBalance.sub(initialTokenBalance)).toEqual(amount);
     });
 
