@@ -92,7 +92,7 @@ describe('System behavior checks', () => {
         await expect(
             alice.sendTransaction({
                 to: alice.address,
-                nonce: SYSTEM_CONFIG['L1_GAS_PER_PUBDATA_BYTE'] > 0 ? senderNonce : undefined
+                nonce: senderNonce
             })
         ).toBeAccepted([]);
     });
