@@ -78,6 +78,7 @@ describe('System behavior checks', () => {
         // The number "10" was chosen because we have a different error for lesser `smallGasPerPubdata`.
         // In validium mode, this minimum value is "55"
         const smallGasPerPubdata = SYSTEM_CONFIG['L1_GAS_PER_PUBDATA_BYTE'] > 0 ? 10 : 55;
+        const senderNonce = await alice.getTransactionCount();
 
         // This tx should be accepted by the server, but would never be executed, so we don't wait for the receipt.
         await alice.sendTransaction({
@@ -90,7 +91,8 @@ describe('System behavior checks', () => {
         // Now send the next tx with the same nonce: it should override the previous one and be executed.
         await expect(
             alice.sendTransaction({
-                to: alice.address
+                to: alice.address,
+                nonce: SYSTEM_CONFIG['L1_GAS_PER_PUBDATA_BYTE'] > 0 ? senderNonce : undefined
             })
         ).toBeAccepted([]);
     });
