@@ -36,8 +36,9 @@ use zksync_queued_job_processor::JobProcessor;
 use zksync_state::PostgresStorageCaches;
 use zksync_types::{
     fee_model::FeeModelConfig,
-    l1_batch_committer::{
-        L1BatchCommitter, RollupModeL1BatchCommitter, ValidiumModeL1BatchCommitter,
+    l1_batch_commit_data_generator::{
+        L1BatchCommitDataGenerator, RollupModeL1BatchCommitDataGenerator,
+        ValidiumModeL1BatchCommitDataGenerator,
     },
     protocol_version::{L1VerifierConfig, VerifierParams},
     system_contracts::get_system_smart_contracts,
@@ -557,7 +558,7 @@ pub async fn initialize_components(
             .state_keeper_config
             .clone()
             .context("state_keeper_config")?;
-        let l1_batch_committer: Arc<dyn L1BatchCommitter> = match state_keeper_config
+        let l1_batch_commit_data_generator: Arc<dyn L1BatchCommitter> = match state_keeper_config
             .l1_batch_commit_data_generator_mode
         {
             L1BatchCommitDataGeneratorMode::Rollup => Arc::new(RollupModeL1BatchCommitter {}),
@@ -568,7 +569,7 @@ pub async fn initialize_components(
             Aggregator::new(
                 eth_sender.sender.clone(),
                 store_factory.create_store().await,
-                l1_batch_committer,
+                l1_batch_commit_data_generator,
             ),
             Arc::new(eth_client),
             contracts_config.validator_timelock_addr,
