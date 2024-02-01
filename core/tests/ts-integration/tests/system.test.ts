@@ -14,7 +14,7 @@ import * as ethers from 'ethers';
 import { BigNumberish, BytesLike } from 'ethers';
 import { serialize, hashBytecode } from 'zksync-web3/build/src/utils';
 import { deployOnAnyLocalAddress, ForceDeployment } from '../src/system';
-import { getTestContract } from '../src/helpers';
+import { getIsValidium, getTestContract } from '../src/helpers';
 import { promises as fs } from 'fs';
 
 const contracts = {
@@ -25,25 +25,10 @@ const contracts = {
 describe('System behavior checks', () => {
     let testMaster: TestMaster;
     let alice: zksync.Wallet;
-    let is_validium: Boolean;
 
     beforeAll(async () => {
         testMaster = TestMaster.getInstance(__filename);
         alice = testMaster.mainAccount();
-        const filePath = `${process.env.ZKSYNC_HOME}/etc/env/dev.env`;
-        try {
-            const fileContent = await fs.readFile(filePath, 'utf-8');
-            const keyValuePairs = fileContent.split('\n').map((line) => line.trim().split('='));
-            const configObject: { [key: string]: string } = {};
-            keyValuePairs.forEach((pair) => {
-                if (pair.length === 2) {
-                    configObject[pair[0]] = pair[1];
-                }
-            });
-            is_validium = configObject.VALIDIUM_MODE === 'true';
-        } catch (error) {
-            console.error(`Error reading or parsing the config file ${filePath}:`, error);
-        }
     });
 
     test('Network should be supporting Cancun+Deneb', async () => {
@@ -89,10 +74,12 @@ describe('System behavior checks', () => {
     });
 
     test('Should accept transactions with small gasPerPubdataByte', async () => {
+        const isValidium = await getIsValidium();
         // The number "10" was chosen because we have a different error for lesser `smallGasPerPubdata`.
         // In validium mode, this minimum value is "55"
-        const smallGasPerPubdata = is_validium ? 55 : 10;
-        const senderNonce = is_validium ? undefined : await alice.getTransactionCount();
+        const smallGasPerPubdata = isValidium ? 55 : 10;
+        // In validium mode, the nonce is not required.
+        const senderNonce = isValidium ? undefined : await alice.getTransactionCount();
 
         // This tx should be accepted by the server, but would never be executed, so we don't wait for the receipt.
         await alice.sendTransaction({

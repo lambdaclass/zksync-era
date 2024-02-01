@@ -7,7 +7,7 @@
  */
 
 import { TestMaster } from '../src/index';
-import { deployContract, getTestContract, waitForNewL1Batch } from '../src/helpers';
+import { deployContract, getIsValidium, getTestContract, waitForNewL1Batch } from '../src/helpers';
 import { shouldOnlyTakeFee } from '../src/modifiers/balance-checker';
 
 import * as ethers from 'ethers';
@@ -36,25 +36,10 @@ describe('Smart contract behavior checks', () => {
 
     // Contracts shared in several tests.
     let counterContract: zksync.Contract;
-    let is_validium: Boolean;
 
     beforeAll(async () => {
         testMaster = TestMaster.getInstance(__filename);
         alice = testMaster.mainAccount();
-        const filePath = `${process.env.ZKSYNC_HOME}/etc/env/dev.env`;
-        try {
-            const fileContent = await fs.readFile(filePath, 'utf-8');
-            const keyValuePairs = fileContent.split('\n').map((line) => line.trim().split('='));
-            const configObject: { [key: string]: string } = {};
-            keyValuePairs.forEach((pair) => {
-                if (pair.length === 2) {
-                    configObject[pair[0]] = pair[1];
-                }
-            });
-            is_validium = configObject.VALIDIUM_MODE === 'true';
-        } catch (error) {
-            console.error(`Error reading or parsing the config file ${filePath}:`, error);
-        }
     });
 
     test('Should deploy & call a contract', async () => {
@@ -336,7 +321,7 @@ describe('Smart contract behavior checks', () => {
         });
 
         // If it is running in validium mode, there is no pubdata and the transaction will not be rejected.
-        if (is_validium) {
+        if (await getIsValidium()) {
             await expect(
                 alice.sendTransaction({
                     to: alice.address,
