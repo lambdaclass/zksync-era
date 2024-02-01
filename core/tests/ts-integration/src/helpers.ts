@@ -105,3 +105,26 @@ export async function scaledGasPrice(wallet: ethers.Wallet | zksync.Wallet): Pro
     // Increase by 40%.
     return gasPrice.mul(140).div(100);
 }
+
+/**
+ * Returns if it is runnning in Validium Mode.
+ *
+ * @returns Boolean that indicates whether it is Validium mode.
+ */
+export async function getIsValidium(): Promise<boolean> {
+    const filePath = `${process.env.ZKSYNC_HOME}/etc/env/dev.env`;
+
+    try {
+        const fileContent = await fs.promises.readFile(filePath, 'utf-8');
+        
+        const isValidiumMode = fileContent
+            .split('\n')
+            .map((line) => line.trim().split('='))
+            .find((pair) => pair[0] === 'VALIDIUM_MODE');
+
+        return isValidiumMode ? isValidiumMode[1] === 'true' : false;
+    } catch (error) {
+        console.error(`Error reading or parsing the config file ${filePath}:`, error);
+        return false; // Return a default value or handle the error as needed
+    }
+}
