@@ -51,14 +51,14 @@ export async function initializeGovernance(args: any[] = []) {
     await utils.spawn(`${baseCommandL1} initialize-governance ${args.join(' ')} | tee initializeGovernance.log`);
 }
 
-export async function initializeWethToken(args: any[] = []) {
+export async function initializeWethToken(args: any[] = [], nativeToken?: boolean) {
     await utils.confirmAction();
 
     const isLocalSetup = process.env.ZKSYNC_LOCAL_SETUP;
     const baseCommandL1 = isLocalSetup ? `yarn --cwd /contracts/l1-contracts` : `yarn l1-contracts`;
 
     await utils.spawn(
-        `${baseCommandL1} initialize-l2-weth-token instant-call ${args.join(' ')} | tee initializeWeth.log`
+        `${baseCommandL1} initialize-l2-weth-token ${nativeToken ? ' --native-erc20' : ''} instant-call ${args.join(' ')} | tee initializeWeth.log`
     );
 }
 

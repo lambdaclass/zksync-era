@@ -48,7 +48,8 @@ export async function waitForServer() {
  */
 export async function loadTestEnvironment(): Promise<TestEnvironment> {
     const network = process.env.CHAIN_ETH_NETWORK || 'localhost';
-    const nativeErc20Testing = process.env.CONTRACTS_L1_NATIVE_ERC20_TOKEN_ADDR ? true : false; // if set, we assume user wants to test native erc20 tokens
+    // const nativeErc20Testing = process.env.CONTRACTS_L1_NATIVE_ERC20_TOKEN_ADDR ? true : false; // if set, we assume user wants to test native erc20 tokens
+    const nativeErc20Testing = false; // if set, we assume user wants to test native erc20 tokens
 
     let mainWalletPK;
     if (nativeErc20Testing) {

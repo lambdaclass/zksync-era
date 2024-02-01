@@ -77,7 +77,7 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     );
 
     if (deployerL2ContractInput.includeL2WETH) {
-        await announced('Initializing L2 WETH token', contract.initializeWethToken(governorPrivateKeyArgs));
+        await announced('Initializing L2 WETH token', contract.initializeWethToken(governorPrivateKeyArgs, nativeERC20));
     }
     await announced('Initializing governance', contract.initializeGovernance(governorPrivateKeyArgs));
 }

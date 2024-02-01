@@ -96,9 +96,10 @@ export class TestContextOwner {
     async setupContext(): Promise<TestContext> {
         try {
             if (this.env.nativeErc20Testing) {
-                this.reporter.message('Using native ERC20 implementation');
+                this.reporter.startAction('Setting up the context for NATIVE TOKEN IMPLEMENTATION');
+            } else {
+                this.reporter.startAction('Setting up the context');
             }
-            this.reporter.startAction('Setting up the context');
             await this.cancelPendingTxs();
             this.wallets = await this.prepareWallets();
             this.reporter.finishAction();
