@@ -71,7 +71,8 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         contract.deployL2(
             deployerL2ContractInput.args,
             deployerL2ContractInput.includePaymaster,
-            deployerL2ContractInput.includeL2WETH
+            deployerL2ContractInput.includeL2WETH,
+            nativeERC20
         )
     );
 
