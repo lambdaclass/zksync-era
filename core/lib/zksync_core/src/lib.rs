@@ -554,7 +554,7 @@ pub async fn initialize_components(
         let eth_client =
             PKSigningClient::from_config(&eth_sender, &contracts_config, &eth_client_config);
         let nonce = eth_client.pending_nonce("eth_sender").await.unwrap();
-        let l1_batch_committer: Arc<dyn L1BatchCommitDataGenerator> =
+        let l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator> =
             if std::env::var("VALIDIUM_MODE") == Ok("true".to_owned()) {
                 Arc::new(ValidiumModeL1BatchCommitDataGenerator {})
             } else {
@@ -565,7 +565,7 @@ pub async fn initialize_components(
             Aggregator::new(
                 eth_sender.sender.clone(),
                 store_factory.create_store().await,
-                l1_batch_committer,
+                l1_batch_commit_data_generator,
             ),
             Arc::new(eth_client),
             contracts_config.validator_timelock_addr,
