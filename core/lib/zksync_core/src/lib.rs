@@ -558,12 +558,15 @@ pub async fn initialize_components(
             .state_keeper_config
             .clone()
             .context("state_keeper_config")?;
-        let l1_batch_commit_data_generator: Arc<dyn L1BatchCommitter> = match state_keeper_config
-            .l1_batch_commit_data_generator_mode
-        {
-            L1BatchCommitDataGeneratorMode::Rollup => Arc::new(RollupModeL1BatchCommitter {}),
-            L1BatchCommitDataGeneratorMode::Validium => Arc::new(ValidiumModeL1BatchCommitter {}),
-        };
+        let l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator> =
+            match state_keeper_config.l1_batch_commit_data_generator_mode {
+                L1BatchCommitDataGeneratorMode::Rollup => {
+                    Arc::new(RollupModeL1BatchCommitDataGenerator {})
+                }
+                L1BatchCommitDataGeneratorMode::Validium => {
+                    Arc::new(ValidiumModeL1BatchCommitDataGenerator {})
+                }
+            };
         let eth_tx_aggregator_actor = EthTxAggregator::new(
             eth_sender.sender.clone(),
             Aggregator::new(
