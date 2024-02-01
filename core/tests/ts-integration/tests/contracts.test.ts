@@ -14,7 +14,6 @@ import * as ethers from 'ethers';
 import * as zksync from 'zksync-web3';
 import { Provider } from 'zksync-web3';
 import { RetryProvider } from '../src/retry-provider';
-import { promises as fs } from 'fs';
 
 // TODO: Leave only important ones.
 const contracts = {
@@ -37,7 +36,7 @@ describe('Smart contract behavior checks', () => {
     // Contracts shared in several tests.
     let counterContract: zksync.Contract;
 
-    beforeAll(async () => {
+    beforeAll(() => {
         testMaster = TestMaster.getInstance(__filename);
         alice = testMaster.mainAccount();
     });

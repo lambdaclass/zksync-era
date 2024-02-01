@@ -15,7 +15,6 @@ import { BigNumberish, BytesLike } from 'ethers';
 import { serialize, hashBytecode } from 'zksync-web3/build/src/utils';
 import { deployOnAnyLocalAddress, ForceDeployment } from '../src/system';
 import { getIsValidium, getTestContract } from '../src/helpers';
-import { promises as fs } from 'fs';
 
 const contracts = {
     counter: getTestContract('Counter'),
@@ -26,7 +25,7 @@ describe('System behavior checks', () => {
     let testMaster: TestMaster;
     let alice: zksync.Wallet;
 
-    beforeAll(async () => {
+    beforeAll(() => {
         testMaster = TestMaster.getInstance(__filename);
         alice = testMaster.mainAccount();
     });
