@@ -16,8 +16,8 @@ use zksync_config::{
     configs::{
         api::{MerkleTreeApiConfig, Web3JsonRpcConfig},
         chain::{
-            CircuitBreakerConfig, MempoolConfig, NetworkConfig, OperationsManagerConfig,
-            StateKeeperConfig,
+            CircuitBreakerConfig, L1BatchCommitDataGeneratorMode, MempoolConfig, NetworkConfig,
+            OperationsManagerConfig, StateKeeperConfig,
         },
         contracts::ProverAtGenesis,
         database::{MerkleTreeConfig, MerkleTreeMode},
@@ -553,12 +553,16 @@ pub async fn initialize_components(
         let eth_client =
             PKSigningClient::from_config(&eth_sender, &contracts_config, &eth_client_config);
         let nonce = eth_client.pending_nonce("eth_sender").await.unwrap();
-        let l1_batch_committer: Arc<dyn L1BatchCommitter> =
-            if std::env::var("VALIDIUM_MODE") == Ok("true".to_owned()) {
-                Arc::new(ValidiumModeL1BatchCommitter {})
-            } else {
-                Arc::new(RollupModeL1BatchCommitter {})
-            };
+        let state_keeper_config = configs
+            .state_keeper_config
+            .clone()
+            .context("state_keeper_config")?;
+        let l1_batch_committer: Arc<dyn L1BatchCommitter> = match state_keeper_config
+            .l1_batch_commit_data_generator_mode
+        {
+            L1BatchCommitDataGeneratorMode::Rollup => Arc::new(RollupModeL1BatchCommitter {}),
+            L1BatchCommitDataGeneratorMode::Validium => Arc::new(ValidiumModeL1BatchCommitter {}),
+        };
         let eth_tx_aggregator_actor = EthTxAggregator::new(
             eth_sender.sender.clone(),
             Aggregator::new(
