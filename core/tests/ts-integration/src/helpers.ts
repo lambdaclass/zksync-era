@@ -127,5 +127,5 @@ export async function isValidium(): Promise<boolean> {
         console.error(`Error reading or parsing the config file ${filePath}:`, error);
         return false; // Return a default value or handle the error as needed
     }
-x}
+}
 
