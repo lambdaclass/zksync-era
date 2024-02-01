@@ -7,7 +7,7 @@
  */
 
 import { TestMaster } from '../src/index';
-import { deployContract, getIsValidium, getTestContract, waitForNewL1Batch } from '../src/helpers';
+import { deployContract, isValidium, getTestContract, waitForNewL1Batch } from '../src/helpers';
 import { shouldOnlyTakeFee } from '../src/modifiers/balance-checker';
 
 import * as ethers from 'ethers';
@@ -320,7 +320,7 @@ describe('Smart contract behavior checks', () => {
         });
 
         // If it is running in validium mode, there is no pubdata and the transaction will not be rejected.
-        if (await getIsValidium()) {
+        if (await isValidium()) {
             await expect(
                 alice.sendTransaction({
                     to: alice.address,
