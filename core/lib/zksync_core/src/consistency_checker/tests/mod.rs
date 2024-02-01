@@ -9,8 +9,9 @@ use zksync_dal::StorageProcessor;
 use zksync_eth_client::clients::MockEthereum;
 use zksync_types::{
     aggregated_operations::AggregatedActionType, block::BlockGasCount,
-    commitment::L1BatchWithMetadata, l1_batch_committer::RollupModeL1BatchCommitter,
-    web3::contract::Options, L2ChainId, ProtocolVersion, ProtocolVersionId, H256,
+    commitment::L1BatchWithMetadata,
+    l1_batch_commit_data_generator::RollupModeL1BatchCommitDataGenerator, web3::contract::Options,
+    L2ChainId, ProtocolVersion, ProtocolVersionId, H256,
 };
 
 use super::*;
@@ -44,7 +45,7 @@ fn create_pre_boojum_l1_batch_with_metadata(number: u32) -> L1BatchWithMetadata 
 
 fn build_commit_tx_input_data(
     batches: &[L1BatchWithMetadata],
-    l1_batch_committer: Arc<dyn L1BatchCommitter>,
+    l1_batch_committer: Arc<dyn L1BatchCommitDataGenerator>,
 ) -> Vec<u8> {
     let commit_tokens = batches
         .iter()
@@ -88,7 +89,7 @@ fn build_commit_tx_input_data_is_correct() {
         create_l1_batch_with_metadata(1),
         create_l1_batch_with_metadata(2),
     ];
-    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitter {});
+    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitDataGenerator {});
 
     let commit_tx_input_data = build_commit_tx_input_data(&batches, l1_batch_committer.clone());
 
@@ -304,7 +305,7 @@ async fn normal_checker_function(
     let mut commit_tx_hash_by_l1_batch = HashMap::with_capacity(l1_batches.len());
     let client = MockEthereum::default();
 
-    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitter {});
+    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitDataGenerator {});
     for (i, l1_batches) in l1_batches.chunks(batches_per_transaction).enumerate() {
         let input_data = build_commit_tx_input_data(l1_batches, l1_batch_committer.clone());
         let signed_tx = client.sign_prepared_tx(
@@ -383,7 +384,7 @@ async fn checker_processes_pre_boojum_batches(
     let mut commit_tx_hash_by_l1_batch = HashMap::with_capacity(l1_batches.len());
     let client = MockEthereum::default();
 
-    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitter {});
+    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitDataGenerator {});
     for (i, l1_batch) in l1_batches.iter().enumerate() {
         let input_data =
             build_commit_tx_input_data(slice::from_ref(l1_batch), l1_batch_committer.clone());
@@ -443,7 +444,7 @@ async fn checker_functions_after_snapshot_recovery(delay_batch_insertion: bool) 
 
     let l1_batch = create_l1_batch_with_metadata(99);
 
-    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitter {});
+    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitDataGenerator {});
 
     let commit_tx_input_data =
         build_commit_tx_input_data(slice::from_ref(&l1_batch), l1_batch_committer.clone());
@@ -524,7 +525,7 @@ impl IncorrectDataKind {
         self,
         client: &MockEthereum,
         l1_batch: &L1BatchWithMetadata,
-        l1_batch_committer: Arc<dyn L1BatchCommitter>,
+        l1_batch_committer: Arc<dyn L1BatchCommitDataGenerator>,
     ) -> H256 {
         let (commit_tx_input_data, successful_status) = match self {
             Self::MissingStatus => {
@@ -595,7 +596,7 @@ async fn checker_detects_incorrect_tx_data(kind: IncorrectDataKind, snapshot_rec
     }
 
     let l1_batch = create_l1_batch_with_metadata(if snapshot_recovery { 99 } else { 1 });
-    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitter {});
+    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitDataGenerator {});
     let client = MockEthereum::default();
     let commit_tx_hash = kind
         .apply(&client, &l1_batch, l1_batch_committer.clone())
