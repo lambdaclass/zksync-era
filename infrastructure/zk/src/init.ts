@@ -35,6 +35,33 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     fs.writeFileSync(process.env.ENV_FILE!, envFileContent);
     await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
 
+    // Configure compute_overhead_part depending on the running mode
+    const filePath = 'etc/env/base/chain.toml';
+    const paramName = 'compute_overhead_part';
+    const newValue = validiumMode ? 1.0 : 0.0;
+
+    let tomlContent = fs.readFileSync(filePath, 'utf-8');
+    const lines = tomlContent.split('\n');
+    let found = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.includes(`${paramName} =`)) {
+            lines[i] = `${paramName} = ${newValue}`;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        console.error(`The parameter "${paramName}" was not found in the TOML file.`);
+        process.exit(1);
+    }
+
+    tomlContent = lines.join('\n');
+    fs.writeFileSync(filePath, tomlContent);
+    console.log(`The parameter "${paramName}" has been updated to ${newValue} in the chain TOML file.`);
+
     if (!process.env.CI && !skipEnvSetup) {
         await announced('Pulling images', docker.pull());
         await announced('Checking environment', checkEnv());
