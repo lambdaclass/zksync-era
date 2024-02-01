@@ -2,3 +2,4 @@
 path = contracts
 url = https://github.com/LambdaClass/era-contracts.git
 branch = update_validium_mode_contracts
+
