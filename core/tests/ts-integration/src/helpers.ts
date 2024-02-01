@@ -116,7 +116,6 @@ export async function isValidium(): Promise<boolean> {
 
     try {
         const fileContent = await fs.promises.readFile(filePath, 'utf-8');
-
         const isValidiumMode = fileContent
             .split('\n')
             .map((line) => line.trim().split('='))
