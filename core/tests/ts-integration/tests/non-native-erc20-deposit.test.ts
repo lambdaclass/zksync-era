@@ -42,11 +42,11 @@ describe('ERC20 contract checks', () => {
             approveERC20: true,
             approveOverrides: {
                 gasPrice,
-                gasLimit: 5_000_000,
+                gasLimit: 5_000_000
             },
             overrides: {
                 gasPrice,
-                gasLimit: 5_000_000,
+                gasLimit: 5_000_000
             }
         });
 
@@ -58,12 +58,19 @@ describe('ERC20 contract checks', () => {
 
         // L2 Deposit Finalize
         const l2ERC20Bridge = (await alice.getL2BridgeContracts()).erc20;
-        const finalizeDeposit = await l2ERC20Bridge['finalizeDeposit(address,address,address,uint256,bytes)'](alice.address, alice.address, tokenDetails.l1Address, amount, '0x')
+        const finalizeDeposit = await l2ERC20Bridge['finalizeDeposit(address,address,address,uint256,bytes)'](
+            alice.address,
+            alice.address,
+            tokenDetails.l1Address,
+            amount,
+            '0x'
+        );
         console.log('wait finalize', await finalizeDeposit.wait());
 
-
         // L2 balance with address trough l1 address
-        const l2TokenAddress = await (await alice.getL1BridgeContracts()).erc20['l2TokenAddress(address)'](tokenDetails.l1Address);
+        const l2TokenAddress = await (
+            await alice.getL1BridgeContracts()
+        ).erc20['l2TokenAddress(address)'](tokenDetails.l1Address);
         const l2BalanceThroughL1Bridge = await alice.getBalance(l2TokenAddress);
         console.log('address: l2BalanceThroughL1Bridge with l1 address', l2BalanceThroughL1Bridge.toString());
         console.log('l2BalanceThroughL1Bridge with l1 address', l2BalanceThroughL1Bridge.toString());
