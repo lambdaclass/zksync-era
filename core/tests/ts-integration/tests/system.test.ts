@@ -14,7 +14,7 @@ import * as ethers from 'ethers';
 import { BigNumberish, BytesLike } from 'ethers';
 import { serialize, hashBytecode } from 'zksync-web3/build/src/utils';
 import { deployOnAnyLocalAddress, ForceDeployment } from '../src/system';
-import { getIsValidium, getTestContract } from '../src/helpers';
+import { isValidium, getTestContract } from '../src/helpers';
 
 const contracts = {
     counter: getTestContract('Counter'),
@@ -73,12 +73,12 @@ describe('System behavior checks', () => {
     });
 
     test('Should accept transactions with small gasPerPubdataByte', async () => {
-        const isValidium = await getIsValidium();
+        const isValidiumMode = await isValidium();
         // The number "10" was chosen because we have a different error for lesser `smallGasPerPubdata`.
         // In validium mode, this minimum value is "55"
-        const smallGasPerPubdata = isValidium ? 55 : 10;
+        const smallGasPerPubdata = isValidiumMode ? 55 : 10;
         // In validium mode, the nonce is not required.
-        const senderNonce = isValidium ? undefined : await alice.getTransactionCount();
+        const senderNonce = isValidiumMode ? undefined : await alice.getTransactionCount();
 
         // This tx should be accepted by the server, but would never be executed, so we don't wait for the receipt.
         await alice.sendTransaction({
