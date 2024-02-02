@@ -191,8 +191,7 @@ async function configMode(validiumMode: boolean) {
     ethSenderToml = linesEthSender.join('\n');
 
     fs.writeFileSync(ethSenderPath, ethSenderToml);
-
-    await announced(`The parameter "${enforcedGasPrice}" has been updated in the TOML file.\n`);
+    await announced(`The parameter "${enforcedGasPrice}" has been updated in the ${ethSenderPath} file.\n`);
 }
 
 async function checkEnv() {
