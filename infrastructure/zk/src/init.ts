@@ -58,6 +58,28 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
 
     console.log(`The parameters have been updated in the ${filePath} file.`);
 
+    const filePath2 = 'etc/env/base/eth_sender.toml';
+    const paramName2 = 'internal_enforced_l1_gas_price';
+    const newValue = 45_000_000_000;
+
+    let tomlContent2 = fs.readFileSync(filePath2, 'utf-8');
+
+    // Find the line that contains the parameter
+    const lines2 = tomlContent2.split('\n');
+
+    for (let i = 0; i < lines2.length; i++) {
+        const line = lines2[i];
+        if (line.includes(`${paramName2} =`)) {
+            lines2[i] = validiumMode ? `${paramName2} = ${newValue}` : '';
+        }
+    }
+
+    tomlContent2 = lines.join('\n');
+
+    fs.writeFileSync(filePath, tomlContent2);
+
+    console.log(`The parameter "${paramName2}" has been updated in the TOML file.`);
+
     if (!process.env.CI && !skipEnvSetup) {
         await announced('Pulling images', docker.pull());
         await announced('Checking environment', checkEnv());
