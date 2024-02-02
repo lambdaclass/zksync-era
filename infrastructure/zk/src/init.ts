@@ -34,44 +34,43 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     fs.writeFileSync(process.env.ENV_FILE!, envFileContent);
     await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
 
-    const filePath = 'etc/env/base/chain.toml';
-    const paramName = {
+    const chainPath = 'etc/env/base/chain.toml';
+    const newParams = {
         pubdata_overhead_part: validiumMode ? 0.0 : 1.0,
         batch_overhead_l1_gas: validiumMode ? 1000000 : 800000,
         max_pubdata_per_batch: validiumMode ? 1000000000000 : 100000
     };
 
-    let tomlContent = fs.readFileSync(filePath, 'utf-8');
-    const lines = tomlContent.split('\n');
+    let chainContent = fs.readFileSync(chainPath, 'utf-8');
+    const lines = chainContent.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        for (const [key, value] of Object.entries(paramName)) {
+        for (const [key, value] of Object.entries(newParams)) {
             if (line.includes(`${key}=`)) {
                 lines[i] = `${key}=${value}`;
                 break;
             }
         }
     }
-    tomlContent = lines.join('\n');
-    fs.writeFileSync(filePath, tomlContent);
+    chainContent = lines.join('\n');
+    fs.writeFileSync(chainPath, chainContent);
 
-    console.log(`The parameters have been updated in the ${filePath} file.`);
+    console.log(`The parameters have been updated in the ${chainPath} file.`);
 
-    const filePath2 = 'etc/env/base/eth_sender.toml';
-    const paramName2 = 'internal_enforced_l1_gas_price';
+    const ethSenderPath = 'etc/env/base/eth_sender.toml';
+    const enforcedGasPrice = 'internal_enforced_l1_gas_price';
     const newValue = 45_000_000_000;
 
-    let tomlContent2 = fs.readFileSync(filePath2, 'utf-8');
+    let ethSenderToml = fs.readFileSync(ethSenderPath, 'utf-8');
 
-    // Find the line that contains the parameter
-    const lines2 = tomlContent2.split('\n');
+    const linesEthSender = ethSenderToml.split('\n');
     let found = false;
 
-    for (let i = 0; i < lines2.length; i++) {
-        const line = lines2[i];
-        if (line.includes(`${paramName2}=`)) {
-            lines2[i] = validiumMode ? `${paramName2}=${newValue}` : '';
+    for (let i = 0; i < linesEthSender.length; i++) {
+        const line = linesEthSender[i];
+        if (line.includes(`${enforcedGasPrice}=`)) {
+            linesEthSender[i] = validiumMode ? `${enforcedGasPrice}=${newValue}` : '';
             found = true;
             break;
         }
@@ -79,15 +78,15 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
 
     if (!found) {
         if (validiumMode) {
-            lines2[-1] += `${paramName2}=${newValue}`;
+            linesEthSender.push(`${enforcedGasPrice}=${newValue}`);
         }
     }
 
-    tomlContent2 = lines2.join('\n');
+    ethSenderToml = linesEthSender.join('\n');
 
-    fs.writeFileSync(filePath2, tomlContent2);
+    fs.writeFileSync(ethSenderPath, ethSenderToml);
 
-    console.log(`The parameter "${paramName2}" has been updated in the TOML file.`);
+    console.log(`The parameter "${enforcedGasPrice}" has been updated in the TOML file.`);
 
     if (!process.env.CI && !skipEnvSetup) {
         await announced('Pulling images', docker.pull());
