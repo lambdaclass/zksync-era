@@ -29,7 +29,7 @@ describe('ERC20 contract checks', () => {
     });
 
     test('Can perform a deposit', async () => {
-        const amount = 555;
+        const amount = BigNumber.from(555);
         const gasPrice = scaledGasPrice(alice);
 
         // L1 Deposit
@@ -50,7 +50,7 @@ describe('ERC20 contract checks', () => {
             }
         });
 
-        await deposit.waitFinalize();
+        await deposit.waitL1Commit();
 
         const finalTokenBalance = await alice.getBalanceL1(tokenDetails.l1Address);
         console.log('initialTokenBalance', initialTokenBalance.toString());
@@ -67,36 +67,34 @@ describe('ERC20 contract checks', () => {
         );
         console.log('wait finalize', await finalizeDeposit.wait());
 
-        const l2Bridge = (await alice.getL2BridgeContracts()).erc20;
-        console.log('l2Bridge', l2Bridge);
         // L2 balance with address trough l2 bridge address
-        const l2TokenAddressWithL2Bridge = await l2Bridge['l2TokenAddress(address)'](tokenDetails.l1Address);
+        const l2TokenAddressWithL2Bridge = await l2ERC20Bridge.l2TokenAddress(tokenDetails.l1Address, {});
         const l2BalanceThroughL2Bridge = await alice.getBalance(l2TokenAddressWithL2Bridge);
         console.log('[ADDRESS] l2TokenAddressWithL2Bridge: ', l2TokenAddressWithL2Bridge);
-        console.log('l2BalanceThroughL2Bridge with l2 bridge address', l2BalanceThroughL2Bridge.toString());
+        console.log('[BALANCE] l2BalanceThroughL2Bridge with l2 bridge address', l2BalanceThroughL2Bridge.toString());
 
         // L2 balance with address trough l1 address
         const l2TokenAddress = await (
             await alice.getL1BridgeContracts()
         ).erc20['l2TokenAddress(address)'](tokenDetails.l1Address);
         const l2BalanceThroughL1Bridge = await alice.getBalance(l2TokenAddress);
-        console.log('address: l2BalanceThroughL1Bridge with l1 address', l2BalanceThroughL1Bridge.toString());
-        console.log('l2BalanceThroughL1Bridge with l1 address', l2BalanceThroughL1Bridge.toString());
+        console.log('[ADDRESS] l2BalanceThroughL1Bridge with l1 address', l2BalanceThroughL1Bridge.toString());
+        console.log('[BALANCE] l2BalanceThroughL1Bridge with l1 address', l2BalanceThroughL1Bridge.toString());
 
         // L2 balance with l1 address
         const l2Balance = await alice.getBalance(tokenDetails.l1Address);
         console.log('[ADDRESS] l2Balance with l1 address', tokenDetails.l1Address.toString());
-        console.log('l2Balance with l1 address', l2Balance.toString());
+        console.log('[BALANCE] l2Balance with l1 address', l2Balance.toString());
 
         // L2 balance with l2 address
         const l2Balance2 = await alice.getBalance(tokenDetails.l2Address);
         console.log('[ADDRESS] l2Balance with l2 address', tokenDetails.l2Address.toString());
-        console.log('l2Balance with l2 address', l2Balance2.toString());
+        console.log('[BALANCE] l2Balance with l2 address', l2Balance2.toString());
 
         // L2 balance with l2 address
         const aliceL2Balance = await alice.getBalance(aliceErc20.address);
         console.log('[ADDRESS] alice l2Balance with l2 address', aliceErc20.address.toString());
-        console.log('alice l2Balance with l2 address', aliceL2Balance.toString());
+        console.log('[BALANCE] alice l2Balance with l2 address', aliceL2Balance.toString());
 
         expect(initialTokenBalance.sub(finalTokenBalance)).toEqual(BigNumber.from(amount));
     });
