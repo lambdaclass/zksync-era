@@ -79,7 +79,7 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
 
     if (!found) {
         if (validiumMode) {
-            lines2[-1] += `${paramName2}=${newValue}`
+            lines2[-1] += `${paramName2}=${newValue}`;
         }
     }
 
