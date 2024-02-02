@@ -65,12 +65,10 @@ impl BatchFeeModelInputProvider for MainNodeFeeInputProvider {
                 l1_gas_price: self.provider.estimate_effective_gas_price(),
             }),
             FeeModelConfig::V2(config) => {
-                let validium_mode = std::env::var("VALIDIUM_MODE") == Ok("true".to_owned());
                 FeeParams::V2(FeeParamsV2 {
                     config,
                     l1_gas_price: self.provider.estimate_effective_gas_price(),
                     l1_pubdata_price: self.provider.estimate_effective_pubdata_price()
-                        * !validium_mode as u64,
                 })
             }
         }
