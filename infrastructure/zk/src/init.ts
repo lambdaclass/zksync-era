@@ -66,11 +66,20 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
 
     // Find the line that contains the parameter
     const lines2 = tomlContent2.split('\n');
+    let found = false;
 
     for (let i = 0; i < lines2.length; i++) {
         const line = lines2[i];
-        if (line.includes(`${paramName2} =`)) {
-            lines2[i] = validiumMode ? `${paramName2} = ${newValue}` : '';
+        if (line.includes(`${paramName2}=`)) {
+            lines2[i] = validiumMode ? `${paramName2}=${newValue}` : '';
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        if (validiumMode) {
+            lines2[-1] += `${paramName2}=${newValue}`
         }
     }
 
