@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import path from 'path';
 import { Command } from 'commander';
 import * as utils from './utils';
 
@@ -34,6 +33,60 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     envFileContent += `VALIDIUM_MODE=${validiumMode}\n`;
     fs.writeFileSync(process.env.ENV_FILE!, envFileContent);
     await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
+
+    const chainPath = 'etc/env/base/chain.toml';
+    const newParams = {
+        pubdata_overhead_part: validiumMode ? 0.0 : 1.0,
+        batch_overhead_l1_gas: validiumMode ? 1000000 : 800000,
+        max_pubdata_per_batch: validiumMode ? 1000000000000 : 100000
+    };
+
+    let chainContent = fs.readFileSync(chainPath, 'utf-8');
+    const lines = chainContent.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        for (const [key, value] of Object.entries(newParams)) {
+            if (line.includes(`${key}=`)) {
+                lines[i] = `${key}=${value}`;
+                break;
+            }
+        }
+    }
+    chainContent = lines.join('\n');
+    fs.writeFileSync(chainPath, chainContent);
+
+    console.log(`The parameters have been updated in the ${chainPath} file.`);
+
+    const ethSenderPath = 'etc/env/base/eth_sender.toml';
+    const enforcedGasPrice = 'internal_enforced_l1_gas_price';
+    const newValue = 45_000_000_000;
+
+    let ethSenderToml = fs.readFileSync(ethSenderPath, 'utf-8');
+
+    const linesEthSender = ethSenderToml.split('\n');
+    let found = false;
+
+    for (let i = 0; i < linesEthSender.length; i++) {
+        const line = linesEthSender[i];
+        if (line.includes(`${enforcedGasPrice}=`)) {
+            linesEthSender[i] = validiumMode ? `${enforcedGasPrice}=${newValue}` : '';
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        if (validiumMode) {
+            linesEthSender.push(`${enforcedGasPrice}=${newValue}`);
+        }
+    }
+
+    ethSenderToml = linesEthSender.join('\n');
+
+    fs.writeFileSync(ethSenderPath, ethSenderToml);
+
+    console.log(`The parameter "${enforcedGasPrice}" has been updated in the TOML file.`);
 
     if (!process.env.CI && !skipEnvSetup) {
         await announced('Pulling images', docker.pull());
