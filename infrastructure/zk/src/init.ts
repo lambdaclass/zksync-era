@@ -34,6 +34,30 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     fs.writeFileSync(process.env.ENV_FILE!, envFileContent);
     await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
 
+    const filePath = 'etc/env/base/chain.toml';
+    const paramName = {
+        pubdata_overhead_part: validiumMode ? 0.0 : 1.0,
+        batch_overhead_l1_gas: validiumMode ? 1000000 : 800000,
+        max_pubdata_per_batch: validiumMode ? 1000000000000 : 100000
+    };
+
+    let tomlContent = fs.readFileSync(filePath, 'utf-8');
+    const lines = tomlContent.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        for (const [key, value] of Object.entries(paramName)) {
+            if (line.includes(`${key}=`)) {
+                lines[i] = `${key}=${value}`;
+                break;
+            }
+        }
+    }
+    tomlContent = lines.join('\n');
+    fs.writeFileSync(filePath, tomlContent);
+
+    console.log(`The parameters have been updated in the ${filePath} file.`);
+
     if (!process.env.CI && !skipEnvSetup) {
         await announced('Pulling images', docker.pull());
         await announced('Checking environment', checkEnv());
