@@ -185,7 +185,8 @@ async function configMode(validiumMode: boolean) {
 
     if (!found) {
         if (validiumMode) {
-            linesEthSender.push(`${enforcedGasPrice}=${newValue}`);
+            linesEthSender.pop();
+            linesEthSender.push(`${enforcedGasPrice}=${newValue}\n`);
         }
     }
 
