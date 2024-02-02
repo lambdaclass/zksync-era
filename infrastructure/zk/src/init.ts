@@ -74,9 +74,9 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         }
     }
 
-    tomlContent2 = lines.join('\n');
+    tomlContent2 = lines2.join('\n');
 
-    fs.writeFileSync(filePath, tomlContent2);
+    fs.writeFileSync(filePath2, tomlContent2);
 
     console.log(`The parameter "${paramName2}" has been updated in the TOML file.`);
 
