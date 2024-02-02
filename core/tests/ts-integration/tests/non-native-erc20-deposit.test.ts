@@ -67,6 +67,14 @@ describe('ERC20 contract checks', () => {
         );
         console.log('wait finalize', await finalizeDeposit.wait());
 
+        const l2Bridge = (await alice.getL2BridgeContracts()).erc20;
+        console.log('l2Bridge', l2Bridge);
+        // L2 balance with address trough l2 bridge address
+        const l2TokenAddressWithL2Bridge = await l2Bridge['l2TokenAddress(address)'](tokenDetails.l1Address);
+        const l2BalanceThroughL2Bridge = await alice.getBalance(l2TokenAddressWithL2Bridge);
+        console.log('[ADDRESS] l2TokenAddressWithL2Bridge: ', l2TokenAddressWithL2Bridge);
+        console.log('l2BalanceThroughL2Bridge with l2 bridge address', l2BalanceThroughL2Bridge.toString());
+
         // L2 balance with address trough l1 address
         const l2TokenAddress = await (
             await alice.getL1BridgeContracts()
