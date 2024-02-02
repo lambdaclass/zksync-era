@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import path from 'path';
 import { Command } from 'commander';
 import * as utils from './utils';
 
