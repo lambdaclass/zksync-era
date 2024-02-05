@@ -186,7 +186,7 @@ function updateEthSenderConfig(validiumMode: boolean) {
     updateConfigFile(ETH_SENDER_PATH, modeConstantValues);
 }
 
-async function updateConfig(validiumMode: boolean) {
+function updateConfig(validiumMode: boolean) {
     let envFileContent = fs.readFileSync(process.env.ENV_FILE!).toString();
     envFileContent += `VALIDIUM_MODE=${validiumMode}\n`;
     fs.writeFileSync(process.env.ENV_FILE!, envFileContent);
