@@ -28,9 +28,9 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     } = initArgs;
 
     if (nativeERC20) {
-        process.env.NATIVE_ERC20 = "true";
+        process.env.NATIVE_ERC20 = 'true';
     } else {
-        process.env.NATIVE_ERC20 = "false";
+        process.env.NATIVE_ERC20 = 'false';
     }
 
     if (!process.env.CI && !skipEnvSetup) {
@@ -83,7 +83,10 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     );
 
     if (deployerL2ContractInput.includeL2WETH) {
-        await announced('Initializing L2 WETH token', contract.initializeWethToken(governorPrivateKeyArgs, nativeERC20));
+        await announced(
+            'Initializing L2 WETH token',
+            contract.initializeWethToken(governorPrivateKeyArgs, nativeERC20)
+        );
     }
     await announced('Initializing governance', contract.initializeGovernance(governorPrivateKeyArgs));
 }
