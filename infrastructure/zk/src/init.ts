@@ -178,6 +178,8 @@ function updateChainConfig(validiumMode: boolean) {
     updateConfigFile(CHAIN_CONFIG_PATH, modeConstantValues);
 }
 function updateEthSenderConfig(validiumMode: boolean) {
+    // This constant is used in validium mode and is deleted in rollup mode
+    // In order to pass the existing integration tests
     const modeConstantValues = {
         internal_enforced_l1_gas_price: validiumMode
             ? constants.VALIDIUM_ENFORCED_L1_GAS_PRICE
