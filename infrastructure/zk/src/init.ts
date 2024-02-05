@@ -27,6 +27,12 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         nativeERC20
     } = initArgs;
 
+    if (nativeERC20) {
+        process.env.NATIVE_ERC20 = "true";
+    } else {
+        process.env.NATIVE_ERC20 = "false";
+    }
+
     if (!process.env.CI && !skipEnvSetup) {
         await announced('Pulling images', docker.pull());
         await announced('Checking environment', checkEnv());
