@@ -152,7 +152,7 @@ async function configMode(validiumMode: boolean) {
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         for (const [key, value] of Object.entries(modeConstantValues)) {
-            if (line.includes(`${key}=`)) {
+            if (!line.startsWith('#') && line.includes(`${key}=`)) {
                 lines[i] = `${key}=${value}`;
                 break;
             }
@@ -174,7 +174,7 @@ async function configMode(validiumMode: boolean) {
 
     for (let i = 0; i < linesEthSender.length; i++) {
         const line = linesEthSender[i];
-        if (line.includes(`${enforcedGasPrice}=`)) {
+        if (!line.startsWith('#') && line.includes(`${enforcedGasPrice}=`)) {
             linesEthSender[i] = validiumMode ? `${enforcedGasPrice}=${newValue}` : '';
             found = true;
             break;
