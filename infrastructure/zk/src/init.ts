@@ -163,7 +163,7 @@ function updateConfigFile(path: string, modeConstantValues: any) {
     }
     fs.writeFileSync(path, content);
 }
-async function updateChainConfig(validiumMode: boolean) {
+function updateChainConfig(validiumMode: boolean) {
     const modeConstantValues = {
         pubdata_overhead_part: validiumMode
             ? constants.VALIDIUM_PUBDATA_OVERHEAD_PART
@@ -176,7 +176,6 @@ async function updateChainConfig(validiumMode: boolean) {
             : constants.ROLLUP_MAX_PUBDATA_PER_BATCH
     };
     updateConfigFile(CHAIN_CONFIG_PATH, modeConstantValues);
-    announce(`The parameters have been updated in the ${CHAIN_CONFIG_PATH} file.`);
 }
 function updateEthSenderConfig(validiumMode: boolean) {
     const modeConstantValues = {
@@ -185,7 +184,6 @@ function updateEthSenderConfig(validiumMode: boolean) {
             : constants.ROLLUP_ENFORCED_L1_GAS_PRICE
     };
     updateConfigFile(ETH_SENDER_PATH, modeConstantValues);
-    announce(`The parameters have been updated in the ${ETH_SENDER_PATH} file.`);
 }
 
 async function updateConfig(validiumMode: boolean) {
