@@ -13,11 +13,14 @@ import * as server from './server';
 import { up } from './up';
 
 import * as fs from 'fs';
+import * as constants from './constants';
 
 const entry = chalk.bold.yellow;
 const announce = chalk.yellow;
 const success = chalk.green;
 const timestamp = chalk.grey;
+const CHAIN_CONFIG_PATH = 'etc/env/base/chain.toml';
+const ETH_SENDER_PATH = 'etc/env/base/eth_sender.toml';
 
 export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     const {
@@ -29,8 +32,8 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         validiumMode
     } = initArgs;
 
-    configMode(validiumMode);
-
+    await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
+    await announced('Updating mode configuration', updateConfig(validiumMode));
     if (!process.env.CI && !skipEnvSetup) {
         await announced('Pulling images', docker.pull());
         await announced('Checking environment', checkEnv());
@@ -74,8 +77,8 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
 // A smaller version of `init` that "resets" the localhost environment, for which `init` was already called before.
 // It does less and runs much faster.
 export async function reinit(validiumMode: boolean) {
-    configMode(validiumMode);
-
+    await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
+    await announced('Updating mode configuration', updateConfig(validiumMode));
     await announced('Setting up containers', up());
     await announced('Compiling JS packages', run.yarn());
     await announced('Compile l2 contracts', compiler.compileAll());
@@ -96,8 +99,8 @@ export async function reinit(validiumMode: boolean) {
 
 // A lightweight version of `init` that sets up local databases, generates genesis and deploys precompiled contracts
 export async function lightweightInit(validiumMode: boolean) {
-    configMode(validiumMode);
-
+    await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
+    await announced('Updating mode configuration', updateConfig(validiumMode));
     await announced(`Setting up containers`, up());
     await announced('Clean rocksdb', clean('db'));
     await announced('Clean backups', clean('backups'));
@@ -133,65 +136,64 @@ export async function submoduleUpdate() {
     await utils.exec('git submodule update');
 }
 
-async function configMode(validiumMode: boolean) {
-    let envFileContent = fs.readFileSync(process.env.ENV_FILE!).toString();
-    envFileContent += `VALIDIUM_MODE=${validiumMode}\n`;
-    fs.writeFileSync(process.env.ENV_FILE!, envFileContent);
-    await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
+function updateConfigFile(path: string, modeConstantValues: any) {
+    let content = fs.readFileSync(path, 'utf-8');
+    let lines = content.split('\n');
+    let entries = Object.entries(modeConstantValues);
+    let addedContent;
+    while (entries.length > 0) {
+        const [key, value] = entries.pop()!;
+        let lineIndex = lines.findIndex((line) => !line.startsWith('#') && line.includes(`${key}=`));
 
-    const chainPath = 'etc/env/base/chain.toml';
-    const modeConstantValues = {
-        pubdata_overhead_part: validiumMode ? 0.0 : 1.0,
-        batch_overhead_l1_gas: validiumMode ? 1000000 : 800000,
-        max_pubdata_per_batch: validiumMode ? 1000000000000 : 100000
-    };
-
-    let chainContent = fs.readFileSync(chainPath, 'utf-8');
-    const lines = chainContent.split('\n');
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        for (const [key, value] of Object.entries(modeConstantValues)) {
-            if (!line.startsWith('#') && line.includes(`${key}=`)) {
-                lines[i] = `${key}=${value}`;
-                break;
+        if (lineIndex !== -1) {
+            if (value !== null) {
+                lines.splice(lineIndex, 1, `${key}=${value}`);
+            } else {
+                lines.splice(lineIndex, 1);
+            }
+        } else {
+            if (value !== null) {
+                addedContent = `${key}=${value}\n`;
             }
         }
     }
-    chainContent = lines.join('\n');
-    fs.writeFileSync(chainPath, chainContent);
-
-    await announced(`The parameters have been updated in the ${chainPath} file.`);
-
-    const ethSenderPath = 'etc/env/base/eth_sender.toml';
-    const enforcedGasPrice = 'internal_enforced_l1_gas_price';
-    const newValue = 45_000_000_000;
-
-    let ethSenderToml = fs.readFileSync(ethSenderPath, 'utf-8');
-
-    const linesEthSender = ethSenderToml.split('\n');
-    let found = false;
-
-    for (let i = 0; i < linesEthSender.length; i++) {
-        const line = linesEthSender[i];
-        if (!line.startsWith('#') && line.includes(`${enforcedGasPrice}=`)) {
-            linesEthSender[i] = validiumMode ? `${enforcedGasPrice}=${newValue}` : '';
-            found = true;
-            break;
-        }
+    content = lines.join('\n');
+    if (addedContent) {
+        content += addedContent;
     }
+    fs.writeFileSync(path, content);
+}
+async function updateChainConfig(validiumMode: boolean) {
+    const modeConstantValues = {
+        pubdata_overhead_part: validiumMode
+            ? constants.VALIDIUM_PUBDATA_OVERHEAD_PART
+            : constants.ROLLUP_PUBDATA_OVERHEAD_PART,
+        batch_overhead_l1_gas: validiumMode
+            ? constants.VALIDIUM_BATCH_OVERHEAD_L1_GAS
+            : constants.ROLLUP_BATCH_OVERHEAD_L1_GAS,
+        max_pubdata_per_batch: validiumMode
+            ? constants.VALIDIUM_MAX_PUBDATA_PER_BATCH
+            : constants.ROLLUP_MAX_PUBDATA_PER_BATCH
+    };
+    updateConfigFile(CHAIN_CONFIG_PATH, modeConstantValues);
+    announce(`The parameters have been updated in the ${CHAIN_CONFIG_PATH} file.`);
+}
+function updateEthSenderConfig(validiumMode: boolean) {
+    const modeConstantValues = {
+        internal_enforced_l1_gas_price: validiumMode
+            ? constants.VALIDIUM_ENFORCED_L1_GAS_PRICE
+            : constants.ROLLUP_ENFORCED_L1_GAS_PRICE
+    };
+    updateConfigFile(ETH_SENDER_PATH, modeConstantValues);
+    announce(`The parameters have been updated in the ${ETH_SENDER_PATH} file.`);
+}
 
-    if (!found) {
-        if (validiumMode) {
-            linesEthSender.pop();
-            linesEthSender.push(`${enforcedGasPrice}=${newValue}\n`);
-        }
-    }
-
-    ethSenderToml = linesEthSender.join('\n');
-
-    fs.writeFileSync(ethSenderPath, ethSenderToml);
-    await announced(`The parameter "${enforcedGasPrice}" has been updated in the ${ethSenderPath} file.\n`);
+async function updateConfig(validiumMode: boolean) {
+    let envFileContent = fs.readFileSync(process.env.ENV_FILE!).toString();
+    envFileContent += `VALIDIUM_MODE=${validiumMode}\n`;
+    fs.writeFileSync(process.env.ENV_FILE!, envFileContent);
+    updateChainConfig(validiumMode);
+    updateEthSenderConfig(validiumMode);
 }
 
 async function checkEnv() {
