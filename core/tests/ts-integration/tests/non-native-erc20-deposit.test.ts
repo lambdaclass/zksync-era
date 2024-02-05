@@ -17,6 +17,7 @@ describe('ERC20 contract checks', () => {
     let alice: zksync.Wallet;
     let bob: zksync.Wallet;
     let tokenDetails: Token;
+    let nonNativeToken: Token;
     let aliceErc20: zksync.Contract;
 
     beforeAll(async () => {
@@ -25,33 +26,37 @@ describe('ERC20 contract checks', () => {
         bob = testMaster.newEmptyAccount();
 
         tokenDetails = testMaster.environment().erc20Token;
+        nonNativeToken = testMaster.environment().nonNativeToken;
         aliceErc20 = new zksync.Contract(tokenDetails.l2Address, zksync.utils.IERC20, alice);
     });
 
     test('Can perform a deposit', async () => {
-        const tokenAddress = '0xF12131d79e026D9882d22e4556706496Bdc287E8';
+        const tokenAddress = nonNativeToken.l1Address;
+        // const tokenAddress = tokenDetails.l1Address;
         const amount = BigNumber.from(555);
         const gasPrice = scaledGasPrice(alice);
+        const nativeToken = '0xD47a77a7A93c099a451a2c269ea5fB35238dC52c'
+
+        // The non native token address should be different than the native token address.
+        expect(tokenAddress != tokenDetails.l1Address);
 
         // L1 Deposit
         const initialTokenBalance = await alice.getBalanceL1(tokenAddress);
         const deposit = await alice.deposit({
-            l2GasLimit: 500_000,
             token: tokenAddress,
             amount,
             to: alice.address,
             approveERC20: true,
             approveOverrides: {
-                gasPrice,
-                gasLimit: 5_000_000
+                gasPrice
             },
             overrides: {
-                gasPrice,
-                gasLimit: 5_000_000
+                gasPrice
             }
-        });
+        }, 
+        nativeToken);
 
-        await deposit.waitL1Commit();
+        await deposit.waitFinalize();
 
         const finalTokenBalance = await alice.getBalanceL1(tokenAddress);
         console.log('initialTokenBalance', initialTokenBalance.toString());
@@ -71,7 +76,8 @@ describe('ERC20 contract checks', () => {
         console.log('finalizeDepositWait', finalizeDepositWait);
 
         // Token amount should be deposited to the account in the L2 side.
-
+        console.log('l2BridgeAddress', l2ERC20Bridge.address);
+        
         /// Try through alice.l2TokenAddress
         const aliceL2TokenAddress = await alice.l2TokenAddress(tokenAddress);
         console.log('[ADDRESS] aliceL2TokenAddress', aliceL2TokenAddress);
