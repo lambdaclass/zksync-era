@@ -1,5 +1,3 @@
-export const VALIDIUM_COMPUTE_OVERHEAD_PART: number = 1.0;
-export const ROLLUP_COMPUTE_OVERHEAD_PART: number = 0.0;
 export const VALIDIUM_PUBDATA_OVERHEAD_PART: number = 0.0;
 export const ROLLUP_PUBDATA_OVERHEAD_PART: number = 1.0;
 export const VALIDIUM_BATCH_OVERHEAD_L1_GAS: number = 1000000;

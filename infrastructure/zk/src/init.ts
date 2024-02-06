@@ -136,16 +136,27 @@ export async function submoduleUpdate() {
     await utils.exec('git submodule update');
 }
 
-function updateConfigFile(path: string, modeConstantValues: any) {
+function updateConfigFile(path: string, modeConstantValues: Record<string, number | null>) {
     let content = fs.readFileSync(path, 'utf-8');
     let lines = content.split('\n');
-    let entries = Object.entries(modeConstantValues);
-    let addedContent;
-    while (entries.length > 0) {
-        const [key, value] = entries.pop()!;
-        let lineIndex = lines.findIndex((line) => !line.startsWith('#') && line.includes(`${key}=`));
+    let addedContent: string | undefined;
+    const lineIndices: Record<string, number> = {};
 
-        if (lineIndex !== -1) {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.startsWith('#')) {
+            const match = line.match(/([^=]+)=(.*)/);
+            if (match) {
+                const key = match[1].trim();
+                lineIndices[key] = i;
+            }
+        }
+    }
+
+    for (const [key, value] of Object.entries(modeConstantValues)) {
+        const lineIndex = lineIndices[key];
+
+        if (lineIndex !== undefined) {
             if (value !== null) {
                 lines.splice(lineIndex, 1, `${key}=${value}`);
             } else {
@@ -157,17 +168,18 @@ function updateConfigFile(path: string, modeConstantValues: any) {
             }
         }
     }
+
     content = lines.join('\n');
+
     if (addedContent) {
         content += addedContent;
     }
+
     fs.writeFileSync(path, content);
 }
+
 function updateChainConfig(validiumMode: boolean) {
     const modeConstantValues = {
-        compute_overhead_part: validiumMode
-            ? constants.VALIDIUM_COMPUTE_OVERHEAD_PART
-            : constants.ROLLUP_COMPUTE_OVERHEAD_PART,
         pubdata_overhead_part: validiumMode
             ? constants.VALIDIUM_PUBDATA_OVERHEAD_PART
             : constants.ROLLUP_PUBDATA_OVERHEAD_PART,
