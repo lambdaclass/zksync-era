@@ -165,9 +165,6 @@ function updateConfigFile(path: string, modeConstantValues: any) {
 }
 function updateChainConfig(validiumMode: boolean) {
     const modeConstantValues = {
-        compute_overhead_part: validiumMode
-            ? constants.VALIDIUM_COMPUTE_OVERHEAD_PART
-            : constants.ROLLUP_COMPUTE_OVERHEAD_PART,
         pubdata_overhead_part: validiumMode
             ? constants.VALIDIUM_PUBDATA_OVERHEAD_PART
             : constants.ROLLUP_PUBDATA_OVERHEAD_PART,
