@@ -195,23 +195,23 @@ function updateChainConfig(validiumMode: boolean) {
     };
     updateConfigFile(CHAIN_CONFIG_PATH, modeConstantValues);
 }
-function updateEthSenderConfig(validiumMode: boolean) {
-    // This constant is used in validium mode and is deleted in rollup mode
-    // In order to pass the existing integration tests
-    const modeConstantValues = {
-        internal_enforced_l1_gas_price: validiumMode
-            ? constants.VALIDIUM_ENFORCED_L1_GAS_PRICE
-            : constants.ROLLUP_ENFORCED_L1_GAS_PRICE
-    };
-    updateConfigFile(ETH_SENDER_PATH, modeConstantValues);
-}
+// function updateEthSenderConfig(validiumMode: boolean) {
+//     // This constant is used in validium mode and is deleted in rollup mode
+//     // In order to pass the existing integration tests
+//     const modeConstantValues = {
+//         internal_enforced_l1_gas_price: validiumMode
+//             ? constants.VALIDIUM_ENFORCED_L1_GAS_PRICE
+//             : constants.ROLLUP_ENFORCED_L1_GAS_PRICE
+//     };
+//     updateConfigFile(ETH_SENDER_PATH, modeConstantValues);
+// }
 
 function updateConfig(validiumMode: boolean) {
     let envFileContent = fs.readFileSync(process.env.ENV_FILE!).toString();
     envFileContent += `VALIDIUM_MODE=${validiumMode}\n`;
     fs.writeFileSync(process.env.ENV_FILE!, envFileContent);
     updateChainConfig(validiumMode);
-    updateEthSenderConfig(validiumMode);
+    // updateEthSenderConfig(validiumMode);
 }
 
 async function checkEnv() {
