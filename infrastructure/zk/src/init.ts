@@ -136,7 +136,7 @@ export async function submoduleUpdate() {
     await utils.exec('git submodule update');
 }
 
-function updateConfigFile(path: string, modeConstantValues:  Record<string, number | null>) {
+function updateConfigFile(path: string, modeConstantValues: Record<string, number | null>) {
     let content = fs.readFileSync(path, 'utf-8');
     let lines = content.split('\n');
     let addedContent: string | undefined;
