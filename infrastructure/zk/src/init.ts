@@ -183,6 +183,9 @@ function updateChainConfig(validiumMode: boolean) {
         pubdata_overhead_part: validiumMode
             ? constants.VALIDIUM_PUBDATA_OVERHEAD_PART
             : constants.ROLLUP_PUBDATA_OVERHEAD_PART,
+        compute_overhead_part: validiumMode
+            ? constants.VALIDIUM_COMPUTE_OVERHEAD_PART
+            : constants.ROLLUP_COMPUTE_OVERHEAD_PART,
         batch_overhead_l1_gas: validiumMode
             ? constants.VALIDIUM_BATCH_OVERHEAD_L1_GAS
             : constants.ROLLUP_BATCH_OVERHEAD_L1_GAS,
