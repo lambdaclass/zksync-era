@@ -34,6 +34,7 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     } = initArgs;
 
     await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
+    process.env.VALIDIUM_MODE = validiumMode.toString();
     await announced('Updating mode configuration', updateConfig(validiumMode));
     if (!process.env.CI && !skipEnvSetup) {
         await announced('Pulling images', docker.pull());
@@ -78,6 +79,7 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
 // A smaller version of `init` that "resets" the localhost environment, for which `init` was already called before.
 // It does less and runs much faster.
 export async function reinit(validiumMode: boolean) {
+    process.env.VALIDIUM_MODE = validiumMode.toString();
     await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
     await announced('Updating mode configuration', updateConfig(validiumMode));
     await announced('Setting up containers', up());
@@ -100,6 +102,7 @@ export async function reinit(validiumMode: boolean) {
 
 // A lightweight version of `init` that sets up local databases, generates genesis and deploys precompiled contracts
 export async function lightweightInit(validiumMode: boolean) {
+    process.env.VALIDIUM_MODE = validiumMode.toString();
     await announced(`Initializing in ${validiumMode ? 'Validium mode' : 'Roll-up mode'}`);
     await announced('Updating mode configuration', updateConfig(validiumMode));
     await announced(`Setting up containers`, up());
