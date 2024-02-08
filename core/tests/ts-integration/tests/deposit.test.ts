@@ -50,21 +50,28 @@ describe('Deposit', () => {
         // Initil balance checking.
         const initialBalances = await get_wallet_balances(alice, tokenDetails);
 
-        const deposit = await alice.deposit(
-            {
-                token: tokenDetails.l1Address,
-                amount,
-                approveERC20: true,
-                approveOverrides: {
-                    gasPrice
-                },
-                overrides: {
-                    gasPrice
-                }
-            },
-            tokenDetails.l1Address
+        const l1ERC20FinalBalance = await shouldChangeTokenBalances(
+            tokenDetails.l1Address,
+            [{ wallet: alice, change: -amount }],
+            { l1: true }
         );
-        await deposit.waitFinalize();
+
+        await expect(
+            alice.deposit(
+                {
+                    token: tokenDetails.l1Address,
+                    amount,
+                    approveERC20: true,
+                    approveOverrides: {
+                        gasPrice
+                    },
+                    overrides: {
+                        gasPrice
+                    }
+                },
+                tokenDetails.l1Address
+            )
+        ).toBeAccepted([l1ERC20FinalBalance])
 
         // Final balance checking.
         const finalBalances = await get_wallet_balances(alice, tokenDetails);
