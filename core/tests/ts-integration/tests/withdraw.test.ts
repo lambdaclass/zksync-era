@@ -47,7 +47,11 @@ describe('ERC20 contract checks', () => {
         expect(expected).toStrictEqual(actual);
 
         // Finalize the withdraw and make sure that the ERC20 balance changes as expected.
-        const l1ERC20FinalBalance = await shouldChangeTokenBalances(tokenDetails.l1Address, [{wallet: alice, change: amount}], { l1: true })
+        const l1ERC20FinalBalance = await shouldChangeTokenBalances(
+            tokenDetails.l1Address,
+            [{ wallet: alice, change: amount }],
+            { l1: true }
+        );
         await expect(alice.finalizeWithdrawal(withdrawalHash)).toBeAccepted([l1ERC20FinalBalance]);
     });
 
