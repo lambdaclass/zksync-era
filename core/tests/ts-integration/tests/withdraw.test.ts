@@ -8,6 +8,7 @@ import { Token } from '../src/types';
 import * as zksync from 'zksync-web3';
 import * as ethers from 'ethers';
 import { ETH_ADDRESS } from 'zksync-web3/build/src/utils';
+import { shouldChangeTokenBalances } from '../src/modifiers/balance-checker';
 
 describe('ERC20 contract checks', () => {
     let testMaster: TestMaster;
@@ -29,12 +30,9 @@ describe('ERC20 contract checks', () => {
         if (testMaster.isFastMode()) {
             return;
         }
-        const amount = 1;
-
+        const amount = 500;
         const initialBalanceL2 = await alice.getBalance();
-        const initialBalanceL1 = await alice.getBalanceL1(tokenDetails.l1Address);
-
-        // First, a withdraw transaction is done on the L2,
+        // First, a withdraw transaction is done on the L2.
         const withdraw = await alice.withdraw({ token: ETH_ADDRESS, amount });
         const withdrawalHash = withdraw.hash;
         await withdraw.waitFinalize();
@@ -46,16 +44,11 @@ describe('ERC20 contract checks', () => {
         const finalBalanceL2 = await alice.getBalance();
         let expected = initialBalanceL2.sub(amount).sub(fee);
         let actual = finalBalanceL2;
-        expect(actual == expected);
+        expect(expected).toStrictEqual(actual);
 
-        // Afterwards, a withdraw-finalize is done on the L1,
-        (await alice.finalizeWithdrawal(withdrawalHash)).wait();
-
-        // make sure that the balance on the L1 has increased by the amount withdrawn
-        const finalBalanceL1 = await alice.getBalanceL1(tokenDetails.l1Address);
-        expected = initialBalanceL1.add(amount);
-        actual = finalBalanceL1;
-        expect(actual == expected);
+        // Finalize the withdraw and make sure that the ERC20 balance changes as expected.
+        const l1ERC20FinalBalance = await shouldChangeTokenBalances(tokenDetails.l1Address, [{wallet: alice, change: amount}], { l1: true })
+        await expect(alice.finalizeWithdrawal(withdrawalHash)).toBeAccepted([l1ERC20FinalBalance]);
     });
 
     test(`Can't perform an invalid withdrawal`, async () => {
@@ -70,7 +63,7 @@ describe('ERC20 contract checks', () => {
             await alice.withdraw({ token: ETH_ADDRESS, amount });
         } catch (e: any) {
             const err = e.toString();
-            expect(err.includes('insufficient balance for transfer'));
+            expect(err.includes('insufficient balance for transfer')).toBe(true);
         }
     });
 
