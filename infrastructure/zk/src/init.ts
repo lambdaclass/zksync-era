@@ -176,7 +176,10 @@ function updateChainConfig(validiumMode: boolean) {
             : constants.ROLLUP_BATCH_OVERHEAD_L1_GAS,
         max_pubdata_per_batch: validiumMode
             ? constants.VALIDIUM_MAX_PUBDATA_PER_BATCH
-            : constants.ROLLUP_MAX_PUBDATA_PER_BATCH
+            : constants.ROLLUP_MAX_PUBDATA_PER_BATCH,
+        l1_batch_commit_data_generator_mode: validiumMode
+            ? constants.VALIDIUM_L1_BATCH_COMMIT_DATA_GENERATOR_MODE
+            : constants.ROLLUP_L1_BATCH_COMMIT_DATA_GENERATOR_MODE
     };
     updateConfigFile(CHAIN_CONFIG_PATH, modeConstantValues);
 }
@@ -186,7 +189,10 @@ function updateEthSenderConfig(validiumMode: boolean) {
     const modeConstantValues = {
         internal_enforced_l1_gas_price: validiumMode
             ? constants.VALIDIUM_ENFORCED_L1_GAS_PRICE
-            : constants.ROLLUP_ENFORCED_L1_GAS_PRICE
+            : constants.ROLLUP_ENFORCED_L1_GAS_PRICE,
+        l1_gas_per_pubdata_byte: validiumMode
+            ? constants.VALIDIUM_L1_GAS_PER_PUBDATA_BYTE
+            : constants.ROLLUP_L1_GAS_PER_PUBDATA_BYTE
     };
     updateConfigFile(ETH_SENDER_PATH, modeConstantValues);
 }
