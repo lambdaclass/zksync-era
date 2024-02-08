@@ -97,7 +97,10 @@ export function reload() {
 export function load() {
     const zksyncEnv = get();
     const envFile = (process.env.ENV_FILE = `etc/env/${zksyncEnv}.env`);
-    config.compileConfig();
+    if (!fs.existsSync(envFile)) {
+        // No .env file found - we should compile it!
+        config.compileConfig();
+    }
     dotenv.config({ path: envFile });
     loadInit();
 
