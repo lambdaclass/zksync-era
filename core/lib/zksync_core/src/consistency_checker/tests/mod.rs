@@ -7,10 +7,11 @@ use test_casing::{test_casing, Product};
 use tokio::sync::mpsc;
 use zksync_dal::StorageProcessor;
 use zksync_eth_client::clients::MockEthereum;
+use zksync_l1_contract_interface::i_executor::structures::StoredBatchInfo;
 use zksync_types::{
-    aggregated_operations::AggregatedActionType, block::BlockGasCount,
-    commitment::L1BatchWithMetadata, l1_batch_committer::RollupModeL1BatchCommitter,
-    web3::contract::Options, L2ChainId, ProtocolVersion, ProtocolVersionId, H256,
+    aggregated_operations::AggregatedActionType, commitment::L1BatchWithMetadata,
+    l1_batch_commit_data_generator::RollupModeL1BatchCommitDataGenerator, web3::contract::Options,
+    L2ChainId, ProtocolVersion, ProtocolVersionId, H256,
 };
 
 use super::*;
@@ -44,11 +45,11 @@ fn create_pre_boojum_l1_batch_with_metadata(number: u32) -> L1BatchWithMetadata 
 
 fn build_commit_tx_input_data(
     batches: &[L1BatchWithMetadata],
-    l1_batch_committer: Arc<dyn L1BatchCommitter>,
+    l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
 ) -> Vec<u8> {
-    let commit_tokens = batches
-        .iter()
-        .map(|batch| l1_batch_committer.l1_commit_data(batch));
+    let commit_tokens = batches.iter().map(|batch| {
+        CommitBatchInfo::new(batch, l1_batch_commit_data_generator.clone()).into_token()
+    });
     let commit_tokens = ethabi::Token::Array(commit_tokens.collect());
 
     let mut encoded = vec![];
@@ -57,7 +58,7 @@ fn build_commit_tx_input_data(
     // Mock an additional argument used in real `commitBlocks` / `commitBatches`. In real transactions,
     // it's taken from the L1 batch previous to `batches[0]`, but since this argument is not checked,
     // it's OK to use `batches[0]`.
-    let prev_header_tokens = batches[0].l1_header_data();
+    let prev_header_tokens = StoredBatchInfo(&batches[0]).into_token();
     encoded.extend_from_slice(&ethabi::encode(&[prev_header_tokens, commit_tokens]));
     encoded
 }
@@ -88,9 +89,10 @@ fn build_commit_tx_input_data_is_correct() {
         create_l1_batch_with_metadata(1),
         create_l1_batch_with_metadata(2),
     ];
-    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitter {});
+    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
 
-    let commit_tx_input_data = build_commit_tx_input_data(&batches, l1_batch_committer.clone());
+    let commit_tx_input_data =
+        build_commit_tx_input_data(&batches, l1_batch_commit_data_generator.clone());
 
     for batch in &batches {
         let commit_data = ConsistencyChecker::extract_commit_data(
@@ -99,7 +101,11 @@ fn build_commit_tx_input_data_is_correct() {
             batch.header.number,
         )
         .unwrap();
-        assert_eq!(commit_data, l1_batch_committer.l1_commit_data(batch));
+        assert_eq!(
+            commit_data,
+            CommitBatchInfo::new(batch, l1_batch_commit_data_generator.clone().clone())
+                .into_token()
+        );
     }
 }
 
@@ -201,7 +207,7 @@ impl SaveAction<'_> {
             Self::InsertBatch(l1_batch) => {
                 storage
                     .blocks_dal()
-                    .insert_l1_batch(&l1_batch.header, &[], BlockGasCount::default(), &[], &[], 0)
+                    .insert_mock_l1_batch(&l1_batch.header)
                     .await
                     .unwrap();
             }
@@ -304,9 +310,10 @@ async fn normal_checker_function(
     let mut commit_tx_hash_by_l1_batch = HashMap::with_capacity(l1_batches.len());
     let client = MockEthereum::default();
 
-    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitter {});
+    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
     for (i, l1_batches) in l1_batches.chunks(batches_per_transaction).enumerate() {
-        let input_data = build_commit_tx_input_data(l1_batches, l1_batch_committer.clone());
+        let input_data =
+            build_commit_tx_input_data(l1_batches, l1_batch_commit_data_generator.clone());
         let signed_tx = client.sign_prepared_tx(
             input_data.clone(),
             Options {
@@ -332,7 +339,8 @@ async fn normal_checker_function(
     };
 
     let (stop_sender, stop_receiver) = watch::channel(false);
-    let checker_task = tokio::spawn(checker.run(stop_receiver, l1_batch_committer.clone()));
+    let checker_task =
+        tokio::spawn(checker.run(stop_receiver, l1_batch_commit_data_generator.clone()));
 
     // Add new batches to the storage.
     for save_action in save_actions_mapper(&l1_batches) {
@@ -383,10 +391,12 @@ async fn checker_processes_pre_boojum_batches(
     let mut commit_tx_hash_by_l1_batch = HashMap::with_capacity(l1_batches.len());
     let client = MockEthereum::default();
 
-    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitter {});
+    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
     for (i, l1_batch) in l1_batches.iter().enumerate() {
-        let input_data =
-            build_commit_tx_input_data(slice::from_ref(l1_batch), l1_batch_committer.clone());
+        let input_data = build_commit_tx_input_data(
+            slice::from_ref(l1_batch),
+            l1_batch_commit_data_generator.clone(),
+        );
         let signed_tx = client.sign_prepared_tx(
             input_data.clone(),
             Options {
@@ -408,7 +418,7 @@ async fn checker_processes_pre_boojum_batches(
     };
 
     let (stop_sender, stop_receiver) = watch::channel(false);
-    let checker_task = tokio::spawn(checker.run(stop_receiver, l1_batch_committer));
+    let checker_task = tokio::spawn(checker.run(stop_receiver, l1_batch_commit_data_generator));
 
     // Add new batches to the storage.
     for save_action in save_actions_mapper(&l1_batches) {
@@ -443,10 +453,12 @@ async fn checker_functions_after_snapshot_recovery(delay_batch_insertion: bool) 
 
     let l1_batch = create_l1_batch_with_metadata(99);
 
-    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitter {});
+    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
 
-    let commit_tx_input_data =
-        build_commit_tx_input_data(slice::from_ref(&l1_batch), l1_batch_committer.clone());
+    let commit_tx_input_data = build_commit_tx_input_data(
+        slice::from_ref(&l1_batch),
+        l1_batch_commit_data_generator.clone(),
+    );
     let client = MockEthereum::default();
     let signed_tx = client.sign_prepared_tx(
         commit_tx_input_data.clone(),
@@ -481,7 +493,7 @@ async fn checker_functions_after_snapshot_recovery(delay_batch_insertion: bool) 
         ..create_mock_checker(client, pool.clone())
     };
     let (stop_sender, stop_receiver) = watch::channel(false);
-    let checker_task = tokio::spawn(checker.run(stop_receiver, l1_batch_committer));
+    let checker_task = tokio::spawn(checker.run(stop_receiver, l1_batch_commit_data_generator));
 
     if delay_batch_insertion {
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -524,15 +536,17 @@ impl IncorrectDataKind {
         self,
         client: &MockEthereum,
         l1_batch: &L1BatchWithMetadata,
-        l1_batch_committer: Arc<dyn L1BatchCommitter>,
+        l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
     ) -> H256 {
         let (commit_tx_input_data, successful_status) = match self {
             Self::MissingStatus => {
                 return H256::zero(); // Do not execute the transaction
             }
             Self::MismatchedStatus => {
-                let commit_tx_input_data =
-                    build_commit_tx_input_data(slice::from_ref(l1_batch), l1_batch_committer);
+                let commit_tx_input_data = build_commit_tx_input_data(
+                    slice::from_ref(l1_batch),
+                    l1_batch_commit_data_generator,
+                );
                 (commit_tx_input_data, false)
             }
             Self::BogusCommitDataFormat => {
@@ -544,21 +558,27 @@ impl IncorrectDataKind {
             Self::MismatchedCommitDataTimestamp => {
                 let mut l1_batch = create_l1_batch_with_metadata(1);
                 l1_batch.header.timestamp += 1;
-                let bogus_tx_input_data =
-                    build_commit_tx_input_data(slice::from_ref(&l1_batch), l1_batch_committer);
+                let bogus_tx_input_data = build_commit_tx_input_data(
+                    slice::from_ref(&l1_batch),
+                    l1_batch_commit_data_generator,
+                );
                 (bogus_tx_input_data, true)
             }
             Self::CommitDataForAnotherBatch => {
                 let l1_batch = create_l1_batch_with_metadata(100);
-                let bogus_tx_input_data =
-                    build_commit_tx_input_data(slice::from_ref(&l1_batch), l1_batch_committer);
+                let bogus_tx_input_data = build_commit_tx_input_data(
+                    slice::from_ref(&l1_batch),
+                    l1_batch_commit_data_generator,
+                );
                 (bogus_tx_input_data, true)
             }
             Self::CommitDataForPreBoojum => {
                 let mut l1_batch = create_l1_batch_with_metadata(1);
                 l1_batch.header.protocol_version = Some(ProtocolVersionId::Version0);
-                let bogus_tx_input_data =
-                    build_commit_tx_input_data(slice::from_ref(&l1_batch), l1_batch_committer);
+                let bogus_tx_input_data = build_commit_tx_input_data(
+                    slice::from_ref(&l1_batch),
+                    l1_batch_commit_data_generator,
+                );
                 (bogus_tx_input_data, true)
             }
         };
@@ -595,10 +615,10 @@ async fn checker_detects_incorrect_tx_data(kind: IncorrectDataKind, snapshot_rec
     }
 
     let l1_batch = create_l1_batch_with_metadata(if snapshot_recovery { 99 } else { 1 });
-    let l1_batch_committer = Arc::new(RollupModeL1BatchCommitter {});
+    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
     let client = MockEthereum::default();
     let commit_tx_hash = kind
-        .apply(&client, &l1_batch, l1_batch_committer.clone())
+        .apply(&client, &l1_batch, l1_batch_commit_data_generator.clone())
         .await;
     let commit_tx_hash_by_l1_batch = HashMap::from([(l1_batch.header.number, commit_tx_hash)]);
 
@@ -619,7 +639,7 @@ async fn checker_detects_incorrect_tx_data(kind: IncorrectDataKind, snapshot_rec
     // The checker must stop with an error.
     tokio::time::timeout(
         Duration::from_secs(30),
-        checker.run(stop_receiver, l1_batch_committer),
+        checker.run(stop_receiver, l1_batch_commit_data_generator),
     )
     .await
     .expect("Timed out waiting for checker to stop")
