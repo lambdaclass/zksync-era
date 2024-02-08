@@ -203,11 +203,12 @@ function updateEthSenderConfig(validiumMode: boolean) {
 }
 
 function updateConfig(validiumMode: boolean) {
+    updateChainConfig(validiumMode);
+    updateEthSenderConfig(validiumMode);
+    env.load();
     let envFileContent = fs.readFileSync(process.env.ENV_FILE!).toString();
     envFileContent += `VALIDIUM_MODE=${validiumMode}\n`;
     fs.writeFileSync(process.env.ENV_FILE!, envFileContent);
-    updateChainConfig(validiumMode);
-    updateEthSenderConfig(validiumMode);
 }
 
 async function checkEnv() {
