@@ -8,7 +8,7 @@ use prometheus_exporter::PrometheusExporterConfig;
 use tokio::{sync::watch, task, time::sleep};
 use zksync_basic_types::{Address, L2ChainId};
 use zksync_concurrency::{ctx, scope};
-use zksync_config::configs::database::MerkleTreeMode;
+use zksync_config::configs::{chain::L1BatchCommitDataGeneratorMode, database::MerkleTreeMode};
 use zksync_core::{
     api_server::{
         execution_sandbox::VmConcurrencyLimiter,
@@ -36,6 +36,7 @@ use zksync_dal::{healthcheck::ConnectionPoolHealthCheck, ConnectionPool};
 use zksync_health_check::CheckHealth;
 use zksync_state::PostgresStorageCaches;
 use zksync_storage::RocksDB;
+use zksync_types::l1_batch_commit_data_generator::RollupModeL1BatchCommitDataGenerator;
 use zksync_utils::wait_for_tasks::wait_for_tasks;
 
 mod config;
@@ -267,7 +268,11 @@ async fn init_tasks(
         .context("failed to build a tree_pool")?;
     let tree_handle = task::spawn(metadata_calculator.run(tree_pool, tree_stop_receiver));
 
-    let consistency_checker_handle = tokio::spawn(consistency_checker.run(stop_receiver.clone()));
+    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
+
+    let consistency_checker_handle = tokio::spawn(
+        consistency_checker.run(stop_receiver.clone(), l1_batch_commit_data_generator),
+    );
 
     let updater_handle = task::spawn(batch_status_updater.run(stop_receiver.clone()));
     let fee_address_migration_handle =

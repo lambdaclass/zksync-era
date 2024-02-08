@@ -51,6 +51,24 @@ impl proto::FeeModelVersion {
     }
 }
 
+impl proto::L1BatchCommitDataGeneratorMode {
+    fn new(n: &configs::chain::L1BatchCommitDataGeneratorMode) -> Self {
+        use configs::chain::L1BatchCommitDataGeneratorMode as From;
+        match n {
+            From::Rollup => Self::Rollup,
+            From::Validium => Self::Validium,
+        }
+    }
+
+    fn parse(&self) -> configs::chain::L1BatchCommitDataGeneratorMode {
+        use configs::chain::L1BatchCommitDataGeneratorMode as To;
+        match self {
+            Self::Rollup => To::Rollup,
+            Self::Validium => To::Validium,
+        }
+    }
+}
+
 impl ProtoRepr for proto::EthNetwork {
     type Type = configs::chain::NetworkConfig;
     fn read(&self) -> anyhow::Result<Self::Type> {
@@ -140,6 +158,10 @@ impl ProtoRepr for proto::StateKeeper {
                 .map(|x| x.try_into())
                 .transpose()
                 .context("enum_index_migration_chunk_size")?,
+            l1_batch_commit_data_generator_mode: required(&self.fee_model_version)
+                .and_then(|x| Ok(proto::L1BatchCommitDataGeneratorMode::try_from(*x)?))
+                .context("l1_batch_commit_data_generator_mode")?
+                .parse(),
         })
     }
 
@@ -176,6 +198,12 @@ impl ProtoRepr for proto::StateKeeper {
                 .enum_index_migration_chunk_size
                 .as_ref()
                 .map(|x| (*x).try_into().unwrap()),
+            l1_batch_commit_data_generator_mode: Some(
+                proto::L1BatchCommitDataGeneratorMode::new(
+                    &this.l1_batch_commit_data_generator_mode,
+                )
+                .into(),
+            ),
         }
     }
 }
