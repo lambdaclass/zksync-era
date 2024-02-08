@@ -164,6 +164,11 @@ function updateConfigFile(path: string, modeConstantValues: Record<string, numbe
                 lines.splice(lineIndex, 1, `${key}=${value}`);
             } else {
                 lines.splice(lineIndex, 1);
+                for (const [k, index] of Object.entries(lineIndices)) {
+                    if (index > lineIndex) {
+                        lineIndices[k] = index - 1;
+                    }
+                }
             }
         } else {
             if (value !== null) {
