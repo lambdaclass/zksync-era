@@ -4,6 +4,7 @@ import * as utils from './utils';
 
 import { clean } from './clean';
 import * as compiler from './compiler';
+import * as config from './config';
 import * as contract from './contract';
 import * as db from './database';
 import * as docker from './docker';
@@ -221,11 +222,12 @@ function updateEthSenderConfig(validiumMode: boolean) {
 }
 
 function updateConfig(validiumMode: boolean) {
+    updateChainConfig(validiumMode);
+    updateEthSenderConfig(validiumMode);
+    config.compileConfig();
     let envFileContent = fs.readFileSync(process.env.ENV_FILE!).toString();
     envFileContent += `VALIDIUM_MODE=${validiumMode}\n`;
     fs.writeFileSync(process.env.ENV_FILE!, envFileContent);
-    updateChainConfig(validiumMode);
-    updateEthSenderConfig(validiumMode);
 }
 
 async function checkEnv() {
