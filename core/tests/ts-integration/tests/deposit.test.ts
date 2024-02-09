@@ -50,36 +50,35 @@ describe('Deposit', () => {
         // Initil balance checking.
         const initialBalances = await get_wallet_balances(alice, tokenDetails);
 
-        const l1ERC20FinalBalance = await shouldChangeTokenBalances(
-            tokenDetails.l1Address,
-            [{ wallet: alice, change: -amount }],
-            { l1: true }
-        );
-
-        await expect(
-            alice.deposit(
-                {
-                    token: tokenDetails.l1Address,
-                    amount,
-                    approveERC20: true,
-                    approveOverrides: {
-                        gasPrice
-                    },
-                    overrides: {
-                        gasPrice
-                    }
+        const deposit = await alice.deposit(
+            {
+                token: tokenDetails.l1Address,
+                amount,
+                approveERC20: true,
+                approveOverrides: {
+                    gasPrice
                 },
-                tokenDetails.l1Address
-            )
-        ).toBeAccepted([l1ERC20FinalBalance])
+                overrides: {
+                    gasPrice
+                }
+            },
+            tokenDetails.l1Address
+        );
+        const depositHash = deposit.hash;
+        await deposit.waitFinalize();
+
+        // Get receipt of deposit transaction, and check the gas cost (fee)
+        const receipt = await alice._providerL1().getTransactionReceipt(depositHash);
+        const fee = receipt.effectiveGasPrice.mul(receipt.gasUsed);
+        console.log(fee)
 
         // Final balance checking.
         const finalBalances = await get_wallet_balances(alice, tokenDetails);
 
         // Check that the balances are correct.
-        expect(finalBalances.nativeTokenL2).bnToBeGt(initialBalances.nativeTokenL2.add(amount));
-        expect(finalBalances.ethL1).bnToBeLt(initialBalances.ethL1);
-        expect(finalBalances.nativeTokenL1).bnToBeLt(initialBalances.nativeTokenL1.sub(amount));
+        expect(finalBalances.nativeTokenL2).toEqual(initialBalances.nativeTokenL2.add(amount));
+        expect(finalBalances.ethL1.add(fee)).toEqual(initialBalances.ethL1);
+        expect(finalBalances.nativeTokenL1).toEqual(initialBalances.nativeTokenL1.sub(amount));
     });
 
     test('Not enough balance should revert', async () => {
