@@ -19,6 +19,7 @@ use zksync_types::{
     helpers::unix_timestamp_ms,
     l1_batch_commit_data_generator::{
         L1BatchCommitDataGenerator, RollupModeL1BatchCommitDataGenerator,
+        ValidiumModeL1BatchCommitDataGenerator,
     },
     web3::contract::Error,
     Address, L1BatchNumber, L1BlockNumber, ProtocolVersionId, H256,
@@ -368,7 +369,6 @@ async fn resend_each_block() -> anyhow::Result<()> {
     _resend_each_block(&mut validium_tester).await
 }
 
-
 async fn _dont_resend_already_mined(tester: &mut EthSenderTester) -> anyhow::Result<()> {
     let tx = tester
         .aggregator
@@ -550,21 +550,7 @@ async fn three_scenarios() -> anyhow::Result<()> {
     _three_scenarios(&mut validium_tester).await
 }
 
-
-
-#[should_panic(expected = "We can't operate after tx fail")]
-#[tokio::test]
-async fn failed_eth_tx() {
-    let connection_pool = ConnectionPool::test_pool().await;
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
-    let mut tester = EthSenderTester::new(
-        connection_pool.clone(),
-        vec![100; 100],
-        false,
-        l1_batch_commit_data_generator.clone(),
-    )
-    .await;
-
+async fn _failed_eth_tx(tester: &mut EthSenderTester) {
     let tx = tester
         .aggregator
         .save_eth_tx(
@@ -598,6 +584,28 @@ async fn failed_eth_tx() {
         )
         .await
         .unwrap();
+}
+
+#[should_panic(expected = "We can't operate after tx fail")]
+#[tokio::test]
+async fn failed_eth_tx() {
+    let mut rollup_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![100; 100],
+        false,
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+    let mut validium_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![100; 100],
+        false,
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+
+    _failed_eth_tx(&mut rollup_tester).await;
+    _failed_eth_tx(&mut validium_tester).await
 }
 
 fn default_l1_batch_metadata() -> L1BatchMetadata {
@@ -1005,10 +1013,6 @@ async fn get_multicall_data() {
     let multicall_data = tester.aggregator.get_multicall_data().await;
     assert!(multicall_data.is_ok());
 }
-
-
-
-
 
 async fn insert_genesis_protocol_version(tester: &EthSenderTester) {
     tester
