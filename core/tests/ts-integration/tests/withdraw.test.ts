@@ -31,6 +31,7 @@ describe('ERC20 contract checks', () => {
             return;
         }
         const amount = 500;
+        const l1ERC20InitialBalance = await alice.getBalanceL1(tokenDetails.l1Address);
         const initialBalanceL2 = await alice.getBalance();
         // First, a withdraw transaction is done on the L2.
         const withdraw = await alice.withdraw({ token: ETH_ADDRESS, amount });
@@ -53,6 +54,8 @@ describe('ERC20 contract checks', () => {
             { l1: true }
         );
         await expect(alice.finalizeWithdrawal(withdrawalHash)).toBeAccepted([l1ERC20FinalBalance]);
+
+        expect(await alice.getBalanceL1(tokenDetails.l1Address)).toEqual(l1ERC20InitialBalance.add(amount));
     });
 
     test(`Can't perform an invalid withdrawal`, async () => {
