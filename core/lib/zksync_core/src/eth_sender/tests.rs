@@ -440,7 +440,7 @@ async fn _dont_resend_already_mined(tester: &mut EthSenderTester) -> anyhow::Res
 // Tests that if transaction was mined, but not enough blocks has been mined since,
 // we won't mark it as confirmed but also won't resend it.
 #[tokio::test]
-async fn dont_resend_already_mined(tester: &mut EthSenderTester) -> anyhow::Result<()> {
+async fn dont_resend_already_mined() -> anyhow::Result<()> {
     let mut rollup_tester = EthSenderTester::new(
         ConnectionPool::test_pool().await,
         vec![100; 100],
@@ -461,17 +461,7 @@ async fn dont_resend_already_mined(tester: &mut EthSenderTester) -> anyhow::Resu
 }
 
 
-#[tokio::test]
-async fn three_scenarios() -> anyhow::Result<()> {
-    let connection_pool = ConnectionPool::test_pool().await;
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
-    let mut tester = EthSenderTester::new(
-        connection_pool.clone(),
-        vec![100; 100],
-        false,
-        l1_batch_commit_data_generator.clone(),
-    )
-    .await;
+async fn _three_scenarios(tester: &mut EthSenderTester) -> anyhow::Result<()> {
     let mut hashes = vec![];
 
     for _ in 0..3 {
@@ -538,6 +528,29 @@ async fn three_scenarios() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn three_scenarios() -> anyhow::Result<()> {
+    let mut rollup_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![100; 100],
+        false,
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+    let mut validium_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![100; 100],
+        false,
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+
+    _three_scenarios(&mut rollup_tester).await?;
+    _three_scenarios(&mut validium_tester).await
+}
+
+
 
 #[should_panic(expected = "We can't operate after tx fail")]
 #[tokio::test]
