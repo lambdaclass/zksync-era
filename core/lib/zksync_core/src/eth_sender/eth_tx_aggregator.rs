@@ -13,6 +13,7 @@ use zksync_l1_contract_interface::{
 use zksync_types::{
     eth_sender::EthTx,
     ethabi::{Contract, Token},
+    l1_batch_commit_data_generator::L1BatchCommitDataGenerator,
     protocol_version::{L1VerifierConfig, VerifierParams},
     web3::contract::Error as Web3ContractError,
     Address, ProtocolVersionId, H256, U256,
@@ -489,6 +490,10 @@ impl EthTxAggregator {
             .unwrap();
         transaction.commit().await.unwrap();
         Ok(eth_tx)
+    }
+
+    pub fn get_l1_batch_commit_data_generator(&self) -> Arc<dyn L1BatchCommitDataGenerator> {
+        self.aggregator.get_l1_batch_commit_data_generator()
     }
 
     async fn get_next_nonce(

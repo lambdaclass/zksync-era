@@ -640,24 +640,17 @@ fn l1_batch_with_metadata(header: L1BatchHeader) -> L1BatchWithMetadata {
     }
 }
 
-#[tokio::test]
-async fn correct_order_for_confirmations() -> anyhow::Result<()> {
-    let connection_pool = ConnectionPool::test_pool().await;
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
-    let mut tester = EthSenderTester::new(
-        connection_pool,
-        vec![100; 100],
-        true,
-        l1_batch_commit_data_generator.clone(),
-    )
-    .await;
+async fn _correct_order_for_confirmations(tester: &mut EthSenderTester) -> anyhow::Result<()> {
+    let l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator> =
+        tester.aggregator.get_l1_batch_commit_data_generator();
+
     insert_genesis_protocol_version(&tester).await;
     let genesis_l1_batch = insert_l1_batch(&tester, L1BatchNumber(0)).await;
     let first_l1_batch = insert_l1_batch(&tester, L1BatchNumber(1)).await;
     let second_l1_batch = insert_l1_batch(&tester, L1BatchNumber(2)).await;
 
     commit_l1_batch(
-        &mut tester,
+        tester,
         genesis_l1_batch.clone(),
         first_l1_batch.clone(),
         true,
@@ -665,15 +658,15 @@ async fn correct_order_for_confirmations() -> anyhow::Result<()> {
     )
     .await;
     prove_l1_batch(
-        &mut tester,
+        tester,
         genesis_l1_batch.clone(),
         first_l1_batch.clone(),
         true,
     )
     .await;
-    execute_l1_batches(&mut tester, vec![first_l1_batch.clone()], true).await;
+    execute_l1_batches(tester, vec![first_l1_batch.clone()], true).await;
     commit_l1_batch(
-        &mut tester,
+        tester,
         first_l1_batch.clone(),
         second_l1_batch.clone(),
         true,
@@ -681,7 +674,7 @@ async fn correct_order_for_confirmations() -> anyhow::Result<()> {
     )
     .await;
     prove_l1_batch(
-        &mut tester,
+        tester,
         first_l1_batch.clone(),
         second_l1_batch.clone(),
         true,
@@ -698,7 +691,7 @@ async fn correct_order_for_confirmations() -> anyhow::Result<()> {
     assert_eq!(l1_batches.len(), 1);
     assert_eq!(l1_batches[0].header.number.0, 2);
 
-    execute_l1_batches(&mut tester, vec![second_l1_batch.clone()], true).await;
+    execute_l1_batches(tester, vec![second_l1_batch.clone()], true).await;
     let l1_batches = tester
         .storage()
         .await
@@ -711,23 +704,36 @@ async fn correct_order_for_confirmations() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn skipped_l1_batch_at_the_start() -> anyhow::Result<()> {
-    let connection_pool = ConnectionPool::test_pool().await;
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
-    let mut tester = EthSenderTester::new(
-        connection_pool,
+async fn correct_order_for_confirmations() -> anyhow::Result<()> {
+    let mut rollup_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
         vec![100; 100],
-        true,
-        l1_batch_commit_data_generator.clone(),
+        false,
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
     )
     .await;
+    let mut validium_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![100; 100],
+        false,
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+
+    _correct_order_for_confirmations(&mut rollup_tester).await?;
+    _correct_order_for_confirmations(&mut validium_tester).await
+}
+
+async fn _skipped_l1_batch_at_the_start(tester: &mut EthSenderTester) -> anyhow::Result<()> {
+    let l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator> =
+        tester.aggregator.get_l1_batch_commit_data_generator();
     insert_genesis_protocol_version(&tester).await;
     let genesis_l1_batch = insert_l1_batch(&tester, L1BatchNumber(0)).await;
     let first_l1_batch = insert_l1_batch(&tester, L1BatchNumber(1)).await;
     let second_l1_batch = insert_l1_batch(&tester, L1BatchNumber(2)).await;
 
     commit_l1_batch(
-        &mut tester,
+        tester,
         genesis_l1_batch.clone(),
         first_l1_batch.clone(),
         true,
@@ -735,15 +741,15 @@ async fn skipped_l1_batch_at_the_start() -> anyhow::Result<()> {
     )
     .await;
     prove_l1_batch(
-        &mut tester,
+        tester,
         genesis_l1_batch.clone(),
         first_l1_batch.clone(),
         true,
     )
     .await;
-    execute_l1_batches(&mut tester, vec![first_l1_batch.clone()], true).await;
+    execute_l1_batches(tester, vec![first_l1_batch.clone()], true).await;
     commit_l1_batch(
-        &mut tester,
+        tester,
         first_l1_batch.clone(),
         second_l1_batch.clone(),
         true,
@@ -751,19 +757,19 @@ async fn skipped_l1_batch_at_the_start() -> anyhow::Result<()> {
     )
     .await;
     prove_l1_batch(
-        &mut tester,
+        tester,
         first_l1_batch.clone(),
         second_l1_batch.clone(),
         true,
     )
     .await;
-    execute_l1_batches(&mut tester, vec![second_l1_batch.clone()], true).await;
+    execute_l1_batches(tester, vec![second_l1_batch.clone()], true).await;
 
     let third_l1_batch = insert_l1_batch(&tester, L1BatchNumber(3)).await;
     let fourth_l1_batch = insert_l1_batch(&tester, L1BatchNumber(4)).await;
     // DO NOT CONFIRM THIRD BLOCK
     let third_l1_batch_commit_tx_hash = commit_l1_batch(
-        &mut tester,
+        tester,
         second_l1_batch.clone(),
         third_l1_batch.clone(),
         false,
@@ -772,14 +778,14 @@ async fn skipped_l1_batch_at_the_start() -> anyhow::Result<()> {
     .await;
 
     prove_l1_batch(
-        &mut tester,
+        tester,
         second_l1_batch.clone(),
         third_l1_batch.clone(),
         true,
     )
     .await;
     commit_l1_batch(
-        &mut tester,
+        tester,
         third_l1_batch.clone(),
         fourth_l1_batch.clone(),
         true,
@@ -787,7 +793,7 @@ async fn skipped_l1_batch_at_the_start() -> anyhow::Result<()> {
     )
     .await;
     prove_l1_batch(
-        &mut tester,
+        tester,
         third_l1_batch.clone(),
         fourth_l1_batch.clone(),
         true,
@@ -802,7 +808,7 @@ async fn skipped_l1_batch_at_the_start() -> anyhow::Result<()> {
         .unwrap();
     assert_eq!(l1_batches.len(), 2);
 
-    confirm_tx(&mut tester, third_l1_batch_commit_tx_hash).await;
+    confirm_tx(tester, third_l1_batch_commit_tx_hash).await;
     let l1_batches = tester
         .storage()
         .await
@@ -812,6 +818,27 @@ async fn skipped_l1_batch_at_the_start() -> anyhow::Result<()> {
         .unwrap();
     assert_eq!(l1_batches.len(), 2);
     Ok(())
+}
+
+#[tokio::test]
+async fn skipped_l1_batch_at_the_start() -> anyhow::Result<()> {
+    let mut rollup_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![100; 100],
+        false,
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+    let mut validium_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![100; 100],
+        false,
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+
+    _skipped_l1_batch_at_the_start(&mut rollup_tester).await?;
+    _skipped_l1_batch_at_the_start(&mut validium_tester).await
 }
 
 #[tokio::test]
