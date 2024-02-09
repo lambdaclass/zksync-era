@@ -9,8 +9,12 @@ use zksync_dal::StorageProcessor;
 use zksync_eth_client::clients::MockEthereum;
 use zksync_l1_contract_interface::i_executor::structures::StoredBatchInfo;
 use zksync_types::{
-    aggregated_operations::AggregatedActionType, commitment::L1BatchWithMetadata,
-    l1_batch_commit_data_generator::RollupModeL1BatchCommitDataGenerator, web3::contract::Options,
+    aggregated_operations::AggregatedActionType,
+    commitment::L1BatchWithMetadata,
+    l1_batch_commit_data_generator::{
+        RollupModeL1BatchCommitDataGenerator, ValidiumModeL1BatchCommitDataGenerator,
+    },
+    web3::contract::Options,
     L2ChainId, ProtocolVersion, ProtocolVersionId, H256,
 };
 
@@ -81,15 +85,15 @@ impl UpdateCheckedBatch for mpsc::UnboundedSender<L1BatchNumber> {
     }
 }
 
-#[test]
-fn build_commit_tx_input_data_is_correct() {
+fn _build_commit_tx_input_data_is_correct(
+    l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
+) {
     let contract = zksync_contracts::zksync_contract();
     let commit_function = contract.function("commitBatches").unwrap();
     let batches = vec![
         create_l1_batch_with_metadata(1),
         create_l1_batch_with_metadata(2),
     ];
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
 
     let commit_tx_input_data =
         build_commit_tx_input_data(&batches, l1_batch_commit_data_generator.clone());
@@ -107,6 +111,12 @@ fn build_commit_tx_input_data_is_correct() {
                 .into_token()
         );
     }
+}
+
+#[test]
+fn build_commit_tx_input_data_is_correct() {
+    _build_commit_tx_input_data_is_correct(Arc::new(RollupModeL1BatchCommitDataGenerator {}));
+    _build_commit_tx_input_data_is_correct(Arc::new(ValidiumModeL1BatchCommitDataGenerator {}));
 }
 
 #[test]
