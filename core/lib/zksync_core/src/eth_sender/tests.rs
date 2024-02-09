@@ -1046,19 +1046,31 @@ async fn test_parse_multicall_data() {
     _test_parse_multicall_data(&mut rollup_tester).await;
     _test_parse_multicall_data(&mut validium_tester).await
 }
-#[tokio::test]
-async fn get_multicall_data() {
-    let connection_pool = ConnectionPool::test_pool().await;
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
-    let mut tester = EthSenderTester::new(
-        connection_pool,
-        vec![100; 100],
-        false,
-        l1_batch_commit_data_generator.clone(),
-    )
-    .await;
+
+async fn _get_multicall_data(tester: &mut EthSenderTester) {
     let multicall_data = tester.aggregator.get_multicall_data().await;
     assert!(multicall_data.is_ok());
+}
+
+#[tokio::test]
+async fn get_multicall_data() {
+    let mut rollup_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![100; 100],
+        false,
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+    let mut validium_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![100; 100],
+        false,
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+
+    _get_multicall_data(&mut rollup_tester).await;
+    _get_multicall_data(&mut validium_tester).await
 }
 
 async fn insert_genesis_protocol_version(tester: &EthSenderTester) {
