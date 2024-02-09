@@ -241,19 +241,7 @@ async fn confirm_many() -> anyhow::Result<()> {
     _confirm_many(&mut validium_tester).await
 }
 
-// Tests that we resend first un-mined transaction every block with an increased gas price.
-#[tokio::test]
-async fn resend_each_block() -> anyhow::Result<()> {
-    let connection_pool = ConnectionPool::test_pool().await;
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
-    let mut tester = EthSenderTester::new(
-        connection_pool,
-        vec![7, 6, 5, 5, 5, 2, 1],
-        false,
-        l1_batch_commit_data_generator.clone(),
-    )
-    .await;
-
+async fn _resend_each_block(tester: &mut EthSenderTester) -> anyhow::Result<()> {
     // after this, median should be 6
     tester.gateway.advance_block_number(3);
     tester.gas_adjuster.keep_updated().await?;
@@ -357,6 +345,29 @@ async fn resend_each_block() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+// Tests that we resend first un-mined transaction every block with an increased gas price.
+#[tokio::test]
+async fn resend_each_block() -> anyhow::Result<()> {
+    let mut rollup_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![7, 6, 5, 5, 5, 2, 1],
+        false,
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+    let mut validium_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![7, 6, 5, 5, 5, 2, 1],
+        false,
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+
+    _resend_each_block(&mut rollup_tester).await?;
+    _resend_each_block(&mut validium_tester).await
+}
+
 
 // Tests that if transaction was mined, but not enough blocks has been mined since,
 // we won't mark it as confirmed but also won't resend it.
