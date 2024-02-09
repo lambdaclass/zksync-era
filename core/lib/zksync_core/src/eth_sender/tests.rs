@@ -148,19 +148,7 @@ impl EthSenderTester {
     }
 }
 
-// Tests that we send multiple transactions and confirm them all in one iteration.
-#[tokio::test]
-async fn confirm_many() -> anyhow::Result<()> {
-    let connection_pool = ConnectionPool::test_pool().await;
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
-    let mut tester = EthSenderTester::new(
-        connection_pool,
-        vec![10; 100],
-        false,
-        l1_batch_commit_data_generator.clone(),
-    )
-    .await;
-
+async fn _confirm_many(tester: &mut EthSenderTester) -> anyhow::Result<()> {
     let mut hashes = vec![];
 
     for _ in 0..5 {
@@ -229,6 +217,28 @@ async fn confirm_many() -> anyhow::Result<()> {
     assert!(to_resend.is_none());
 
     Ok(())
+}
+
+// Tests that we send multiple transactions and confirm them all in one iteration.
+#[tokio::test]
+async fn confirm_many() -> anyhow::Result<()> {
+    let mut rollup_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![10; 100],
+        false,
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+    let mut validium_tester = EthSenderTester::new(
+        ConnectionPool::test_pool().await,
+        vec![10; 100],
+        false,
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+
+    _confirm_many(&mut rollup_tester).await?;
+    _confirm_many(&mut validium_tester).await
 }
 
 // Tests that we resend first un-mined transaction every block with an increased gas price.
