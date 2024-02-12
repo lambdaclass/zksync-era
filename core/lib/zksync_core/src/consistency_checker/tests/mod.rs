@@ -119,7 +119,8 @@ fn build_commit_tx_input_data_is_correct() {
     _build_commit_tx_input_data_is_correct(Arc::new(ValidiumModeL1BatchCommitDataGenerator {}));
 }
 
-fn _extracting_commit_data_for_boojum_batch() {
+#[test]
+fn extracting_commit_data_for_boojum_batch() {
     let contract = zksync_contracts::zksync_contract();
     let commit_function = contract.function("commitBatches").unwrap();
     // Calldata taken from the commit transaction for `https://sepolia.explorer.zksync.io/batch/4470`;
@@ -146,11 +147,6 @@ fn _extracting_commit_data_for_boojum_batch() {
         )
         .unwrap_err();
     }
-}
-
-#[test]
-fn extracting_commit_data_for_boojum_batch() {
-    _extracting_commit_data_for_boojum_batch();
 }
 
 #[test]
