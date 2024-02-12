@@ -395,10 +395,9 @@ async fn normal_checker_function(
     .await;
 }
 
-#[test_casing(4, SAVE_ACTION_MAPPERS)]
-#[tokio::test]
-async fn checker_processes_pre_boojum_batches(
+async fn _checker_processes_pre_boojum_batches(
     (mapper_name, save_actions_mapper): (&'static str, SaveActionMapper),
+    l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
 ) {
     println!("Using save_actions_mapper={mapper_name}");
 
@@ -423,7 +422,6 @@ async fn checker_processes_pre_boojum_batches(
     let mut commit_tx_hash_by_l1_batch = HashMap::with_capacity(l1_batches.len());
     let client = MockEthereum::default();
 
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
     for (i, l1_batch) in l1_batches.iter().enumerate() {
         let input_data = build_commit_tx_input_data(
             slice::from_ref(l1_batch),
@@ -471,6 +469,23 @@ async fn checker_processes_pre_boojum_batches(
     // Send the stop signal to the checker and wait for it to stop.
     stop_sender.send_replace(true);
     checker_task.await.unwrap().unwrap();
+}
+
+#[test_casing(4, SAVE_ACTION_MAPPERS)]
+#[tokio::test]
+async fn checker_processes_pre_boojum_batches(
+    (mapper_name, save_actions_mapper): (&'static str, SaveActionMapper),
+) {
+    _checker_processes_pre_boojum_batches(
+        (mapper_name, save_actions_mapper),
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+    _checker_processes_pre_boojum_batches(
+        (mapper_name, save_actions_mapper),
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
 }
 
 #[test_casing(2, [false, true])]
