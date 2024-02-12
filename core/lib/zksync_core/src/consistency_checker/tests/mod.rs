@@ -488,9 +488,10 @@ async fn checker_processes_pre_boojum_batches(
     .await;
 }
 
-#[test_casing(2, [false, true])]
-#[tokio::test]
-async fn checker_functions_after_snapshot_recovery(delay_batch_insertion: bool) {
+async fn _checker_functions_after_snapshot_recovery(
+    delay_batch_insertion: bool,
+    l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
+) {
     let pool = ConnectionPool::test_pool().await;
     let mut storage = pool.access_storage().await.unwrap();
     storage
@@ -499,8 +500,6 @@ async fn checker_functions_after_snapshot_recovery(delay_batch_insertion: bool) 
         .await;
 
     let l1_batch = create_l1_batch_with_metadata(99);
-
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
 
     let commit_tx_input_data = build_commit_tx_input_data(
         slice::from_ref(&l1_batch),
@@ -557,6 +556,21 @@ async fn checker_functions_after_snapshot_recovery(delay_batch_insertion: bool) 
 
     stop_sender.send_replace(true);
     checker_task.await.unwrap().unwrap();
+}
+
+#[test_casing(2, [false, true])]
+#[tokio::test]
+async fn checker_functions_after_snapshot_recovery(delay_batch_insertion: bool) {
+    _checker_functions_after_snapshot_recovery(
+        delay_batch_insertion,
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+    _checker_functions_after_snapshot_recovery(
+        delay_batch_insertion,
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
 }
 
 #[derive(Debug, Clone, Copy)]
