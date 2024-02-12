@@ -119,8 +119,7 @@ fn build_commit_tx_input_data_is_correct() {
     _build_commit_tx_input_data_is_correct(Arc::new(ValidiumModeL1BatchCommitDataGenerator {}));
 }
 
-#[test]
-fn extracting_commit_data_for_boojum_batch() {
+fn _extracting_commit_data_for_boojum_batch() {
     let contract = zksync_contracts::zksync_contract();
     let commit_function = contract.function("commitBatches").unwrap();
     // Calldata taken from the commit transaction for `https://sepolia.explorer.zksync.io/batch/4470`;
@@ -147,6 +146,11 @@ fn extracting_commit_data_for_boojum_batch() {
         )
         .unwrap_err();
     }
+}
+
+#[test]
+fn extracting_commit_data_for_boojum_batch() {
+    _extracting_commit_data_for_boojum_batch();
 }
 
 #[test]
@@ -302,11 +306,10 @@ const SAVE_ACTION_MAPPERS: [(&str, SaveActionMapper); 4] = [
     }),
 ];
 
-#[test_casing(12, Product(([10, 3, 1], SAVE_ACTION_MAPPERS)))]
-#[tokio::test]
-async fn normal_checker_function(
+async fn _normal_checker_function(
     batches_per_transaction: usize,
     (mapper_name, save_actions_mapper): (&'static str, SaveActionMapper),
+    l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
 ) {
     println!("Using save_actions_mapper={mapper_name}");
 
@@ -320,7 +323,6 @@ async fn normal_checker_function(
     let mut commit_tx_hash_by_l1_batch = HashMap::with_capacity(l1_batches.len());
     let client = MockEthereum::default();
 
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
     for (i, l1_batches) in l1_batches.chunks(batches_per_transaction).enumerate() {
         let input_data =
             build_commit_tx_input_data(l1_batches, l1_batch_commit_data_generator.clone());
@@ -371,6 +373,26 @@ async fn normal_checker_function(
     // Send the stop signal to the checker and wait for it to stop.
     stop_sender.send_replace(true);
     checker_task.await.unwrap().unwrap();
+}
+
+#[test_casing(12, Product(([10, 3, 1], SAVE_ACTION_MAPPERS)))]
+#[tokio::test]
+async fn normal_checker_function(
+    batches_per_transaction: usize,
+    (mapper_name, save_actions_mapper): (&'static str, SaveActionMapper),
+) {
+    _normal_checker_function(
+        batches_per_transaction,
+        (mapper_name, save_actions_mapper),
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+    _normal_checker_function(
+        batches_per_transaction,
+        (mapper_name, save_actions_mapper),
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
 }
 
 #[test_casing(4, SAVE_ACTION_MAPPERS)]
