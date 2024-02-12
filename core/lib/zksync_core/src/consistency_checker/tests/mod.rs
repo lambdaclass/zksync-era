@@ -658,10 +658,11 @@ impl IncorrectDataKind {
     }
 }
 
-#[test_casing(6, Product((IncorrectDataKind::ALL, [false])))]
-// ^ `snapshot_recovery = true` is tested below; we don't want to run it with all incorrect data kinds
-#[tokio::test]
-async fn checker_detects_incorrect_tx_data(kind: IncorrectDataKind, snapshot_recovery: bool) {
+async fn _checker_detects_incorrect_tx_data(
+    kind: IncorrectDataKind,
+    snapshot_recovery: bool,
+    l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
+) {
     let pool = ConnectionPool::test_pool().await;
     let mut storage = pool.access_storage().await.unwrap();
     if snapshot_recovery {
@@ -676,7 +677,6 @@ async fn checker_detects_incorrect_tx_data(kind: IncorrectDataKind, snapshot_rec
     }
 
     let l1_batch = create_l1_batch_with_metadata(if snapshot_recovery { 99 } else { 1 });
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
     let client = MockEthereum::default();
     let commit_tx_hash = kind
         .apply(&client, &l1_batch, l1_batch_commit_data_generator.clone())
@@ -705,6 +705,24 @@ async fn checker_detects_incorrect_tx_data(kind: IncorrectDataKind, snapshot_rec
     .await
     .expect("Timed out waiting for checker to stop")
     .unwrap_err();
+}
+
+#[test_casing(6, Product((IncorrectDataKind::ALL, [false])))]
+// ^ `snapshot_recovery = true` is tested below; we don't want to run it with all incorrect data kinds
+#[tokio::test]
+async fn checker_detects_incorrect_tx_data(kind: IncorrectDataKind, snapshot_recovery: bool) {
+    _checker_detects_incorrect_tx_data(
+        kind,
+        snapshot_recovery,
+        Arc::new(RollupModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
+    _checker_detects_incorrect_tx_data(
+        kind,
+        snapshot_recovery,
+        Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
+    )
+    .await;
 }
 
 #[tokio::test]
