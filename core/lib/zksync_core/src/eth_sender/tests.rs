@@ -460,7 +460,6 @@ async fn dont_resend_already_mined() -> anyhow::Result<()> {
     _dont_resend_already_mined(&mut validium_tester).await
 }
 
-
 async fn _three_scenarios(tester: &mut EthSenderTester) -> anyhow::Result<()> {
     let mut hashes = vec![];
 
