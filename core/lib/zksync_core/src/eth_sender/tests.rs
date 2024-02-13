@@ -819,7 +819,7 @@ async fn _skipped_l1_batch_at_the_start(mut tester: &mut EthSenderTester) -> any
 }
 
 #[tokio::test]
-async fn skipped_l1_batch_at_the_start() {
+async fn skipped_l1_batch_at_the_start() -> anyhow::Result<()> {
     let mut rollup_tester = EthSenderTester::new(
         ConnectionPool::test_pool().await,
         vec![100; 100],
@@ -836,8 +836,8 @@ async fn skipped_l1_batch_at_the_start() {
     )
     .await;
 
-    _skipped_l1_batch_at_the_start(&mut rollup_tester).await;
-    _skipped_l1_batch_at_the_start(&mut validium_tester).await;
+    _skipped_l1_batch_at_the_start(&mut rollup_tester).await?;
+    _skipped_l1_batch_at_the_start(&mut validium_tester).await
 }
 
 async fn _skipped_l1_batch_in_the_middle(mut tester: &mut EthSenderTester) -> anyhow::Result<()> {
@@ -930,7 +930,7 @@ async fn _skipped_l1_batch_in_the_middle(mut tester: &mut EthSenderTester) -> an
 }
 
 #[tokio::test]
-async fn skipped_l1_batch_in_the_middle() {
+async fn skipped_l1_batch_in_the_middle() -> anyhow::Result<()> {
     let mut rollup_tester = EthSenderTester::new(
         ConnectionPool::test_pool().await,
         vec![100; 100],
@@ -947,8 +947,8 @@ async fn skipped_l1_batch_in_the_middle() {
     )
     .await;
 
-    _skipped_l1_batch_in_the_middle(&mut rollup_tester).await;
-    _skipped_l1_batch_in_the_middle(&mut validium_tester).await;
+    _skipped_l1_batch_in_the_middle(&mut rollup_tester).await?;
+    _skipped_l1_batch_in_the_middle(&mut validium_tester).await
 }
 
 async fn _test_parse_multicall_data(tester: &mut EthSenderTester) {
