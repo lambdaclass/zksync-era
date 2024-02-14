@@ -149,25 +149,3 @@ impl GasAdjusterConfig {
         self.max_l1_gas_price.unwrap_or(u64::MAX)
     }
 }
-
-pub trait L1GasPerPubdataByte {
-    fn l1_gas_per_pubdata_byte(&self) -> u64;
-}
-
-impl L1GasPerPubdataByte for GasAdjusterConfig {
-    fn l1_gas_per_pubdata_byte(&self) -> u64 {
-        self.l1_gas_per_pubdata_byte
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RollupGasAdjuster;
-
-#[derive(Debug, Clone)]
-pub struct ValidiumGasAdjuster;
-
-impl L1GasPerPubdataByte for ValidiumGasAdjuster {
-    fn l1_gas_per_pubdata_byte(&self) -> u64 {
-        0
-    }
-}
