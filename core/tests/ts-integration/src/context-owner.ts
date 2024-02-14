@@ -245,7 +245,7 @@ export class TestContextOwner {
         if (!l2ETHAmountToDeposit.isZero()) {
             // Given that we've already sent a number of transactions,
             // we have to correctly send nonce.
-            const depositHandle = this.mainSyncWallet
+            const depositHandle = await this.mainSyncWallet
                 .deposit({
                     token: zksync.utils.ETH_ADDRESS,
                     amount: l2ETHAmountToDeposit,
@@ -259,9 +259,6 @@ export class TestContextOwner {
                     this.reporter.debug(`Sent ETH deposit. Nonce ${tx.nonce}, amount: ${amount}, hash: ${tx.hash}`);
                     tx.wait();
                 });
-
-            // Add this promise to the list of L1 tx promises.
-            l1TxPromises.push(depositHandle);
         }
 
         // Define values for handling ERC20 transfers/deposits.
