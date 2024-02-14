@@ -26,6 +26,30 @@ pub struct GasAdjuster<E> {
     eth_client: E,
 }
 
+// pub trait GasAdjuster<E> {
+//     const L1_GAS_PER_PUBDATA_BYTE: u32;
+// }
+
+// pub struct RollupGasAdjuster<E> {
+//     pub(super) statistics: GasStatistics,
+//     pub(super) config: GasAdjusterConfig,
+//     eth_client: E,
+// }
+
+// impl<E> GasAdjuster<E> for RollupGasAdjuster<E> {
+//     const L1_GAS_PER_PUBDATA_BYTE: u32 = L1_GAS_PER_PUBDATA_BYTE;
+// }
+
+// pub struct ValidiumGasAdjuster<E> {
+//     pub(super) statistics: GasStatistics,
+//     pub(super) config: GasAdjusterConfig,
+//     eth_client: E,
+// }
+
+// impl<E> GasAdjuster<E> for ValidiumGasAdjuster<E> {
+//     const L1_GAS_PER_PUBDATA_BYTE: u32 = 0;
+// }
+
 impl<E: EthInterface> GasAdjuster<E> {
     pub async fn new(eth_client: E, config: GasAdjusterConfig) -> Result<Self, Error> {
         // Subtracting 1 from the "latest" block number to prevent errors in case
