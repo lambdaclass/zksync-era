@@ -5,11 +5,13 @@ mod eth_tx_aggregator;
 mod eth_tx_manager;
 mod metrics;
 mod publish_criterion;
-mod tests_helper;
 mod zksync_functions;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_helpers;
 
 pub use self::{
     aggregator::Aggregator, error::ETHSenderError, eth_tx_aggregator::EthTxAggregator,

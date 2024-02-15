@@ -5,7 +5,7 @@ use zksync_types::l1_batch_commit_data_generator::{
     RollupModeL1BatchCommitDataGenerator, ValidiumModeL1BatchCommitDataGenerator,
 };
 
-use super::tests_helper::{self, EthSenderTester};
+use super::tests_helpers::{self, EthSenderTester};
 
 // Tests that we send multiple transactions and confirm them all in one iteration.
 #[tokio::test]
@@ -26,8 +26,8 @@ async fn confirm_many() -> anyhow::Result<()> {
     )
     .await;
 
-    tests_helper::confirm_many(&mut rollup_tester).await?;
-    tests_helper::confirm_many(&mut validium_tester).await
+    tests_helpers::confirm_many(&mut rollup_tester).await?;
+    tests_helpers::confirm_many(&mut validium_tester).await
 }
 
 // Tests that we resend first un-mined transaction every block with an increased gas price.
@@ -48,8 +48,8 @@ async fn resend_each_block() -> anyhow::Result<()> {
     )
     .await;
 
-    tests_helper::resend_each_block(&mut rollup_tester).await?;
-    tests_helper::resend_each_block(&mut validium_tester).await
+    tests_helpers::resend_each_block(&mut rollup_tester).await?;
+    tests_helpers::resend_each_block(&mut validium_tester).await
 }
 
 // Tests that if transaction was mined, but not enough blocks has been mined since,
@@ -71,8 +71,8 @@ async fn dont_resend_already_mined() -> anyhow::Result<()> {
     )
     .await;
 
-    tests_helper::dont_resend_already_mined(&mut rollup_tester).await?;
-    tests_helper::dont_resend_already_mined(&mut validium_tester).await
+    tests_helpers::dont_resend_already_mined(&mut rollup_tester).await?;
+    tests_helpers::dont_resend_already_mined(&mut validium_tester).await
 }
 
 #[tokio::test]
@@ -92,8 +92,8 @@ async fn three_scenarios() -> anyhow::Result<()> {
     )
     .await;
 
-    tests_helper::three_scenarios(&mut rollup_tester).await?;
-    tests_helper::three_scenarios(&mut validium_tester).await
+    tests_helpers::three_scenarios(&mut rollup_tester).await?;
+    tests_helpers::three_scenarios(&mut validium_tester).await
 }
 
 #[should_panic(expected = "We can't operate after tx fail")]
@@ -114,8 +114,8 @@ async fn failed_eth_tx() {
     )
     .await;
 
-    tests_helper::failed_eth_tx(&mut rollup_tester).await;
-    tests_helper::failed_eth_tx(&mut validium_tester).await
+    tests_helpers::failed_eth_tx(&mut rollup_tester).await;
+    tests_helpers::failed_eth_tx(&mut validium_tester).await
 }
 
 #[tokio::test]
@@ -135,12 +135,12 @@ async fn correct_order_for_confirmations() -> anyhow::Result<()> {
     )
     .await;
 
-    tests_helper::correct_order_for_confirmations(
+    tests_helpers::correct_order_for_confirmations(
         &mut rollup_tester,
         Arc::new(RollupModeL1BatchCommitDataGenerator {}),
     )
     .await?;
-    tests_helper::correct_order_for_confirmations(
+    tests_helpers::correct_order_for_confirmations(
         &mut validium_tester,
         Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
     )
@@ -165,12 +165,12 @@ async fn skipped_l1_batch_at_the_start() -> anyhow::Result<()> {
     )
     .await;
 
-    tests_helper::skipped_l1_batch_at_the_start(
+    tests_helpers::skipped_l1_batch_at_the_start(
         &mut rollup_tester,
         Arc::new(RollupModeL1BatchCommitDataGenerator {}),
     )
     .await?;
-    tests_helper::skipped_l1_batch_at_the_start(
+    tests_helpers::skipped_l1_batch_at_the_start(
         &mut validium_tester,
         Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
     )
@@ -195,12 +195,12 @@ async fn skipped_l1_batch_in_the_middle() -> anyhow::Result<()> {
     )
     .await;
 
-    tests_helper::skipped_l1_batch_in_the_middle(
+    tests_helpers::skipped_l1_batch_in_the_middle(
         &mut rollup_tester,
         Arc::new(RollupModeL1BatchCommitDataGenerator {}),
     )
     .await?;
-    tests_helper::skipped_l1_batch_in_the_middle(
+    tests_helpers::skipped_l1_batch_in_the_middle(
         &mut validium_tester,
         Arc::new(ValidiumModeL1BatchCommitDataGenerator {}),
     )
@@ -209,14 +209,14 @@ async fn skipped_l1_batch_in_the_middle() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_parse_multicall_data() {
-    let mut rollup_tester = EthSenderTester::new(
+    let rollup_tester = EthSenderTester::new(
         ConnectionPool::test_pool().await,
         vec![100; 100],
         false,
         Arc::new(RollupModeL1BatchCommitDataGenerator {}),
     )
     .await;
-    let mut validium_tester = EthSenderTester::new(
+    let validium_tester = EthSenderTester::new(
         ConnectionPool::test_pool().await,
         vec![100; 100],
         false,
@@ -224,8 +224,8 @@ async fn test_parse_multicall_data() {
     )
     .await;
 
-    tests_helper::test_parse_multicall_data(&mut rollup_tester).await;
-    tests_helper::test_parse_multicall_data(&mut validium_tester).await
+    tests_helpers::test_parse_multicall_data(&rollup_tester).await;
+    tests_helpers::test_parse_multicall_data(&validium_tester).await
 }
 
 #[tokio::test]
@@ -245,6 +245,6 @@ async fn get_multicall_data() {
     )
     .await;
 
-    tests_helper::get_multicall_data(&mut rollup_tester).await;
-    tests_helper::get_multicall_data(&mut validium_tester).await
+    tests_helpers::get_multicall_data(&mut rollup_tester).await;
+    tests_helpers::get_multicall_data(&mut validium_tester).await
 }

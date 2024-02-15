@@ -1,5 +1,6 @@
-use std::{any::Any, sync::Arc};
+use std::sync::Arc;
 
+use assert_matches::assert_matches;
 use once_cell::sync::Lazy;
 use zksync_config::{
     configs::eth_sender::{ProofSendingMode, SenderConfig},
@@ -177,7 +178,7 @@ fn default_l1_batch_metadata() -> L1BatchMetadata {
     }
 }
 
-pub async fn confirm_many(tester: &mut EthSenderTester) -> anyhow::Result<()> {
+pub(crate) async fn confirm_many(tester: &mut EthSenderTester) -> anyhow::Result<()> {
     let mut hashes = vec![];
 
     for _ in 0..5 {
@@ -248,7 +249,7 @@ pub async fn confirm_many(tester: &mut EthSenderTester) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn resend_each_block(tester: &mut EthSenderTester) -> anyhow::Result<()> {
+pub(crate) async fn resend_each_block(tester: &mut EthSenderTester) -> anyhow::Result<()> {
     // after this, median should be 6
     tester.gateway.advance_block_number(3);
     tester.gas_adjuster.keep_updated().await?;
@@ -353,7 +354,7 @@ pub async fn resend_each_block(tester: &mut EthSenderTester) -> anyhow::Result<(
     Ok(())
 }
 
-pub async fn dont_resend_already_mined(tester: &mut EthSenderTester) -> anyhow::Result<()> {
+pub(crate) async fn dont_resend_already_mined(tester: &mut EthSenderTester) -> anyhow::Result<()> {
     let tx = tester
         .aggregator
         .save_eth_tx(
@@ -421,7 +422,7 @@ pub async fn dont_resend_already_mined(tester: &mut EthSenderTester) -> anyhow::
     Ok(())
 }
 
-pub async fn three_scenarios(tester: &mut EthSenderTester) -> anyhow::Result<()> {
+pub(crate) async fn three_scenarios(tester: &mut EthSenderTester) -> anyhow::Result<()> {
     let mut hashes = vec![];
 
     for _ in 0..3 {
@@ -489,7 +490,7 @@ pub async fn three_scenarios(tester: &mut EthSenderTester) -> anyhow::Result<()>
     Ok(())
 }
 
-pub async fn failed_eth_tx(tester: &mut EthSenderTester) {
+pub(crate) async fn failed_eth_tx(tester: &mut EthSenderTester) {
     let tx = tester
         .aggregator
         .save_eth_tx(
@@ -647,14 +648,14 @@ async fn commit_l1_batch(
     send_operation(tester, operation, confirm).await
 }
 
-pub async fn correct_order_for_confirmations(
+pub(crate) async fn correct_order_for_confirmations(
     tester: &mut EthSenderTester,
     l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
 ) -> anyhow::Result<()> {
-    insert_genesis_protocol_version(&tester).await;
-    let genesis_l1_batch = insert_l1_batch(&tester, L1BatchNumber(0)).await;
-    let first_l1_batch = insert_l1_batch(&tester, L1BatchNumber(1)).await;
-    let second_l1_batch = insert_l1_batch(&tester, L1BatchNumber(2)).await;
+    insert_genesis_protocol_version(tester).await;
+    let genesis_l1_batch = insert_l1_batch(tester, L1BatchNumber(0)).await;
+    let first_l1_batch = insert_l1_batch(tester, L1BatchNumber(1)).await;
+    let second_l1_batch = insert_l1_batch(tester, L1BatchNumber(2)).await;
 
     commit_l1_batch(
         tester,
@@ -710,17 +711,17 @@ pub async fn correct_order_for_confirmations(
     Ok(())
 }
 
-pub async fn skipped_l1_batch_at_the_start(
-    mut tester: &mut EthSenderTester,
+pub(crate) async fn skipped_l1_batch_at_the_start(
+    tester: &mut EthSenderTester,
     l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
 ) -> anyhow::Result<()> {
-    insert_genesis_protocol_version(&tester).await;
-    let genesis_l1_batch = insert_l1_batch(&tester, L1BatchNumber(0)).await;
-    let first_l1_batch = insert_l1_batch(&tester, L1BatchNumber(1)).await;
-    let second_l1_batch = insert_l1_batch(&tester, L1BatchNumber(2)).await;
+    insert_genesis_protocol_version(tester).await;
+    let genesis_l1_batch = insert_l1_batch(tester, L1BatchNumber(0)).await;
+    let first_l1_batch = insert_l1_batch(tester, L1BatchNumber(1)).await;
+    let second_l1_batch = insert_l1_batch(tester, L1BatchNumber(2)).await;
 
     commit_l1_batch(
-        &mut tester,
+        tester,
         genesis_l1_batch.clone(),
         first_l1_batch.clone(),
         true,
@@ -728,15 +729,15 @@ pub async fn skipped_l1_batch_at_the_start(
     )
     .await;
     prove_l1_batch(
-        &mut tester,
+        tester,
         genesis_l1_batch.clone(),
         first_l1_batch.clone(),
         true,
     )
     .await;
-    execute_l1_batches(&mut tester, vec![first_l1_batch.clone()], true).await;
+    execute_l1_batches(tester, vec![first_l1_batch.clone()], true).await;
     commit_l1_batch(
-        &mut tester,
+        tester,
         first_l1_batch.clone(),
         second_l1_batch.clone(),
         true,
@@ -744,19 +745,19 @@ pub async fn skipped_l1_batch_at_the_start(
     )
     .await;
     prove_l1_batch(
-        &mut tester,
+        tester,
         first_l1_batch.clone(),
         second_l1_batch.clone(),
         true,
     )
     .await;
-    execute_l1_batches(&mut tester, vec![second_l1_batch.clone()], true).await;
+    execute_l1_batches(tester, vec![second_l1_batch.clone()], true).await;
 
-    let third_l1_batch = insert_l1_batch(&tester, L1BatchNumber(3)).await;
-    let fourth_l1_batch = insert_l1_batch(&tester, L1BatchNumber(4)).await;
+    let third_l1_batch = insert_l1_batch(tester, L1BatchNumber(3)).await;
+    let fourth_l1_batch = insert_l1_batch(tester, L1BatchNumber(4)).await;
     // DO NOT CONFIRM THIRD BLOCK
     let third_l1_batch_commit_tx_hash = commit_l1_batch(
-        &mut tester,
+        tester,
         second_l1_batch.clone(),
         third_l1_batch.clone(),
         false,
@@ -765,14 +766,14 @@ pub async fn skipped_l1_batch_at_the_start(
     .await;
 
     prove_l1_batch(
-        &mut tester,
+        tester,
         second_l1_batch.clone(),
         third_l1_batch.clone(),
         true,
     )
     .await;
     commit_l1_batch(
-        &mut tester,
+        tester,
         third_l1_batch.clone(),
         fourth_l1_batch.clone(),
         true,
@@ -780,7 +781,7 @@ pub async fn skipped_l1_batch_at_the_start(
     )
     .await;
     prove_l1_batch(
-        &mut tester,
+        tester,
         third_l1_batch.clone(),
         fourth_l1_batch.clone(),
         true,
@@ -795,7 +796,7 @@ pub async fn skipped_l1_batch_at_the_start(
         .unwrap();
     assert_eq!(l1_batches.len(), 2);
 
-    confirm_tx(&mut tester, third_l1_batch_commit_tx_hash).await;
+    confirm_tx(tester, third_l1_batch_commit_tx_hash).await;
     let l1_batches = tester
         .storage()
         .await
@@ -807,26 +808,26 @@ pub async fn skipped_l1_batch_at_the_start(
     Ok(())
 }
 
-pub async fn skipped_l1_batch_in_the_middle(
-    mut tester: &mut EthSenderTester,
+pub(crate) async fn skipped_l1_batch_in_the_middle(
+    tester: &mut EthSenderTester,
     l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
 ) -> anyhow::Result<()> {
-    insert_genesis_protocol_version(&tester).await;
-    let genesis_l1_batch = insert_l1_batch(&tester, L1BatchNumber(0)).await;
-    let first_l1_batch = insert_l1_batch(&tester, L1BatchNumber(1)).await;
-    let second_l1_batch = insert_l1_batch(&tester, L1BatchNumber(2)).await;
+    insert_genesis_protocol_version(tester).await;
+    let genesis_l1_batch = insert_l1_batch(tester, L1BatchNumber(0)).await;
+    let first_l1_batch = insert_l1_batch(tester, L1BatchNumber(1)).await;
+    let second_l1_batch = insert_l1_batch(tester, L1BatchNumber(2)).await;
     commit_l1_batch(
-        &mut tester,
+        tester,
         genesis_l1_batch.clone(),
         first_l1_batch.clone(),
         true,
         l1_batch_commit_data_generator.clone(),
     )
     .await;
-    prove_l1_batch(&mut tester, genesis_l1_batch, first_l1_batch.clone(), true).await;
-    execute_l1_batches(&mut tester, vec![first_l1_batch.clone()], true).await;
+    prove_l1_batch(tester, genesis_l1_batch, first_l1_batch.clone(), true).await;
+    execute_l1_batches(tester, vec![first_l1_batch.clone()], true).await;
     commit_l1_batch(
-        &mut tester,
+        tester,
         first_l1_batch.clone(),
         second_l1_batch.clone(),
         true,
@@ -834,18 +835,18 @@ pub async fn skipped_l1_batch_in_the_middle(
     )
     .await;
     prove_l1_batch(
-        &mut tester,
+        tester,
         first_l1_batch.clone(),
         second_l1_batch.clone(),
         true,
     )
     .await;
 
-    let third_l1_batch = insert_l1_batch(&tester, L1BatchNumber(3)).await;
-    let fourth_l1_batch = insert_l1_batch(&tester, L1BatchNumber(4)).await;
+    let third_l1_batch = insert_l1_batch(tester, L1BatchNumber(3)).await;
+    let fourth_l1_batch = insert_l1_batch(tester, L1BatchNumber(4)).await;
     // DO NOT CONFIRM THIRD BLOCK
     let third_l1_batch_commit_tx_hash = commit_l1_batch(
-        &mut tester,
+        tester,
         second_l1_batch.clone(),
         third_l1_batch.clone(),
         false,
@@ -854,14 +855,14 @@ pub async fn skipped_l1_batch_in_the_middle(
     .await;
 
     prove_l1_batch(
-        &mut tester,
+        tester,
         second_l1_batch.clone(),
         third_l1_batch.clone(),
         true,
     )
     .await;
     commit_l1_batch(
-        &mut tester,
+        tester,
         third_l1_batch.clone(),
         fourth_l1_batch.clone(),
         true,
@@ -869,7 +870,7 @@ pub async fn skipped_l1_batch_in_the_middle(
     )
     .await;
     prove_l1_batch(
-        &mut tester,
+        tester,
         third_l1_batch.clone(),
         fourth_l1_batch.clone(),
         true,
@@ -886,7 +887,7 @@ pub async fn skipped_l1_batch_in_the_middle(
     assert_eq!(l1_batches.len(), 3);
     assert_eq!(l1_batches[0].header.number.0, 2);
 
-    confirm_tx(&mut tester, third_l1_batch_commit_tx_hash).await;
+    confirm_tx(tester, third_l1_batch_commit_tx_hash).await;
     let l1_batches = tester
         .storage()
         .await
@@ -898,7 +899,7 @@ pub async fn skipped_l1_batch_in_the_middle(
     Ok(())
 }
 
-pub async fn test_parse_multicall_data(tester: &mut EthSenderTester) {
+pub(crate) async fn test_parse_multicall_data(tester: &EthSenderTester) {
     let original_correct_form_data = Token::Array(vec![
         Token::Tuple(vec![Token::Bool(true), Token::Bytes(vec![1u8; 32])]),
         Token::Tuple(vec![Token::Bool(true), Token::Bytes(vec![2u8; 32])]),
@@ -965,19 +966,16 @@ pub async fn test_parse_multicall_data(tester: &mut EthSenderTester) {
     ];
 
     for wrong_data_instance in original_wrong_form_data {
-        let aux = tester
-            .aggregator
-            .parse_multicall_data(wrong_data_instance.clone())
-            .err()
-            .unwrap();
-        assert_eq!(
-            aux.type_id(),
-            ETHSenderError::ParseError(Error::InvalidOutputType("".to_string())).type_id()
+        assert_matches!(
+            tester
+                .aggregator
+                .parse_multicall_data(wrong_data_instance.clone()),
+            Err(ETHSenderError::ParseError(Error::InvalidOutputType(_)))
         );
     }
 }
 
-pub async fn get_multicall_data(tester: &mut EthSenderTester) {
+pub(crate) async fn get_multicall_data(tester: &mut EthSenderTester) {
     let multicall_data = tester.aggregator.get_multicall_data().await;
     assert!(multicall_data.is_ok());
 }

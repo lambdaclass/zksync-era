@@ -13,7 +13,6 @@ use zksync_l1_contract_interface::{
 use zksync_types::{
     eth_sender::EthTx,
     ethabi::{Contract, Token},
-    l1_batch_commit_data_generator::L1BatchCommitDataGenerator,
     protocol_version::{L1VerifierConfig, VerifierParams},
     web3::contract::Error as Web3ContractError,
     Address, ProtocolVersionId, H256, U256,
