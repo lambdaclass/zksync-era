@@ -647,10 +647,10 @@ async fn commit_l1_batch(
     send_operation(tester, operation, confirm).await
 }
 
-pub async fn correct_order_for_confirmations(tester: &mut EthSenderTester) -> anyhow::Result<()> {
-    let l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator> =
-        tester.aggregator.get_l1_batch_commit_data_generator();
-
+pub async fn correct_order_for_confirmations(
+    tester: &mut EthSenderTester,
+    l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
+) -> anyhow::Result<()> {
     insert_genesis_protocol_version(&tester).await;
     let genesis_l1_batch = insert_l1_batch(&tester, L1BatchNumber(0)).await;
     let first_l1_batch = insert_l1_batch(&tester, L1BatchNumber(1)).await;
@@ -710,8 +710,10 @@ pub async fn correct_order_for_confirmations(tester: &mut EthSenderTester) -> an
     Ok(())
 }
 
-pub async fn skipped_l1_batch_at_the_start(mut tester: &mut EthSenderTester) -> anyhow::Result<()> {
-    let l1_batch_commit_data_generator = tester.aggregator.get_l1_batch_commit_data_generator();
+pub async fn skipped_l1_batch_at_the_start(
+    mut tester: &mut EthSenderTester,
+    l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
+) -> anyhow::Result<()> {
     insert_genesis_protocol_version(&tester).await;
     let genesis_l1_batch = insert_l1_batch(&tester, L1BatchNumber(0)).await;
     let first_l1_batch = insert_l1_batch(&tester, L1BatchNumber(1)).await;
@@ -807,8 +809,8 @@ pub async fn skipped_l1_batch_at_the_start(mut tester: &mut EthSenderTester) -> 
 
 pub async fn skipped_l1_batch_in_the_middle(
     mut tester: &mut EthSenderTester,
+    l1_batch_commit_data_generator: Arc<dyn L1BatchCommitDataGenerator>,
 ) -> anyhow::Result<()> {
-    let l1_batch_commit_data_generator = tester.aggregator.get_l1_batch_commit_data_generator();
     insert_genesis_protocol_version(&tester).await;
     let genesis_l1_batch = insert_l1_batch(&tester, L1BatchNumber(0)).await;
     let first_l1_batch = insert_l1_batch(&tester, L1BatchNumber(1)).await;

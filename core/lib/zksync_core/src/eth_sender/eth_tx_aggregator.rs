@@ -492,10 +492,6 @@ impl EthTxAggregator {
         Ok(eth_tx)
     }
 
-    pub fn get_l1_batch_commit_data_generator(&self) -> Arc<dyn L1BatchCommitDataGenerator> {
-        self.aggregator.get_l1_batch_commit_data_generator()
-    }
-
     async fn get_next_nonce(
         &self,
         storage: &mut StorageProcessor<'_>,

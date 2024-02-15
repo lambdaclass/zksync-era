@@ -408,10 +408,6 @@ impl Aggregator {
             }
         }
     }
-
-    pub fn get_l1_batch_commit_data_generator(&self) -> Arc<dyn L1BatchCommitDataGenerator> {
-        self.l1_batch_commit_data_generator.clone()
-    }
 }
 
 async fn extract_ready_subrange(
