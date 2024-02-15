@@ -210,9 +210,6 @@ function updateEthSenderConfig(validiumMode: boolean) {
     // This constant is used in validium mode and is deleted in rollup mode
     // In order to pass the existing integration tests
     const modeConstantValues = {
-        internal_enforced_l1_gas_price: validiumMode
-            ? constants.VALIDIUM_ENFORCED_L1_GAS_PRICE
-            : constants.ROLLUP_ENFORCED_L1_GAS_PRICE,
         l1_gas_per_pubdata_byte: validiumMode
             ? constants.VALIDIUM_L1_GAS_PER_PUBDATA_BYTE
             : constants.ROLLUP_L1_GAS_PER_PUBDATA_BYTE
