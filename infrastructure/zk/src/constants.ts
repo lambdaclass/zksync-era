@@ -12,5 +12,3 @@ export const VALIDIUM_L1_GAS_PER_PUBDATA_BYTE: number = 0;
 export const ROLLUP_L1_GAS_PER_PUBDATA_BYTE: number = 17;
 export const VALIDIUM_L1_BATCH_COMMIT_DATA_GENERATOR_MODE: string = '"Validium"';
 export const ROLLUP_L1_BATCH_COMMIT_DATA_GENERATOR_MODE: string = '"Rollup"';
-export const VALIDIUM_COMPUTE_OVERHEAD_PART: number = 1.0;
-export const ROLLUP_COMPUTE_OVERHEAD_PART: number = 0.0;
