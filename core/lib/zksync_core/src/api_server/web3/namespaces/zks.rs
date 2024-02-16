@@ -132,8 +132,8 @@ impl ZksNamespace {
     /// If the network does not have a native ERC20 token, it returns 0.
     /// That means that ETH is the native token.
     #[tracing::instrument(skip_all)]
-    pub fn get_native_token_address_impl(&self) -> Result<Address, Web3Error> {
-        const METHOD_NAME: &str = "get_native_token_address";
+    pub fn get_base_token_l1_address_impl(&self) -> Result<Address, Web3Error> {
+        const METHOD_NAME: &str = "get_base_token_l1_address";
         const NATIVE_ERC20_FILE_PATH: &str = "etc/tokens/native_erc20.json";
 
         // read the address from the native_erc20.json file.
