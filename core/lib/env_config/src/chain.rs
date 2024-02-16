@@ -136,7 +136,7 @@ mod tests {
 
     fn _state_keeper_from_env(config: &str, expected_config: StateKeeperConfig) {
         let mut lock = MUTEX.lock();
-        lock.set_env(&config);
+        lock.set_env(config);
 
         let actual = StateKeeperConfig::from_env().unwrap();
         assert_eq!(actual, expected_config);
