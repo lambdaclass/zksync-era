@@ -141,7 +141,7 @@ impl ZksNamespace {
         // If the file is not found, it assumes that ETH is the native token and returns 0.
         let native_erc20_file = match File::open(NATIVE_ERC20_FILE_PATH) {
             Ok(file) => file,
-            Err(_) => return Ok(Address::zero()),
+            Err(_) => return Ok(Address::from_str("0x0000000000000000000000000000000000000001").expect("Wrong base token literal address")),
         };
         let native_erc20_json: serde_json::Value =
             serde_json::from_reader(BufReader::new(native_erc20_file)).map_err(|_err| {
