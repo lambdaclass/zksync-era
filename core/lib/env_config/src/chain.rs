@@ -100,10 +100,34 @@ mod tests {
         }
     }
 
+    fn state_keeper_config(config_mock: &str, mode: L1BatchCommitDataGeneratorMode) {
+        let mut lock = MUTEX.lock();
+        lock.set_env(config_mock);
+        let current_config = StateKeeperConfig::from_env().unwrap();
+        assert_eq!(current_config, expected_state_keeper_config(mode));
+    }
+
+    fn state_keeper_from_env_rollup(config_mock: &str) {
+        let config_mock_rollup = format!(
+            "{}\nCHAIN_STATE_KEEPER_L1_BATCH_COMMIT_DATA_GENERATOR_MODE=Rollup",
+            config_mock
+        );
+        state_keeper_config(&config_mock_rollup, L1BatchCommitDataGeneratorMode::Rollup);
+    }
+
+    fn state_keeper_from_env_validium(config_mock: &str) {
+        let config_mock_validium = format!(
+            "{}\nCHAIN_STATE_KEEPER_L1_BATCH_COMMIT_DATA_GENERATOR_MODE=Validium",
+            config_mock
+        );
+        state_keeper_config(
+            &config_mock_validium,
+            L1BatchCommitDataGeneratorMode::Validium,
+        );
+    }
+
     #[test]
     fn state_keeper_from_env() {
-        let mut lock = MUTEX.lock();
-
         let config_mock = r#"
             CHAIN_STATE_KEEPER_TRANSACTION_SLOTS="50"
             CHAIN_STATE_KEEPER_FEE_ACCOUNT_ADDR="0xde03a0B5963f75f1C8485B355fF6D30f3093BDE7"
@@ -130,30 +154,8 @@ mod tests {
             CHAIN_STATE_KEEPER_UPLOAD_WITNESS_INPUTS_TO_GCS="false"
             CHAIN_STATE_KEEPER_ENUM_INDEX_MIGRATION_CHUNK_SIZE="2000"
         "#;
-
-        // Test Rollup Configuration
-        let config_mock_rollup = format!(
-            "{}\nCHAIN_STATE_KEEPER_L1_BATCH_COMMIT_DATA_GENERATOR_MODE=Rollup",
-            config_mock
-        );
-        lock.set_env(&config_mock_rollup);
-        let current_config_rollup = StateKeeperConfig::from_env().unwrap();
-        assert_eq!(
-            current_config_rollup,
-            expected_state_keeper_config(L1BatchCommitDataGeneratorMode::Rollup)
-        );
-
-        // Test Validium Configuration
-        let config_mock_validium = format!(
-            "{}\nCHAIN_STATE_KEEPER_L1_BATCH_COMMIT_DATA_GENERATOR_MODE=Validium",
-            config_mock
-        );
-        lock.set_env(&config_mock_validium);
-        let current_config_validium = StateKeeperConfig::from_env().unwrap();
-        assert_eq!(
-            current_config_validium,
-            expected_state_keeper_config(L1BatchCommitDataGeneratorMode::Validium)
-        );
+        state_keeper_from_env_rollup(config_mock);
+        state_keeper_from_env_validium(config_mock);
     }
 
     fn expected_operations_manager_config() -> OperationsManagerConfig {
