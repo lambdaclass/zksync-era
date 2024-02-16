@@ -133,35 +133,8 @@ mod tests {
     #[test]
     fn state_keeper_from_env() {
         let mut lock = MUTEX.lock();
-        let config_rollup = r#"
-            CHAIN_STATE_KEEPER_TRANSACTION_SLOTS="50"
-            CHAIN_STATE_KEEPER_FEE_ACCOUNT_ADDR="0xde03a0B5963f75f1C8485B355fF6D30f3093BDE7"
-            CHAIN_STATE_KEEPER_MAX_SINGLE_TX_GAS="1000000"
-            CHAIN_STATE_KEEPER_MAX_ALLOWED_L2_TX_GAS_LIMIT="2000000000"
-            CHAIN_STATE_KEEPER_CLOSE_BLOCK_AT_GEOMETRY_PERCENTAGE="0.5"
-            CHAIN_STATE_KEEPER_CLOSE_BLOCK_AT_GAS_PERCENTAGE="0.8"
-            CHAIN_STATE_KEEPER_CLOSE_BLOCK_AT_ETH_PARAMS_PERCENTAGE="0.2"
-            CHAIN_STATE_KEEPER_REJECT_TX_AT_GEOMETRY_PERCENTAGE="0.3"
-            CHAIN_STATE_KEEPER_REJECT_TX_AT_ETH_PARAMS_PERCENTAGE="0.8"
-            CHAIN_STATE_KEEPER_REJECT_TX_AT_GAS_PERCENTAGE="0.5"
-            CHAIN_STATE_KEEPER_BLOCK_COMMIT_DEADLINE_MS="2500"
-            CHAIN_STATE_KEEPER_MINIBLOCK_COMMIT_DEADLINE_MS="1000"
-            CHAIN_STATE_KEEPER_MINIBLOCK_SEAL_QUEUE_CAPACITY="10"
-            CHAIN_STATE_KEEPER_MINIMAL_L2_GAS_PRICE="100000000"
-            CHAIN_STATE_KEEPER_COMPUTE_OVERHEAD_PART="0.0"
-            CHAIN_STATE_KEEPER_PUBDATA_OVERHEAD_PART="1.0"
-            CHAIN_STATE_KEEPER_BATCH_OVERHEAD_L1_GAS="800000"
-            CHAIN_STATE_KEEPER_MAX_GAS_PER_BATCH="200000000"
-            CHAIN_STATE_KEEPER_MAX_PUBDATA_PER_BATCH="100000"
-            CHAIN_STATE_KEEPER_FEE_MODEL_VERSION="V2"
-            CHAIN_STATE_KEEPER_VALIDATION_COMPUTATIONAL_GAS_LIMIT="10000000"
-            CHAIN_STATE_KEEPER_SAVE_CALL_TRACES="false"
-            CHAIN_STATE_KEEPER_UPLOAD_WITNESS_INPUTS_TO_GCS="false"
-            CHAIN_STATE_KEEPER_ENUM_INDEX_MIGRATION_CHUNK_SIZE="2000"
-            CHAIN_STATE_KEEPER_L1_BATCH_COMMIT_DATA_GENERATOR_MODE=Rollup
-        "#;
 
-        let config_validium = r#"
+        let config_mock = r#"
             CHAIN_STATE_KEEPER_TRANSACTION_SLOTS="50"
             CHAIN_STATE_KEEPER_FEE_ACCOUNT_ADDR="0xde03a0B5963f75f1C8485B355fF6D30f3093BDE7"
             CHAIN_STATE_KEEPER_MAX_SINGLE_TX_GAS="1000000"
@@ -186,17 +159,23 @@ mod tests {
             CHAIN_STATE_KEEPER_SAVE_CALL_TRACES="false"
             CHAIN_STATE_KEEPER_UPLOAD_WITNESS_INPUTS_TO_GCS="false"
             CHAIN_STATE_KEEPER_ENUM_INDEX_MIGRATION_CHUNK_SIZE="2000"
-            CHAIN_STATE_KEEPER_L1_BATCH_COMMIT_DATA_GENERATOR_MODE=Validium
         "#;
 
         // Test Rollup Configuration
-        lock.set_env(config_rollup);
-
+        let config_mock_rollup = format!(
+            "{}\nCHAIN_STATE_KEEPER_L1_BATCH_COMMIT_DATA_GENERATOR_MODE=Rollup",
+            config_mock
+        );
+        lock.set_env(&config_mock_rollup);
         let current_config_rollup = StateKeeperConfig::from_env().unwrap();
         assert_eq!(current_config_rollup, expected_state_keeper_config_rollup());
 
         // Test Validium Configuration
-        lock.set_env(config_validium);
+        let config_mock_validium = format!(
+            "{}\nCHAIN_STATE_KEEPER_L1_BATCH_COMMIT_DATA_GENERATOR_MODE=Validium",
+            config_mock
+        );
+        lock.set_env(&config_mock_validium);
         let current_config_validium = StateKeeperConfig::from_env().unwrap();
         assert_eq!(
             current_config_validium,
