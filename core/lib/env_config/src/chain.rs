@@ -192,13 +192,13 @@ mod tests {
         // Test Rollup Configuration
         lock.set_env(config_rollup);
 
-        let actual = StateKeeperConfig::from_env().unwrap();
-        assert_eq!(actual, expected_state_keeper_config_rollup());
+        let current_config_rollup = StateKeeperConfig::from_env().unwrap();
+        assert_eq!(current_config_rollup, expected_state_keeper_config_rollup());
 
         // Test Validium Configuration
         lock.set_env(config_validium);
-        let actual = StateKeeperConfig::from_env().unwrap();
-        assert_eq!(actual, expected_state_keeper_config_validium());
+        let current_config_validium = StateKeeperConfig::from_env().unwrap();
+        assert_eq!(current_config_validium, expected_state_keeper_config_validium());
     }
 
     fn expected_operations_manager_config() -> OperationsManagerConfig {
