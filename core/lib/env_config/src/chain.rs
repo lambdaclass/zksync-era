@@ -198,7 +198,10 @@ mod tests {
         // Test Validium Configuration
         lock.set_env(config_validium);
         let current_config_validium = StateKeeperConfig::from_env().unwrap();
-        assert_eq!(current_config_validium, expected_state_keeper_config_validium());
+        assert_eq!(
+            current_config_validium,
+            expected_state_keeper_config_validium()
+        );
     }
 
     fn expected_operations_manager_config() -> OperationsManagerConfig {
