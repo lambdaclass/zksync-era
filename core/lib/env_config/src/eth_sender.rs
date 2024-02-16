@@ -75,10 +75,21 @@ mod tests {
         validium_config
     }
 
+    fn from_env(config: &str, expected_config: ETHSenderConfig) {
+        let mut lock = MUTEX.lock();
+        lock.set_env(config);
+
+        let actual = ETHSenderConfig::from_env().unwrap();
+        assert_eq!(actual, expected_config);
+        assert_eq!(
+            actual.sender.private_key().unwrap(),
+            hash("27593fea79697e947890ecbecce7901b0008345e5d7259710d0dd5e500d040be")
+        );
+    }
+
     #[test]
     fn rollup_from_env() {
-        let mut lock = MUTEX.lock();
-        let config = r#"
+        let rollup_config = r#"
             ETH_SENDER_SENDER_WAIT_CONFIRMATIONS="1"
             ETH_SENDER_SENDER_TX_POLL_PERIOD="3"
             ETH_SENDER_SENDER_AGGREGATE_TX_POLL_PERIOD="3"
@@ -107,20 +118,12 @@ mod tests {
             ETH_SENDER_SENDER_PROOF_LOADING_MODE="OldProofFromDb"
             ETH_SENDER_GAS_ADJUSTER_L1_GAS_PER_PUBDATA_BYTE=17
             "#;
-        lock.set_env(config);
-
-        let actual = ETHSenderConfig::from_env().unwrap();
-        assert_eq!(actual, rollup_expected_config());
-        assert_eq!(
-            actual.sender.private_key().unwrap(),
-            hash("27593fea79697e947890ecbecce7901b0008345e5d7259710d0dd5e500d040be")
-        );
+        from_env(rollup_config, rollup_expected_config())
     }
 
     #[test]
     fn validium_from_env() {
-        let mut lock = MUTEX.lock();
-        let config = r#"
+        let validium_config = r#"
             ETH_SENDER_SENDER_WAIT_CONFIRMATIONS="1"
             ETH_SENDER_SENDER_TX_POLL_PERIOD="3"
             ETH_SENDER_SENDER_AGGREGATE_TX_POLL_PERIOD="3"
@@ -149,13 +152,6 @@ mod tests {
             ETH_SENDER_SENDER_PROOF_LOADING_MODE="OldProofFromDb"
             ETH_SENDER_GAS_ADJUSTER_L1_GAS_PER_PUBDATA_BYTE=0
             "#;
-        lock.set_env(config);
-
-        let actual = ETHSenderConfig::from_env().unwrap();
-        assert_eq!(actual, validium_expected_config());
-        assert_eq!(
-            actual.sender.private_key().unwrap(),
-            hash("27593fea79697e947890ecbecce7901b0008345e5d7259710d0dd5e500d040be")
-        );
+        from_env(validium_config, validium_expected_config());
     }
 }
