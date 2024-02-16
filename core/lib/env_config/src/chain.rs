@@ -66,7 +66,9 @@ mod tests {
         assert_eq!(actual, expected_network_config());
     }
 
-    fn expected_state_keeper_config_rollup() -> StateKeeperConfig {
+    fn expected_state_keeper_config(
+        l1_batch_commit_data_generator_mode: L1BatchCommitDataGeneratorMode,
+    ) -> StateKeeperConfig {
         StateKeeperConfig {
             transaction_slots: 50,
             block_commit_deadline_ms: 2500,
@@ -94,39 +96,7 @@ mod tests {
             virtual_blocks_per_miniblock: 1,
             upload_witness_inputs_to_gcs: false,
             enum_index_migration_chunk_size: Some(2_000),
-            l1_batch_commit_data_generator_mode: L1BatchCommitDataGeneratorMode::Rollup,
-        }
-    }
-
-    fn expected_state_keeper_config_validium() -> StateKeeperConfig {
-        StateKeeperConfig {
-            transaction_slots: 50,
-            block_commit_deadline_ms: 2500,
-            miniblock_commit_deadline_ms: 1000,
-            miniblock_seal_queue_capacity: 10,
-            max_single_tx_gas: 1_000_000,
-            max_allowed_l2_tx_gas_limit: 2_000_000_000,
-            close_block_at_eth_params_percentage: 0.2,
-            close_block_at_gas_percentage: 0.8,
-            close_block_at_geometry_percentage: 0.5,
-            reject_tx_at_eth_params_percentage: 0.8,
-            reject_tx_at_geometry_percentage: 0.3,
-            fee_account_addr: addr("de03a0B5963f75f1C8485B355fF6D30f3093BDE7"),
-            reject_tx_at_gas_percentage: 0.5,
-            minimal_l2_gas_price: 100000000,
-            compute_overhead_part: 0.0,
-            pubdata_overhead_part: 1.0,
-            batch_overhead_l1_gas: 800_000,
-            max_gas_per_batch: 200_000_000,
-            max_pubdata_per_batch: 100_000,
-            fee_model_version: FeeModelVersion::V2,
-            validation_computational_gas_limit: 10_000_000,
-            save_call_traces: false,
-            virtual_blocks_interval: 1,
-            virtual_blocks_per_miniblock: 1,
-            upload_witness_inputs_to_gcs: false,
-            enum_index_migration_chunk_size: Some(2_000),
-            l1_batch_commit_data_generator_mode: L1BatchCommitDataGeneratorMode::Validium,
+            l1_batch_commit_data_generator_mode,
         }
     }
 
@@ -168,7 +138,10 @@ mod tests {
         );
         lock.set_env(&config_mock_rollup);
         let current_config_rollup = StateKeeperConfig::from_env().unwrap();
-        assert_eq!(current_config_rollup, expected_state_keeper_config_rollup());
+        assert_eq!(
+            current_config_rollup,
+            expected_state_keeper_config(L1BatchCommitDataGeneratorMode::Rollup)
+        );
 
         // Test Validium Configuration
         let config_mock_validium = format!(
@@ -179,7 +152,7 @@ mod tests {
         let current_config_validium = StateKeeperConfig::from_env().unwrap();
         assert_eq!(
             current_config_validium,
-            expected_state_keeper_config_validium()
+            expected_state_keeper_config(L1BatchCommitDataGeneratorMode::Validium)
         );
     }
 
