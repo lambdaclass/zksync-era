@@ -66,7 +66,7 @@ mod tests {
         assert_eq!(actual, expected_network_config());
     }
 
-    fn expected_state_keeper_config() -> StateKeeperConfig {
+    fn expected_state_keeper_config_rollup() -> StateKeeperConfig {
         StateKeeperConfig {
             transaction_slots: 50,
             block_commit_deadline_ms: 2500,
@@ -98,10 +98,42 @@ mod tests {
         }
     }
 
+    fn expected_state_keeper_config_validium() -> StateKeeperConfig {
+        StateKeeperConfig {
+            transaction_slots: 50,
+            block_commit_deadline_ms: 2500,
+            miniblock_commit_deadline_ms: 1000,
+            miniblock_seal_queue_capacity: 10,
+            max_single_tx_gas: 1_000_000,
+            max_allowed_l2_tx_gas_limit: 2_000_000_000,
+            close_block_at_eth_params_percentage: 0.2,
+            close_block_at_gas_percentage: 0.8,
+            close_block_at_geometry_percentage: 0.5,
+            reject_tx_at_eth_params_percentage: 0.8,
+            reject_tx_at_geometry_percentage: 0.3,
+            fee_account_addr: addr("de03a0B5963f75f1C8485B355fF6D30f3093BDE7"),
+            reject_tx_at_gas_percentage: 0.5,
+            minimal_l2_gas_price: 100000000,
+            compute_overhead_part: 0.0,
+            pubdata_overhead_part: 1.0,
+            batch_overhead_l1_gas: 800_000,
+            max_gas_per_batch: 200_000_000,
+            max_pubdata_per_batch: 100_000,
+            fee_model_version: FeeModelVersion::V2,
+            validation_computational_gas_limit: 10_000_000,
+            save_call_traces: false,
+            virtual_blocks_interval: 1,
+            virtual_blocks_per_miniblock: 1,
+            upload_witness_inputs_to_gcs: false,
+            enum_index_migration_chunk_size: Some(2_000),
+            l1_batch_commit_data_generator_mode: L1BatchCommitDataGeneratorMode::Validium,
+        }
+    }
+
     #[test]
     fn state_keeper_from_env() {
         let mut lock = MUTEX.lock();
-        let config = r#"
+        let config_rollup = r#"
             CHAIN_STATE_KEEPER_TRANSACTION_SLOTS="50"
             CHAIN_STATE_KEEPER_FEE_ACCOUNT_ADDR="0xde03a0B5963f75f1C8485B355fF6D30f3093BDE7"
             CHAIN_STATE_KEEPER_MAX_SINGLE_TX_GAS="1000000"
@@ -128,10 +160,45 @@ mod tests {
             CHAIN_STATE_KEEPER_ENUM_INDEX_MIGRATION_CHUNK_SIZE="2000"
             CHAIN_STATE_KEEPER_L1_BATCH_COMMIT_DATA_GENERATOR_MODE=Rollup
         "#;
-        lock.set_env(config);
+
+        let config_validium = r#"
+            CHAIN_STATE_KEEPER_TRANSACTION_SLOTS="50"
+            CHAIN_STATE_KEEPER_FEE_ACCOUNT_ADDR="0xde03a0B5963f75f1C8485B355fF6D30f3093BDE7"
+            CHAIN_STATE_KEEPER_MAX_SINGLE_TX_GAS="1000000"
+            CHAIN_STATE_KEEPER_MAX_ALLOWED_L2_TX_GAS_LIMIT="2000000000"
+            CHAIN_STATE_KEEPER_CLOSE_BLOCK_AT_GEOMETRY_PERCENTAGE="0.5"
+            CHAIN_STATE_KEEPER_CLOSE_BLOCK_AT_GAS_PERCENTAGE="0.8"
+            CHAIN_STATE_KEEPER_CLOSE_BLOCK_AT_ETH_PARAMS_PERCENTAGE="0.2"
+            CHAIN_STATE_KEEPER_REJECT_TX_AT_GEOMETRY_PERCENTAGE="0.3"
+            CHAIN_STATE_KEEPER_REJECT_TX_AT_ETH_PARAMS_PERCENTAGE="0.8"
+            CHAIN_STATE_KEEPER_REJECT_TX_AT_GAS_PERCENTAGE="0.5"
+            CHAIN_STATE_KEEPER_BLOCK_COMMIT_DEADLINE_MS="2500"
+            CHAIN_STATE_KEEPER_MINIBLOCK_COMMIT_DEADLINE_MS="1000"
+            CHAIN_STATE_KEEPER_MINIBLOCK_SEAL_QUEUE_CAPACITY="10"
+            CHAIN_STATE_KEEPER_MINIMAL_L2_GAS_PRICE="100000000"
+            CHAIN_STATE_KEEPER_COMPUTE_OVERHEAD_PART="0.0"
+            CHAIN_STATE_KEEPER_PUBDATA_OVERHEAD_PART="1.0"
+            CHAIN_STATE_KEEPER_BATCH_OVERHEAD_L1_GAS="800000"
+            CHAIN_STATE_KEEPER_MAX_GAS_PER_BATCH="200000000"
+            CHAIN_STATE_KEEPER_MAX_PUBDATA_PER_BATCH="100000"
+            CHAIN_STATE_KEEPER_FEE_MODEL_VERSION="V2"
+            CHAIN_STATE_KEEPER_VALIDATION_COMPUTATIONAL_GAS_LIMIT="10000000"
+            CHAIN_STATE_KEEPER_SAVE_CALL_TRACES="false"
+            CHAIN_STATE_KEEPER_UPLOAD_WITNESS_INPUTS_TO_GCS="false"
+            CHAIN_STATE_KEEPER_ENUM_INDEX_MIGRATION_CHUNK_SIZE="2000"
+            CHAIN_STATE_KEEPER_L1_BATCH_COMMIT_DATA_GENERATOR_MODE=Validium
+        "#;
+
+        // Test Rollup Configuration
+        lock.set_env(config_rollup);
 
         let actual = StateKeeperConfig::from_env().unwrap();
-        assert_eq!(actual, expected_state_keeper_config());
+        assert_eq!(actual, expected_state_keeper_config_rollup());
+
+        // Test Validium Configuration
+        lock.set_env(config_validium);
+        let actual = StateKeeperConfig::from_env().unwrap();
+        assert_eq!(actual, expected_state_keeper_config_validium());
     }
 
     fn expected_operations_manager_config() -> OperationsManagerConfig {
