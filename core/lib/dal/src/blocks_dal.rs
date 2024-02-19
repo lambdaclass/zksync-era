@@ -12,6 +12,7 @@ use zksync_types::{
     block::{BlockGasCount, L1BatchHeader, MiniblockHeader},
     circuit::CircuitStatistic,
     commitment::{L1BatchMetadata, L1BatchWithMetadata},
+    utils,
     zk_evm_types::LogQuery,
     Address, L1BatchNumber, MiniblockNumber, ProtocolVersionId, H256, U256,
 };
@@ -2147,6 +2148,21 @@ impl BlocksDal<'_, '_> {
         .fetch_optional(self.storage.conn())
         .await?
         .map(|row| row.virtual_blocks as u32))
+    }
+
+    pub async fn get_batch_pubdata(
+        &mut self,
+        l1_batch_number: L1BatchNumber,
+    ) -> anyhow::Result<Option<Vec<u8>>> {
+        let Some(l1_batch_with_metadata) = self
+            .get_l1_batch_metadata(l1_batch_number)
+            .await
+            .context("L1 batch pubdata not found: get_l1_batch_metadata()")?
+        else {
+            return Ok(None);
+        };
+
+        Ok(Some(utils::construct_pubdata(&l1_batch_with_metadata)))
     }
 }
 
