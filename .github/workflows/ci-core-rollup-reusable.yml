@@ -1,4 +1,4 @@
-name: Workflow template for CI jobs for Core Components
+name: Workflow template for CI jobs for Core Components (Rollup mode)
 on:
   workflow_call:
     inputs:
