@@ -8,7 +8,7 @@ use prometheus_exporter::PrometheusExporterConfig;
 use tokio::{sync::watch, task, time::sleep};
 use zksync_basic_types::{Address, L2ChainId};
 use zksync_concurrency::{ctx, scope};
-use zksync_config::configs::{chain::L1BatchCommitDataGeneratorMode, database::MerkleTreeMode};
+use zksync_config::configs::database::MerkleTreeMode;
 use zksync_core::{
     api_server::{
         execution_sandbox::VmConcurrencyLimiter,
@@ -239,6 +239,8 @@ async fn init_tasks(
         .context("failed initializing metadata calculator")?;
     healthchecks.push(Box::new(metadata_calculator.tree_health_check()));
 
+    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
+
     let consistency_checker = ConsistencyChecker::new(
         &config
             .required
@@ -249,6 +251,7 @@ async fn init_tasks(
             .build()
             .await
             .context("failed to build connection pool for ConsistencyChecker")?,
+        l1_batch_commit_data_generator,
     );
 
     let batch_status_updater = BatchStatusUpdater::new(
@@ -268,11 +271,7 @@ async fn init_tasks(
         .context("failed to build a tree_pool")?;
     let tree_handle = task::spawn(metadata_calculator.run(tree_pool, tree_stop_receiver));
 
-    let l1_batch_commit_data_generator = Arc::new(RollupModeL1BatchCommitDataGenerator {});
-
-    let consistency_checker_handle = tokio::spawn(
-        consistency_checker.run(stop_receiver.clone(), l1_batch_commit_data_generator),
-    );
+    let consistency_checker_handle = tokio::spawn(consistency_checker.run(stop_receiver.clone()));
 
     let updater_handle = task::spawn(batch_status_updater.run(stop_receiver.clone()));
     let fee_address_migration_handle =
