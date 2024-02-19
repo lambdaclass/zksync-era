@@ -5,6 +5,8 @@ import * as zksync from 'zksync-web3';
 import { TestEnvironment } from './types';
 import { Reporter } from './reporter';
 
+const ETH_BASE_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000001';
+
 /**
  * Attempts to connect to server.
  * This function returns once connection can be established, or throws an exception in case of timeout.
@@ -48,8 +50,16 @@ export async function waitForServer() {
  */
 export async function loadTestEnvironment(): Promise<TestEnvironment> {
     const network = process.env.CHAIN_ETH_NETWORK || 'localhost';
-    const nativeErc20Testing = process.env.CONTRACTS_L1_NATIVE_ERC20_TOKEN_ADDR ? true : false; // if set, we assume user wants to test native erc20 tokens
-
+    const l2NodeUrl = ensureVariable(
+        process.env.ZKSYNC_WEB3_API_URL || process.env.API_WEB3_JSON_RPC_HTTP_URL,
+        'L2 node URL'
+    );
+    const l1NodeUrl = ensureVariable(process.env.L1_RPC_ADDRESS || process.env.ETH_CLIENT_WEB3_URL, 'L1 node URL');
+    const wsL2NodeUrl = ensureVariable(
+        process.env.ZKSYNC_WEB3_WS_API_URL || process.env.API_WEB3_JSON_RPC_WS_URL,
+        'WS L2 node URL'
+    );
+    const nativeErc20Testing = (await fetchNativeTokenData(l2NodeUrl)) != ETH_BASE_TOKEN_ADDRESS;
     let mainWalletPK;
     if (nativeErc20Testing) {
         mainWalletPK = '0xe131bc3f481277a8f73d680d9ba404cc6f959e64296e0914dded403030d4f705';
@@ -61,15 +71,6 @@ export async function loadTestEnvironment(): Promise<TestEnvironment> {
         mainWalletPK = ensureVariable(process.env.MASTER_WALLET_PK, 'Main wallet private key');
     }
 
-    const l2NodeUrl = ensureVariable(
-        process.env.ZKSYNC_WEB3_API_URL || process.env.API_WEB3_JSON_RPC_HTTP_URL,
-        'L2 node URL'
-    );
-    const l1NodeUrl = ensureVariable(process.env.L1_RPC_ADDRESS || process.env.ETH_CLIENT_WEB3_URL, 'L1 node URL');
-    const wsL2NodeUrl = ensureVariable(
-        process.env.ZKSYNC_WEB3_WS_API_URL || process.env.API_WEB3_JSON_RPC_WS_URL,
-        'WS L2 node URL'
-    );
     const contractVerificationUrl = process.env.ZKSYNC_ENV!.startsWith('ext-node')
         ? process.env.API_CONTRACT_VERIFICATION_URL!
         : ensureVariable(process.env.API_CONTRACT_VERIFICATION_URL, 'Contract verification API');
@@ -103,6 +104,13 @@ export async function loadTestEnvironment(): Promise<TestEnvironment> {
         ethers.getDefaultProvider(l1NodeUrl)
     ).l2TokenAddress(weth.address);
 
+    const nonNativeToken = tokens.find((token: { symbol: string }) => token.symbol == 'MLTT')!;
+    const nonNativeTokenL2Address = await new zksync.Wallet(
+        mainWalletPK,
+        new zksync.Provider(l2NodeUrl),
+        ethers.getDefaultProvider(l1NodeUrl)
+    ).l2TokenAddress(nonNativeToken.address);
+
     return {
         network,
         mainWalletPK,
@@ -123,6 +131,13 @@ export async function loadTestEnvironment(): Promise<TestEnvironment> {
             decimals: weth.decimals,
             l1Address: weth.address,
             l2Address: l2WethAddress
+        },
+        nonNativeToken: {
+            name: nonNativeToken.name,
+            symbol: nonNativeToken.symbol,
+            decimals: nonNativeToken.decimals,
+            l1Address: nonNativeToken.address,
+            l2Address: nonNativeTokenL2Address
         },
         nativeErc20Testing
     };
@@ -162,3 +177,21 @@ function getNativeTokens(): L1Token {
         })
     );
 }
+
+const fetchNativeTokenData = async (l2ProviderHTTPUrl: string) => {
+    const requestOptions = {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'zks_getBaseTokenL1Address',
+            params: [],
+            id: 1
+        })
+    };
+    const response = await fetch(l2ProviderHTTPUrl, requestOptions);
+    const response_json = await response.json();
+    return response_json.result;
+};

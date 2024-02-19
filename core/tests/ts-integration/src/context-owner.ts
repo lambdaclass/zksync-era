@@ -96,9 +96,10 @@ export class TestContextOwner {
     async setupContext(): Promise<TestContext> {
         try {
             if (this.env.nativeErc20Testing) {
-                this.reporter.message('Using native ERC20 implementation');
+                this.reporter.startAction('Setting up the context for NATIVE TOKEN IMPLEMENTATION');
+            } else {
+                this.reporter.startAction('Setting up the context');
             }
-            this.reporter.startAction('Setting up the context');
             await this.cancelPendingTxs();
             this.wallets = await this.prepareWallets();
             this.reporter.finishAction();
@@ -244,22 +245,20 @@ export class TestContextOwner {
         if (!l2ETHAmountToDeposit.isZero() && !this.env.nativeErc20Testing) {
             // Given that we've already sent a number of transactions,
             // we have to correctly send nonce.
-            const depositHandle = this.mainSyncWallet
+            const depositHandle = await this.mainSyncWallet
                 .deposit({
-                    to: this.mainEthersWallet.address,
-                    approveERC20: true,
-                    token: this.env.erc20Token.l1Address,
+                    token: zksync.utils.ETH_ADDRESS,
                     amount: l2ETHAmountToDeposit,
-                    refundRecipient: this.mainEthersWallet.address
+                    overrides: {
+                        nonce: nonce++,
+                        gasPrice
+                    }
                 })
                 .then((tx) => {
                     const amount = ethers.utils.formatEther(l2ETHAmountToDeposit);
                     this.reporter.debug(`Sent ETH deposit. Nonce ${tx.nonce}, amount: ${amount}, hash: ${tx.hash}`);
                     tx.wait();
                 });
-
-            // Add this promise to the list of L1 tx promises.
-            l1TxPromises.push(depositHandle);
         }
 
         // Define values for handling ERC20 transfers/deposits.
@@ -269,7 +268,7 @@ export class TestContextOwner {
         // Mint ERC20.
         const l1Erc20ABI = ['function mint(address to, uint256 amount)'];
         const l1Erc20Contract = new ethers.Contract(erc20Token, l1Erc20ABI, this.mainEthersWallet);
-        const erc20MintPromise = l1Erc20Contract
+        const erc20MintPromise = await l1Erc20Contract
             .mint(this.mainSyncWallet.address, erc20MintAmount, {
                 nonce: nonce++,
                 gasPrice
@@ -280,9 +279,9 @@ export class TestContextOwner {
             });
 
         // Deposit ERC20.
-        const approveOverrides = !this.env.nativeErc20Testing ? { nonce: nonce++, gasPrice } : undefined;
-        const overrides = !this.env.nativeErc20Testing ? { nonce: nonce++, gasPrice } : undefined;
-        const erc20DepositPromise = this.mainSyncWallet
+        const approveOverrides = { nonce: nonce++, gasPrice };
+        const overrides = { nonce: nonce++, gasPrice };
+        const erc20DepositPromise = await this.mainSyncWallet
             .deposit(
                 {
                     to: this.mainEthersWallet.address,
@@ -292,7 +291,7 @@ export class TestContextOwner {
                     approveOverrides,
                     overrides
                 },
-                erc20Token
+                this.env.nativeErc20Testing ? erc20Token : undefined
             )
             .then((tx) => {
                 // Note: there is an `approve` tx, not listed here.
@@ -323,8 +322,6 @@ export class TestContextOwner {
             this.reporter
         );
 
-        l1TxPromises.push(erc20MintPromise);
-        l1TxPromises.push(erc20DepositPromise);
         l1TxPromises.push(...ethTransfers);
         l1TxPromises.push(...erc20Transfers);
 
@@ -341,23 +338,17 @@ export class TestContextOwner {
         this.reporter.startAction(`Distributing tokens on L2`);
         let l2startNonce = await this.mainSyncWallet.getTransactionCount();
 
-        // All the promises we send in this function.
-        const l2TxPromises: Promise<any>[] = [];
-
         // ETH transfers.
-        if (!this.env.nativeErc20Testing) {
-            const ethPromises = await sendTransfers(
-                zksync.utils.ETH_ADDRESS,
-                this.mainSyncWallet,
-                wallets,
-                L2_ETH_PER_ACCOUNT,
-                l2startNonce,
-                undefined,
-                this.reporter
-            );
-            l2startNonce += l2TxPromises.length;
-            l2TxPromises.push(...ethPromises);
-        }
+        const l2TxPromises = await sendTransfers(
+            zksync.utils.ETH_ADDRESS,
+            this.mainSyncWallet,
+            wallets,
+            L2_ETH_PER_ACCOUNT,
+            l2startNonce,
+            undefined,
+            this.reporter
+        );
+        l2startNonce += l2TxPromises.length;
 
         // ERC20 transfers.
         const l2TokenAddress = await this.mainSyncWallet.l2TokenAddress(this.env.erc20Token.l1Address);
