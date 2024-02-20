@@ -998,35 +998,6 @@ interface L1BatchWithMetadata {
     };
 }
 
-function constructPubdata(l1BatchWithMetadata: L1BatchWithMetadata): Uint8Array {
-    const res: number[] = [];
-
-    // Process and Pack Logs
-    res.push(...Uint32Array.of(l1BatchWithMetadata.header.l2_to_l1_logs.length).reverse());
-    for (const log of l1BatchWithMetadata.header.l2_to_l1_logs) {
-        res.push(...Uint32Array.of(log).reverse());
-    }
-
-    // Process and Pack Messages
-    res.push(...Uint32Array.of(l1BatchWithMetadata.header.l2_to_l1_messages.length).reverse());
-    for (const msg of l1BatchWithMetadata.header.l2_to_l1_messages) {
-        res.push(...Uint32Array.of(msg.length).reverse());
-        res.push(...Array.from(msg));
-    }
-
-    // Process and Pack Bytecodes
-    res.push(...Uint32Array.of(l1BatchWithMetadata.header.factory_deps.length).reverse());
-    for (const bytecode of l1BatchWithMetadata.header.factory_deps) {
-        res.push(...Uint32Array.of(bytecode.length).reverse());
-        res.push(...Array.from(bytecode));
-    }
-
-    // Extend with Compressed StateDiffs
-    res.push(...Array.from(l1BatchWithMetadata.metadata.state_diffs_compressed));
-
-    return Uint8Array.from(res);
-}
-
 function reconstructPubdata(pubdata: Uint8Array): L1BatchWithMetadata {
     let offset = 0;
 
