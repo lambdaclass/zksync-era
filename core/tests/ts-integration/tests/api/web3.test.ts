@@ -137,6 +137,38 @@ describe('web3 API compatibility tests', () => {
         expect(response).toMatchObject(expectedResponse);
     });
 
+    test('Should test some zks web3 methods including zks_getBatchPubdata', async () => {
+        // zks_getAllAccountBalances
+        // NOTE: `getAllBalances` will not work on external node,
+        // since TokenListFetcher is not running
+        if (!process.env.EN_MAIN_NODE_URL) {
+            const balances = await alice.getAllBalances();
+            const tokenBalance = await alice.getBalance(l2Token);
+            expect(balances[l2Token.toLowerCase()].eq(tokenBalance));
+        }
+        // zks_getBlockDetails
+        const blockDetails = await alice.provider.getBlockDetails(1);
+        const block = await alice.provider.getBlock(1);
+        expect(blockDetails.rootHash).toEqual(block.hash);
+        expect(blockDetails.l1BatchNumber).toEqual(block.l1BatchNumber);
+        // zks_getL1BatchDetails
+        const batchDetails = await alice.provider.getL1BatchDetails(block.l1BatchNumber);
+        expect(batchDetails.number).toEqual(block.l1BatchNumber);
+        // zks_getBatchPubdata
+        const response = await alice.provider.send('zks_getBatchPubdata', [block.l1BatchNumber]);
+        const expectedResponse = {
+            gas_limit: expect.stringMatching(HEX_VALUE_REGEX),
+            gas_per_pubdata_limit: expect.stringMatching(HEX_VALUE_REGEX),
+            max_fee_per_gas: expect.stringMatching(HEX_VALUE_REGEX),
+            max_priority_fee_per_gas: expect.stringMatching(HEX_VALUE_REGEX)
+        };
+        expect(response).toMatchObject(expectedResponse);
+    });
+
+    afterAll(async () => {
+        await testMaster.deinitialize();
+    });
+
     test('Should check the network version', async () => {
         // Valid network IDs for zkSync are greater than 270.
         // This test suite may run on different envs, so we don't expect a particular ID.
