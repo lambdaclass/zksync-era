@@ -146,7 +146,6 @@ describe('web3 API compatibility tests', () => {
             const tokenBalance = await alice.getBalance(l2Token);
             expect(balances[l2Token.toLowerCase()].eq(tokenBalance));
         }
-        // zks_getBlockDetails
         const block = await alice.provider.getBlock(1);
         // zks_getBatchPubdata
         const response = await alice.provider.send('zks_getBatchPubdata', [block.l1BatchNumber]);
