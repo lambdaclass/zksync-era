@@ -97,10 +97,10 @@ export async function deployL2(
     }
 
     if (includeWETH) {
-        await utils.spawn(`${baseCommandL2} deploy-l2-weth ${args.join(' ')} | tee -a deployL2.log`);
+        await utils.spawn(`${baseCommandL2} deploy-l2-weth ${nativeToken ? ' --native-erc20' : ''} ${args.join(' ')} | tee -a deployL2.log`);
     }
 
-    await utils.spawn(`${baseCommandL2} deploy-force-deploy-upgrader ${args.join(' ')} | tee -a deployL2.log`);
+    await utils.spawn(`${baseCommandL2} deploy-force-deploy-upgrader ${nativeToken ? ' --native-erc20' : ''} ${args.join(' ')} | tee -a deployL2.log`);
 
     const l2DeployLog = fs.readFileSync('deployL2.log').toString();
     const l2DeploymentEnvVars = [
