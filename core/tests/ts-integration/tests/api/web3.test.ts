@@ -137,7 +137,7 @@ describe('web3 API compatibility tests', () => {
         expect(response).toMatchObject(expectedResponse);
     });
 
-    test('Should test some zks web3 methods including zks_getBatchPubdata', async () => {
+    test('Should check zks_getBatchPubdata does not fail and the retrieved pubdata is correct', async () => {
         // zks_getAllAccountBalances
         // NOTE: `getAllBalances` will not work on external node,
         // since TokenListFetcher is not running
@@ -162,6 +162,23 @@ describe('web3 API compatibility tests', () => {
         expect(response).toMatchObject(expectedResponse);
         // Check expected length
         expect(response).toHaveLength(isValidiumMode ? 3952 : 4017);
+        // TODO: check the retrieved pubdata is correct
+    });
+
+    test('Should check zks_getBatchPubdata fails from a non-existing batch', async () => {
+        // zks_getAllAccountBalances
+        // NOTE: `getAllBalances` will not work on external node,
+        // since TokenListFetcher is not running
+        if (!process.env.EN_MAIN_NODE_URL) {
+            const balances = await alice.getAllBalances();
+            const tokenBalance = await alice.getBalance(l2Token);
+            expect(balances[l2Token.toLowerCase()].eq(tokenBalance));
+        }
+        // Call zks_getBatchPubdata from a non-existing batch (batch nº 10000 does not exist)
+        const response = await alice.provider.send('zks_getBatchPubdata', [10000]);
+        const expectedResponse = expect.arrayContaining([]);
+        // Check response is an empty array
+        expect(response).toMatchObject(expectedResponse);
     });
 
     test('Should check the network version', async () => {
