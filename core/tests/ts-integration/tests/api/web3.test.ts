@@ -156,17 +156,17 @@ describe('web3 API compatibility tests', () => {
         expect(batchDetails.number).toEqual(block.l1BatchNumber);
         // zks_getBatchPubdata
         const response = await alice.provider.send('zks_getBatchPubdata', [block.l1BatchNumber]);
-        // expect a vector of numbers
         const expectedResponse = expect.arrayContaining([expect.any(Number)]);
-        const containsNonZero = (array: number[]): boolean => {
-            return array.some((element) => element !== 0);
+        const isEmptyBytesVector = (array: number[]): boolean => {
+            return array.every((element) => element === 0);
         };
-        const expectedBytes = process.env.VALIDIUM_MODE
-            ? expect.not.arrayContaining([containsNonZero])
-            : expect.arrayContaining([containsNonZero]);
+        // Check expected type
         expect(response).toMatchObject(expectedResponse);
+        // Check expected length
         expect(response).toHaveLength(4017);
-        expect(response).toMatchObject(expectedBytes);
+        // Check that the results are a non-empty bytes vector in Rollup mode
+        // and an empty bytes vector in Validium mode.
+        expect(process.env.VALIDIUM_MODE === isEmptyBytesVector(response).toString()).toBe(true);
     });
 
     test('Should check the network version', async () => {
