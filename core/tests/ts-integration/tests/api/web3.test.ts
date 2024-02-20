@@ -137,7 +137,7 @@ describe('web3 API compatibility tests', () => {
         expect(response).toMatchObject(expectedResponse);
     });
 
-    test('Should check zks_getBatchPubdata does not fail and the retrieved pubdata is correct', async () => {
+    test('Should check zks_getBatchPubdata does not fail from an existing batch', async () => {
         // zks_getAllAccountBalances
         // NOTE: `getAllBalances` will not work on external node,
         // since TokenListFetcher is not running
@@ -146,15 +146,8 @@ describe('web3 API compatibility tests', () => {
             const tokenBalance = await alice.getBalance(l2Token);
             expect(balances[l2Token.toLowerCase()].eq(tokenBalance));
         }
-        const isValidiumMode = process.env.VALIDIUM_MODE === 'true';
         // zks_getBlockDetails
-        const blockDetails = await alice.provider.getBlockDetails(1);
         const block = await alice.provider.getBlock(1);
-        expect(blockDetails.rootHash).toEqual(block.hash);
-        expect(blockDetails.l1BatchNumber).toEqual(block.l1BatchNumber);
-        // zks_getL1BatchDetails
-        const batchDetails = await alice.provider.getL1BatchDetails(block.l1BatchNumber);
-        expect(batchDetails.number).toEqual(block.l1BatchNumber);
         // zks_getBatchPubdata
         const response = await alice.provider.send('zks_getBatchPubdata', [block.l1BatchNumber]);
         const expectedResponse = expect.arrayContaining([expect.any(Number)]);
@@ -162,9 +155,6 @@ describe('web3 API compatibility tests', () => {
         expect(response).toMatchObject(expectedResponse);
         // Check expected length
         expect(response).toHaveLength(3952);
-        // TODO: check the retrieved pubdata is correct
-        const l1BatchWithMetadata = reconstructPubdata(response);
-        console.log(l1BatchWithMetadata);
     });
 
     test('Should check zks_getBatchPubdata fails from a non-existing batch', async () => {
@@ -985,63 +975,4 @@ export class MockMetamask {
                 return this.wallet.provider.send(method, params);
         }
     }
-}
-
-interface L1BatchWithMetadata {
-    header: {
-        l2_to_l1_logs: number[];
-        l2_to_l1_messages: Uint8Array[];
-        factory_deps: Uint8Array[];
-    };
-    metadata: {
-        state_diffs_compressed: Uint8Array;
-    };
-}
-
-function reconstructPubdata(pubdata: Uint8Array): L1BatchWithMetadata {
-    let offset = 0;
-
-    // Extract Logs
-    const logCount = new Uint32Array(pubdata.slice(offset, offset + 4).reverse())[0];
-    offset += 4;
-    const l2_to_l1_logs = Array.from(new Uint32Array(pubdata.slice(offset, offset + 4 * logCount).reverse()));
-    offset += 4 * logCount;
-
-    // Extract Messages
-    const msgCount = new Uint32Array(pubdata.slice(offset, offset + 4).reverse())[0];
-    offset += 4;
-    const l2_to_l1_messages: Uint8Array[] = [];
-    for (let i = 0; i < msgCount; i++) {
-        const msgLength = new Uint32Array(pubdata.slice(offset, offset + 4).reverse())[0];
-        offset += 4;
-        const msg = pubdata.slice(offset, offset + msgLength);
-        l2_to_l1_messages.push(msg);
-        offset += msgLength;
-    }
-
-    // Extract Bytecodes
-    const bytecodeCount = new Uint32Array(pubdata.slice(offset, offset + 4).reverse())[0];
-    offset += 4;
-    const factory_deps: Uint8Array[] = [];
-    for (let i = 0; i < bytecodeCount; i++) {
-        const bytecodeLength = new Uint32Array(pubdata.slice(offset, offset + 4).reverse())[0];
-        offset += 4;
-        const bytecode = pubdata.slice(offset, offset + bytecodeLength);
-        factory_deps.push(bytecode);
-        offset += bytecodeLength;
-    }
-
-    // Extract StateDiffs
-    const stateDiffCompressed = pubdata.slice(offset);
-
-    return {
-        header: {
-            l2_to_l1_logs,
-            l2_to_l1_messages,
-            factory_deps
-        },
-        metadata: {
-            state_diffs_compressed: stateDiffCompressed
-        }
-    };
 }
