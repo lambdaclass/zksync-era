@@ -156,17 +156,17 @@ describe('web3 API compatibility tests', () => {
         expect(batchDetails.number).toEqual(block.l1BatchNumber);
         // zks_getBatchPubdata
         const response = await alice.provider.send('zks_getBatchPubdata', [block.l1BatchNumber]);
-        const expectedResponse = {
-            gas_limit: expect.stringMatching(HEX_VALUE_REGEX),
-            gas_per_pubdata_limit: expect.stringMatching(HEX_VALUE_REGEX),
-            max_fee_per_gas: expect.stringMatching(HEX_VALUE_REGEX),
-            max_priority_fee_per_gas: expect.stringMatching(HEX_VALUE_REGEX)
+        // expect a vector of numbers
+        const expectedResponse = expect.arrayContaining([
+            expect.any(Number),
+        ]);
+        const containsNonZero = (array: number[]): boolean => {
+            return array.some(element => element !== 0);
         };
+        const expectedBytes = process.env.VALIDIUM_MODE ? expect.not.arrayContaining([containsNonZero]) : expect.arrayContaining([containsNonZero]);
         expect(response).toMatchObject(expectedResponse);
-    });
-
-    afterAll(async () => {
-        await testMaster.deinitialize();
+        expect(response).toHaveLength(4017);
+        expect(response).toMatchObject(expectedBytes);
     });
 
     test('Should check the network version', async () => {
