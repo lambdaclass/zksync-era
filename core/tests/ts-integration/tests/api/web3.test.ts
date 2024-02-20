@@ -161,8 +161,10 @@ describe('web3 API compatibility tests', () => {
         // Check expected type
         expect(response).toMatchObject(expectedResponse);
         // Check expected length
-        expect(response).toHaveLength(isValidiumMode ? 3952 : 4017);
+        expect(response).toHaveLength(3952);
         // TODO: check the retrieved pubdata is correct
+        const l1BatchWithMetadata = reconstructPubdata(response);
+        console.log(l1BatchWithMetadata);
     });
 
     test('Should check zks_getBatchPubdata fails from a non-existing batch', async () => {
@@ -983,4 +985,92 @@ export class MockMetamask {
                 return this.wallet.provider.send(method, params);
         }
     }
+}
+
+interface L1BatchWithMetadata {
+    header: {
+        l2_to_l1_logs: number[];
+        l2_to_l1_messages: Uint8Array[];
+        factory_deps: Uint8Array[];
+    };
+    metadata: {
+        state_diffs_compressed: Uint8Array;
+    };
+}
+
+function constructPubdata(l1BatchWithMetadata: L1BatchWithMetadata): Uint8Array {
+    const res: number[] = [];
+
+    // Process and Pack Logs
+    res.push(...Uint32Array.of(l1BatchWithMetadata.header.l2_to_l1_logs.length).reverse());
+    for (const log of l1BatchWithMetadata.header.l2_to_l1_logs) {
+        res.push(...Uint32Array.of(log).reverse());
+    }
+
+    // Process and Pack Messages
+    res.push(...Uint32Array.of(l1BatchWithMetadata.header.l2_to_l1_messages.length).reverse());
+    for (const msg of l1BatchWithMetadata.header.l2_to_l1_messages) {
+        res.push(...Uint32Array.of(msg.length).reverse());
+        res.push(...Array.from(msg));
+    }
+
+    // Process and Pack Bytecodes
+    res.push(...Uint32Array.of(l1BatchWithMetadata.header.factory_deps.length).reverse());
+    for (const bytecode of l1BatchWithMetadata.header.factory_deps) {
+        res.push(...Uint32Array.of(bytecode.length).reverse());
+        res.push(...Array.from(bytecode));
+    }
+
+    // Extend with Compressed StateDiffs
+    res.push(...Array.from(l1BatchWithMetadata.metadata.state_diffs_compressed));
+
+    return Uint8Array.from(res);
+}
+
+function reconstructPubdata(pubdata: Uint8Array): L1BatchWithMetadata {
+    let offset = 0;
+
+    // Extract Logs
+    const logCount = new Uint32Array(pubdata.slice(offset, offset + 4).reverse())[0];
+    offset += 4;
+    const l2_to_l1_logs = Array.from(new Uint32Array(pubdata.slice(offset, offset + 4 * logCount).reverse()));
+    offset += 4 * logCount;
+
+    // Extract Messages
+    const msgCount = new Uint32Array(pubdata.slice(offset, offset + 4).reverse())[0];
+    offset += 4;
+    const l2_to_l1_messages: Uint8Array[] = [];
+    for (let i = 0; i < msgCount; i++) {
+        const msgLength = new Uint32Array(pubdata.slice(offset, offset + 4).reverse())[0];
+        offset += 4;
+        const msg = pubdata.slice(offset, offset + msgLength);
+        l2_to_l1_messages.push(msg);
+        offset += msgLength;
+    }
+
+    // Extract Bytecodes
+    const bytecodeCount = new Uint32Array(pubdata.slice(offset, offset + 4).reverse())[0];
+    offset += 4;
+    const factory_deps: Uint8Array[] = [];
+    for (let i = 0; i < bytecodeCount; i++) {
+        const bytecodeLength = new Uint32Array(pubdata.slice(offset, offset + 4).reverse())[0];
+        offset += 4;
+        const bytecode = pubdata.slice(offset, offset + bytecodeLength);
+        factory_deps.push(bytecode);
+        offset += bytecodeLength;
+    }
+
+    // Extract StateDiffs
+    const stateDiffCompressed = pubdata.slice(offset);
+
+    return {
+        header: {
+            l2_to_l1_logs,
+            l2_to_l1_messages,
+            factory_deps
+        },
+        metadata: {
+            state_diffs_compressed: stateDiffCompressed
+        }
+    };
 }
