@@ -157,13 +157,13 @@ describe('web3 API compatibility tests', () => {
         // zks_getBatchPubdata
         const response = await alice.provider.send('zks_getBatchPubdata', [block.l1BatchNumber]);
         // expect a vector of numbers
-        const expectedResponse = expect.arrayContaining([
-            expect.any(Number),
-        ]);
+        const expectedResponse = expect.arrayContaining([expect.any(Number)]);
         const containsNonZero = (array: number[]): boolean => {
-            return array.some(element => element !== 0);
+            return array.some((element) => element !== 0);
         };
-        const expectedBytes = process.env.VALIDIUM_MODE ? expect.not.arrayContaining([containsNonZero]) : expect.arrayContaining([containsNonZero]);
+        const expectedBytes = process.env.VALIDIUM_MODE
+            ? expect.not.arrayContaining([containsNonZero])
+            : expect.arrayContaining([containsNonZero]);
         expect(response).toMatchObject(expectedResponse);
         expect(response).toHaveLength(4017);
         expect(response).toMatchObject(expectedBytes);
