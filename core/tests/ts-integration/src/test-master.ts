@@ -70,7 +70,7 @@ export class TestMaster {
             this.l2Provider.pollingInterval = 5000;
         }
 
-        this.mainWallet = new zksync.Wallet(suiteWalletPK, this.l2Provider, this.l1Provider);
+        this.mainWallet = new zksync.Wallet(this.env.mainWalletPK, this.l2Provider, this.l1Provider);
     }
 
     /**

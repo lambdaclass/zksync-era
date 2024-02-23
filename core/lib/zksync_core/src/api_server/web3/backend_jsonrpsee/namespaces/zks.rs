@@ -38,6 +38,11 @@ impl ZksNamespaceServer for ZksNamespace {
         Ok(self.get_main_contract_impl())
     }
 
+    async fn get_base_token_l1_address(&self) -> RpcResult<Address> {
+        self.get_base_token_l1_address_impl()
+            .map_err(into_jsrpc_error)
+    }
+
     async fn get_testnet_paymaster(&self) -> RpcResult<Option<Address>> {
         Ok(self.get_testnet_paymaster_impl())
     }
@@ -162,6 +167,12 @@ impl ZksNamespaceServer for ZksNamespace {
         l1_batch_number: L1BatchNumber,
     ) -> RpcResult<Proof> {
         self.get_proofs_impl(address, keys, l1_batch_number)
+            .await
+            .map_err(into_jsrpc_error)
+    }
+
+    async fn get_conversion_rate(&self) -> RpcResult<U64> {
+        self.get_conversion_rate_impl()
             .await
             .map_err(into_jsrpc_error)
     }

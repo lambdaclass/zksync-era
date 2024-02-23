@@ -153,7 +153,6 @@ impl ZkSyncStateKeeper {
                 }
             }
         };
-
         let protocol_version = system_env.version;
         let mut updates_manager = UpdatesManager::new(&l1_batch_env, &system_env);
 

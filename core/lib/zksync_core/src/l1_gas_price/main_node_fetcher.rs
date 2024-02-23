@@ -1,5 +1,8 @@
 use std::{
-    sync::{Arc, RwLock},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, RwLock,
+    },
     time::Duration,
 };
 
@@ -9,7 +12,7 @@ use zksync_web3_decl::{
     error::ClientRpcContext, jsonrpsee::http_client::HttpClient, namespaces::ZksNamespaceClient,
 };
 
-use crate::fee_model::BatchFeeModelInputProvider;
+use crate::{fee_model::BatchFeeModelInputProvider, l1_gas_price::gas_adjuster::erc_20_fetcher};
 
 const SLEEP_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -23,12 +26,14 @@ const SLEEP_INTERVAL: Duration = Duration::from_secs(5);
 pub struct MainNodeFeeParamsFetcher {
     client: HttpClient,
     main_node_fee_params: RwLock<FeeParams>,
+    erc20_value_in_wei: AtomicU64,
 }
 
 impl MainNodeFeeParamsFetcher {
     pub fn new(client: HttpClient) -> Self {
         Self {
             client,
+            erc20_value_in_wei: AtomicU64::new(1u64),
             main_node_fee_params: RwLock::new(FeeParams::sensible_v1_default()),
         }
     }
@@ -57,6 +62,11 @@ impl MainNodeFeeParamsFetcher {
             *self.main_node_fee_params.write().unwrap() = main_node_fee_params;
 
             tokio::time::sleep(SLEEP_INTERVAL).await;
+
+            self.erc20_value_in_wei.store(
+                erc_20_fetcher::get_erc_20_value_in_wei().await,
+                std::sync::atomic::Ordering::Relaxed,
+            );
         }
         Ok(())
     }
@@ -65,5 +75,9 @@ impl MainNodeFeeParamsFetcher {
 impl BatchFeeModelInputProvider for MainNodeFeeParamsFetcher {
     fn get_fee_model_params(&self) -> FeeParams {
         *self.main_node_fee_params.read().unwrap()
+    }
+
+    fn get_erc20_conversion_rate(&self) -> u64 {
+        self.erc20_value_in_wei.load(Ordering::Relaxed)
     }
 }

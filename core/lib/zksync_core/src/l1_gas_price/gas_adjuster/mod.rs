@@ -2,7 +2,7 @@
 
 use std::{
     collections::VecDeque,
-    sync::{Arc, RwLock},
+    sync::{atomic::AtomicU64, Arc, RwLock},
 };
 
 use tokio::sync::watch;
@@ -10,9 +10,10 @@ use zksync_config::GasAdjusterConfig;
 use zksync_eth_client::{Error, EthInterface};
 use zksync_system_constants::L1_GAS_PER_PUBDATA_BYTE;
 
-use self::metrics::METRICS;
+use self::{erc_20_fetcher::get_erc_20_value_in_wei, metrics::METRICS};
 use super::L1TxParamsProvider;
 use crate::state_keeper::metrics::KEEPER_METRICS;
+pub mod erc_20_fetcher;
 
 mod metrics;
 #[cfg(test)]
@@ -25,6 +26,7 @@ pub struct GasAdjuster {
     pub(super) statistics: GasStatistics,
     pub(super) config: GasAdjusterConfig,
     eth_client: Arc<dyn EthInterface>,
+    erc_20_value_in_wei: AtomicU64,
 }
 
 impl GasAdjuster {
@@ -47,6 +49,7 @@ impl GasAdjuster {
             statistics: GasStatistics::new(config.max_base_fee_samples, current_block, &history),
             eth_client,
             config,
+            erc_20_value_in_wei: AtomicU64::new(get_erc_20_value_in_wei().await),
         })
     }
 
@@ -81,6 +84,12 @@ impl GasAdjuster {
                 .set(*history.last().unwrap());
             self.statistics.add_samples(&history);
         }
+
+        self.erc_20_value_in_wei.store(
+            erc_20_fetcher::get_erc_20_value_in_wei().await,
+            std::sync::atomic::Ordering::Relaxed,
+        );
+
         Ok(())
     }
 
@@ -108,7 +117,8 @@ impl GasAdjuster {
                 tracing::warn!("Cannot add the base fee to gas statistics: {}", err);
             }
 
-            tokio::time::sleep(self.config.poll_period()).await;
+            // tokio::time::sleep(self.config.poll_period()).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(100_000_000)).await;
         }
         Ok(())
     }
@@ -132,6 +142,13 @@ impl GasAdjuster {
     pub(crate) fn estimate_effective_pubdata_price(&self) -> u64 {
         // For now, pubdata is only sent via calldata, so its price is pegged to the L1 gas price.
         self.estimate_effective_gas_price() * L1_GAS_PER_PUBDATA_BYTE as u64
+    }
+
+    /// TODO: This is for an easy refactor to test things,
+    /// let's discuss where this should actually be.
+    pub fn get_erc20_conversion_rate(&self) -> u64 {
+        self.erc_20_value_in_wei
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 

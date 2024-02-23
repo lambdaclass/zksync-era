@@ -8,7 +8,7 @@ import * as contract from './contract';
 import * as db from './database';
 import * as docker from './docker';
 import * as env from './env';
-import * as run from './run';
+import * as run from './run/run';
 import * as server from './server';
 import { up } from './up';
 
@@ -23,9 +23,16 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         skipEnvSetup,
         testTokens,
         governorPrivateKeyArgs,
+        deployerL2ContractInput,
         deployerPrivateKeyArgs,
-        deployerL2ContractInput
+        nativeERC20
     } = initArgs;
+
+    if (nativeERC20) {
+        process.env.NATIVE_ERC20 = 'true';
+    } else {
+        process.env.NATIVE_ERC20 = 'false';
+    }
 
     if (!process.env.CI && !skipEnvSetup) {
         await announced('Pulling images', docker.pull());
@@ -44,25 +51,43 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     await announced('Clean rocksdb', clean('db'));
     await announced('Clean backups', clean('backups'));
     await announced('Building contracts', contract.build());
+
     if (testTokens.deploy) {
         await announced('Deploying localhost ERC20 tokens', run.deployERC20('dev', '', '', '', testTokens.args));
     }
+
+    if (nativeERC20) {
+        // TODO: Deploy and set native ERC20 token.
+        await announced('Setting up native L2 ERC20 token', run.deployERC20('new', 'lambdacoin', 'LBC', '18'));
+    }
+
+    await announced('Building contracts', contract.build());
     await announced('Deploying L1 verifier', contract.deployVerifier(deployerPrivateKeyArgs));
     await announced('Reloading env', env.reload());
     await announced('Running server genesis setup', server.genesisFromSources());
     await announced('Deploying L1 contracts', contract.redeployL1(deployerPrivateKeyArgs));
     await announced('Initializing validator', contract.initializeValidator(governorPrivateKeyArgs));
+    await announced('Reloading env', env.reload());
+
+    if (nativeERC20) {
+        await announced('Approving Proxy Contract for deployer deposits', run.approve());
+    }
+
     await announced(
         'Deploying L2 contracts',
         contract.deployL2(
             deployerL2ContractInput.args,
             deployerL2ContractInput.includePaymaster,
-            deployerL2ContractInput.includeL2WETH
+            deployerL2ContractInput.includeL2WETH,
+            nativeERC20
         )
     );
 
     if (deployerL2ContractInput.includeL2WETH) {
-        await announced('Initializing L2 WETH token', contract.initializeWethToken(governorPrivateKeyArgs));
+        await announced(
+            'Initializing L2 WETH token',
+            contract.initializeWethToken(governorPrivateKeyArgs, nativeERC20)
+        );
     }
     await announced('Initializing governance', contract.initializeGovernance(governorPrivateKeyArgs));
 }
@@ -140,6 +165,7 @@ async function checkEnv() {
 export interface InitArgs {
     skipSubmodulesCheckout: boolean;
     skipEnvSetup: boolean;
+    nativeERC20: boolean;
     governorPrivateKeyArgs: any[];
     deployerPrivateKeyArgs: any[];
     deployerL2ContractInput: {
@@ -156,6 +182,7 @@ export interface InitArgs {
 const DEFAULT_ARGS: InitArgs = {
     skipSubmodulesCheckout: false,
     skipEnvSetup: false,
+    nativeERC20: false,
     governorPrivateKeyArgs: [],
     deployerPrivateKeyArgs: [],
     deployerL2ContractInput: { args: [], includePaymaster: true, includeL2WETH: true },
@@ -165,6 +192,7 @@ const DEFAULT_ARGS: InitArgs = {
 export const initCommand = new Command('init')
     .option('--skip-submodules-checkout')
     .option('--skip-env-setup')
+    .option('--native-erc20')
     .description('perform zksync network initialization for development')
     .action(async (cmd: Command) => {
         const initArgs: InitArgs = {
@@ -173,7 +201,8 @@ export const initCommand = new Command('init')
             governorPrivateKeyArgs: [],
             deployerL2ContractInput: { args: [], includePaymaster: true, includeL2WETH: true },
             testTokens: { deploy: true, args: [] },
-            deployerPrivateKeyArgs: []
+            deployerPrivateKeyArgs: [],
+            nativeERC20: cmd.nativeErc20
         };
         await init(initArgs);
     });

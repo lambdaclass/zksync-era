@@ -1,4 +1,4 @@
-use std::{collections::HashMap, convert::TryInto};
+use std::{collections::HashMap, convert::TryInto, fs::File, io::BufReader, str::FromStr};
 
 use zksync_dal::StorageProcessor;
 use zksync_mini_merkle_tree::MiniMerkleTree;
@@ -16,8 +16,8 @@ use zksync_types::{
     tokens::ETHEREUM_ADDRESS,
     transaction_request::CallRequest,
     utils::storage_key_for_standard_token_balance,
-    AccountTreeId, L1BatchNumber, MiniblockNumber, StorageKey, Transaction, L1_MESSENGER_ADDRESS,
-    L2_ETH_TOKEN_ADDRESS, REQUIRED_L1_TO_L2_GAS_PER_PUBDATA_BYTE, U256, U64,
+    AccountTreeId, L1BatchNumber, MiniblockNumber, StorageKey, Transaction, H160,
+    L1_MESSENGER_ADDRESS, L2_ETH_TOKEN_ADDRESS, REQUIRED_L1_TO_L2_GAS_PER_PUBDATA_BYTE, U256, U64,
 };
 use zksync_utils::{address_to_h256, h256_to_u256};
 use zksync_web3_decl::{
@@ -131,6 +131,39 @@ impl ZksNamespace {
     #[tracing::instrument(skip(self))]
     pub fn get_main_contract_impl(&self) -> Address {
         self.state.api_config.diamond_proxy_addr
+    }
+
+    /// Returns the address of the native token used in the network.
+    /// If the network does not have a native ERC20 token, it returns 0.
+    /// That means that ETH is the native token.
+    #[tracing::instrument(skip_all)]
+    pub fn get_base_token_l1_address_impl(&self) -> Result<Address, Web3Error> {
+        const METHOD_NAME: &str = "get_base_token_l1_address";
+        const NATIVE_ERC20_FILE_PATH: &str = "etc/tokens/native_erc20.json";
+
+        // read the address from the native_erc20.json file.
+        // in the future it should be read from .init.env file.
+        // If the file is not found, it assumes that ETH is the native token and returns 0.
+        let native_erc20_file = match File::open(NATIVE_ERC20_FILE_PATH) {
+            Ok(file) => file,
+            Err(_) => {
+                return Ok(
+                    Address::from_str("0x0000000000000000000000000000000000000001")
+                        .expect("Wrong base token literal address"),
+                )
+            }
+        };
+        let native_erc20_json: serde_json::Value =
+            serde_json::from_reader(BufReader::new(native_erc20_file)).map_err(|_err| {
+                internal_error(METHOD_NAME, "unable to read native_erc20.json file")
+            })?;
+
+        let native_erc20_address = native_erc20_json
+            .get("address")
+            .and_then(|addr| addr.as_str())
+            .ok_or_else(|| internal_error(METHOD_NAME, "address not found in json"))?;
+
+        H160::from_str(native_erc20_address).map_err(|err| internal_error(METHOD_NAME, err))
     }
 
     #[tracing::instrument(skip(self))]
@@ -480,16 +513,14 @@ impl ZksNamespace {
             .map_err(|err| internal_error(METHOD_NAME, err));
         drop(storage);
 
-        if let Some(proxy) = &self.state.tx_sender.0.proxy {
-            // We're running an external node - we should query the main node directly
-            // in case the transaction was proxied but not yet synced back to us
-            if matches!(tx_details, Ok(None)) {
-                // If the transaction is not in the db, query main node for details
-                tx_details = proxy
-                    .request_tx_details(hash)
-                    .await
-                    .map_err(|err| internal_error(METHOD_NAME, err));
-            }
+        if let Ok(None) = tx_details {
+            tx_details = self
+                .state
+                .tx_sender
+                .0
+                .tx_sink
+                .lookup_tx_details(METHOD_NAME, hash)
+                .await;
         }
 
         method_latency.observe();
@@ -633,5 +664,16 @@ impl ZksNamespace {
             address,
             storage_proof,
         })
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub async fn get_conversion_rate_impl(&self) -> Result<U64, Web3Error> {
+        Ok(U64::from(
+            self.state
+                .tx_sender
+                .0
+                .batch_fee_input_provider
+                .get_erc20_conversion_rate(),
+        ))
     }
 }

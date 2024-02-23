@@ -56,6 +56,7 @@ async function initHyperchain() {
     const initArgs: InitArgs = {
         skipSubmodulesCheckout: false,
         skipEnvSetup: true,
+        nativeERC20: false,
         governorPrivateKeyArgs: ['--private-key', governorPrivateKey],
         deployerL2ContractInput: {
             args: ['--private-key', deployerPrivateKey],
@@ -641,6 +642,15 @@ export function getTokens(network: string): L1Token[] {
     }
 }
 
+export function getNativeToken(): L1Token {
+    const configPath = `${process.env.ZKSYNC_HOME}/etc/tokens/native_erc20.json`;
+    return JSON.parse(
+        fs.readFileSync(configPath, {
+            encoding: 'utf-8'
+        })
+    );
+}
+
 async function selectHyperchainConfiguration() {
     const envs = env.getAvailableEnvsFromFiles();
 
@@ -801,6 +811,7 @@ async function configDemoHyperchain(cmd: Command) {
     const initArgs: InitArgs = {
         skipSubmodulesCheckout: false,
         skipEnvSetup: cmd.skipEnvSetup,
+        nativeERC20: false,
         governorPrivateKeyArgs: ['--private-key', governorPrivateKey],
         deployerL2ContractInput: {
             args: ['--private-key', deployerPrivateKey],

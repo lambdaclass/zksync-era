@@ -79,8 +79,8 @@ export class TestContextOwner {
             this.l2Provider.pollingInterval = 100;
         }
 
-        this.mainEthersWallet = new ethers.Wallet(env.mainWalletPK, this.l1Provider);
-        this.mainSyncWallet = new zksync.Wallet(env.mainWalletPK, this.l2Provider, this.l1Provider);
+        this.mainEthersWallet = new ethers.Wallet(this.env.mainWalletPK, this.l1Provider);
+        this.mainSyncWallet = new zksync.Wallet(this.env.mainWalletPK, this.l2Provider, this.l1Provider);
     }
 
     // Returns the required amount of L1 ETH
@@ -95,7 +95,11 @@ export class TestContextOwner {
      */
     async setupContext(): Promise<TestContext> {
         try {
-            this.reporter.startAction('Setting up the context');
+            if (this.env.nativeErc20Testing) {
+                this.reporter.startAction('Setting up the context for NATIVE TOKEN IMPLEMENTATION');
+            } else {
+                this.reporter.startAction('Setting up the context');
+            }
             await this.cancelPendingTxs();
             this.wallets = await this.prepareWallets();
             this.reporter.finishAction();
@@ -124,7 +128,7 @@ export class TestContextOwner {
         const ethWallet = this.mainEthersWallet;
         const latestNonce = await ethWallet.getTransactionCount('latest');
         const pendingNonce = await ethWallet.getTransactionCount('pending');
-        this.reporter.debug(`Latest nonce is ${latestNonce}, pending nonce is ${pendingNonce}`);
+        this.reporter.message(`Latest nonce is ${latestNonce}, pending nonce is ${pendingNonce}`);
         const cancellationTxs = [];
         for (let nonce = latestNonce; nonce < pendingNonce; nonce++) {
             // For each transaction to override it, we need to provide greater fee.
@@ -237,24 +241,27 @@ export class TestContextOwner {
         // Scaled gas price to be used to prevent transactions from being stuck.
         const gasPrice = await scaledGasPrice(this.mainEthersWallet);
 
-        // Deposit L2 tokens (if needed).
-        if (!l2ETHAmountToDeposit.isZero()) {
+        // Deposit L2 tokens (if needed). Depositing ETH with current native implementation is not supported.
+        if (!l2ETHAmountToDeposit.isZero() && !this.env.nativeErc20Testing) {
             // Given that we've already sent a number of transactions,
             // we have to correctly send nonce.
-            const depositHandle = this.mainSyncWallet
-                .deposit({
-                    token: zksync.utils.ETH_ADDRESS,
-                    amount: l2ETHAmountToDeposit,
-                    overrides: {
-                        nonce: nonce++,
-                        gasPrice
-                    }
-                })
-                .then((tx) => {
-                    const amount = ethers.utils.formatEther(l2ETHAmountToDeposit);
-                    this.reporter.debug(`Sent ETH deposit. Nonce ${tx.nonce}, amount: ${amount}, hash: ${tx.hash}`);
-                    tx.wait();
-                });
+            const txDeposit = await this.mainSyncWallet.deposit({
+                token: zksync.utils.ETH_ADDRESS,
+                amount: l2ETHAmountToDeposit,
+                overrides: {
+                    nonce: nonce++,
+                    gasPrice
+                }
+            });
+            const amount = ethers.utils.formatEther(l2ETHAmountToDeposit);
+            this.reporter.debug(
+                `Sent ETH deposit. Nonce ${txDeposit.nonce}, amount: ${amount}, hash: ${txDeposit.hash}`
+            );
+
+            let depositHandle = txDeposit.wait().then((tx) => {
+                this.reporter.debug(`Obtained receipt for ETH deposit. Amount: ${amount}, hash: ${tx.transactionHash}`);
+                return tx;
+            });
 
             // Add this promise to the list of L1 tx promises.
             l1TxPromises.push(depositHandle);
@@ -267,19 +274,21 @@ export class TestContextOwner {
         // Mint ERC20.
         const l1Erc20ABI = ['function mint(address to, uint256 amount)'];
         const l1Erc20Contract = new ethers.Contract(erc20Token, l1Erc20ABI, this.mainEthersWallet);
-        const erc20MintPromise = l1Erc20Contract
-            .mint(this.mainSyncWallet.address, erc20MintAmount, {
-                nonce: nonce++,
-                gasPrice
-            })
-            .then((tx: any) => {
-                this.reporter.debug(`Sent ERC20 mint transaction. Hash: ${tx.hash}, nonce ${tx.nonce}`);
-                return tx.wait();
-            });
+
+        let txMint = await l1Erc20Contract.mint(this.mainSyncWallet.address, erc20MintAmount, {
+            nonce: nonce++,
+            gasPrice
+        });
+        this.reporter.debug(`Sent ERC20 mint transaction. Hash: ${txMint.hash}, nonce ${txMint.nonce}`);
+
+        const erc20MintPromise = txMint.wait().then((tx: any) => {
+            this.reporter.debug(`Obtained receipt for ERC20 mint transaction. Hash: ${tx.transactionHash}`);
+            return tx;
+        });
 
         // Deposit ERC20.
-        const erc20DepositPromise = this.mainSyncWallet
-            .deposit({
+        let txDepositErc20 = await this.mainSyncWallet.deposit(
+            {
                 token: erc20Token,
                 amount: l2erc20DepositAmount,
                 approveERC20: true,
@@ -291,12 +300,18 @@ export class TestContextOwner {
                     nonce: nonce++,
                     gasPrice
                 }
-            })
-            .then((tx) => {
-                // Note: there is an `approve` tx, not listed here.
-                this.reporter.debug(`Sent ERC20 deposit transaction. Hash: ${tx.hash}, nonce: ${tx.nonce}`);
-                return tx.wait();
-            });
+            },
+            this.env.nativeErc20Testing ? erc20Token : undefined
+        );
+        this.reporter.debug(
+            `Sent ERC20 deposit transaction. Hash: ${txDepositErc20.hash}, nonce: ${txDepositErc20.nonce}`
+        );
+
+        const erc20DepositPromise = txDepositErc20.wait().then((tx: any) => {
+            // Note: there is an `approve` tx, not listed here.
+            this.reporter?.debug(`Obtained receipt for ERC20 deposit transaction. Hash: ${tx.transactionHash}`);
+            return tx;
+        });
 
         // Send ETH on L1.
         const ethTransfers = await sendTransfers(
@@ -312,7 +327,7 @@ export class TestContextOwner {
 
         // Send ERC20 on L1.
         const erc20Transfers = await sendTransfers(
-            erc20Token,
+            this.env.erc20Token.l1Address,
             this.mainEthersWallet,
             wallets,
             ERC20_PER_ACCOUNT,
@@ -322,19 +337,12 @@ export class TestContextOwner {
         );
 
         l1TxPromises.push(...ethTransfers);
-        l1TxPromises.push(erc20MintPromise);
-        l1TxPromises.push(erc20DepositPromise);
         l1TxPromises.push(...erc20Transfers);
 
-        this.reporter.debug(`Sent ${l1TxPromises.length} initial transactions on L1`);
+        // this.reporter.debug(`Sent ${l1TxPromises.length} initial transactions on L1`);
 
-        if (this.env.network === 'localhost') {
-            await Promise.all(l1TxPromises);
-        } else {
-            for (const promise of l1TxPromises) {
-                await promise;
-            }
-        }
+        await Promise.all(l1TxPromises);
+
         this.reporter.finishAction();
     }
 
@@ -447,7 +455,13 @@ export async function sendTransfers(
             : new ethers.Contract(token, zksync.utils.IERC20, wallet);
     const startNonce = overrideStartNonce ?? (await wallet.getTransactionCount());
     reporter?.debug(`Sending transfers. Token address is ${token}`);
-    const txPromises = Array.from(Object.values(wallets)).map((testWalletPK, index) => {
+
+    const walletsPK = Array.from(Object.values(wallets));
+
+    const txPromises: Promise<any>[] = [];
+
+    for (let index = 0; index < walletsPK.length; index++) {
+        const testWalletPK = walletsPK[index];
         if (token == zksync.utils.ETH_ADDRESS) {
             const tx = {
                 to: ethers.utils.computeAddress(testWalletPK),
@@ -457,31 +471,40 @@ export async function sendTransfers(
             };
 
             reporter?.debug(`Inititated ETH transfer with nonce: ${tx.nonce}`);
-            return wallet.sendTransaction(tx).then((tx) => {
-                reporter?.debug(`Sent ETH transfer tx: ${tx.hash}, nonce: ${tx.nonce}`);
-                return tx.wait();
-            });
+            let transactionResponse = await wallet.sendTransaction(tx);
+            reporter?.debug(`Sent ETH transfer tx: ${transactionResponse.hash}, nonce: ${transactionResponse.nonce}`);
+
+            txPromises.push(
+                transactionResponse.wait().then((tx) => {
+                    reporter?.debug(`Obtained receipt for ETH transfer tx: ${tx.transactionHash} `);
+                    return tx;
+                })
+            );
         } else {
             const txNonce = startNonce + index;
-            const tx = erc20Contract.transfer(ethers.utils.computeAddress(testWalletPK), value, {
+            reporter?.debug(`Inititated ERC20 transfer with nonce: ${txNonce}`);
+            const tx = await erc20Contract.transfer(ethers.utils.computeAddress(testWalletPK), value, {
                 nonce: txNonce,
                 gasPrice
             });
-            reporter?.debug(`Inititated ERC20 transfer with nonce: ${txNonce}`);
-            // @ts-ignore
-            return tx.then((tx) => {
-                reporter?.debug(`Sent ERC20 transfer tx: ${tx.hash}, nonce: ${tx.nonce}`);
-                return tx.wait();
-            });
+            reporter?.debug(`Sent ERC20 transfer tx: ${tx.hash}, nonce: ${tx.nonce}`);
+
+            txPromises.push(
+                // @ts-ignore
+                tx.wait().then((tx) => {
+                    reporter?.debug(`Obtained receipt for ERC20 transfer tx: ${tx.transactionHash}`);
+                    return tx;
+                })
+            );
         }
-    });
+    }
+
     reporter?.debug(
         `Initiated ${txPromises.length} transfers. Nonce range is ${startNonce} - ${startNonce + txPromises.length - 1}`
     );
 
     return txPromises;
 }
-
 /**
  * Sends all the Ether from one account to another.
  * Can work both with L1 and L2 wallets.
