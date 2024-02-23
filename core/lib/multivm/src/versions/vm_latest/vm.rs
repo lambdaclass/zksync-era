@@ -29,7 +29,7 @@ use crate::{
 pub struct Vm<S: WriteStorage, H: HistoryMode> {
     pub(crate) bootloader_state: BootloaderState,
     // Current state and oracles of virtual machine
-    pub(crate) state: ZkSyncVmState<S, H::Vm1_4_1>,
+    pub(crate) state: ZkSyncVmState<S, H::Vm1_4_2>,
     pub(crate) storage: StoragePtr<S>,
     pub(crate) system_env: SystemEnv,
     pub(crate) batch_env: L1BatchEnv,
@@ -39,7 +39,7 @@ pub struct Vm<S: WriteStorage, H: HistoryMode> {
 }
 
 impl<S: WriteStorage, H: HistoryMode> VmInterface<S, H> for Vm<S, H> {
-    type TracerDispatcher = TracerDispatcher<S, H::Vm1_4_1>;
+    type TracerDispatcher = TracerDispatcher<S, H::Vm1_4_2>;
 
     fn new(batch_env: L1BatchEnv, system_env: SystemEnv, storage: StoragePtr<S>) -> Self {
         let (state, bootloader_state) = new_vm_state(storage.clone(), &system_env, &batch_env);
@@ -65,7 +65,7 @@ impl<S: WriteStorage, H: HistoryMode> VmInterface<S, H> for Vm<S, H> {
         tracer: Self::TracerDispatcher,
         execution_mode: VmExecutionMode,
     ) -> VmExecutionResultAndLogs {
-        self.inspect_inner(tracer, execution_mode)
+        self.inspect_inner(tracer, execution_mode, None)
     }
 
     /// Get current state of bootloader memory.
@@ -149,7 +149,7 @@ impl<S: WriteStorage, H: HistoryMode> VmInterface<S, H> for Vm<S, H> {
         VmExecutionResultAndLogs,
     ) {
         self.push_transaction_with_compression(tx, with_compression);
-        let result = self.inspect_inner(tracer, VmExecutionMode::OneTx);
+        let result = self.inspect_inner(tracer, VmExecutionMode::OneTx, None);
         if self.has_unpublished_bytecodes() {
             (
                 Err(BytecodeCompressionError::BytecodeCompressionFailed),
@@ -162,6 +162,10 @@ impl<S: WriteStorage, H: HistoryMode> VmInterface<S, H> for Vm<S, H> {
 
     fn record_vm_memory_metrics(&self) -> VmMemoryMetrics {
         self.record_vm_memory_metrics_inner()
+    }
+
+    fn gas_remaining(&self) -> u32 {
+        self.state.local_state.callstack.current.ergs_remaining
     }
 
     fn finish_batch(&mut self) -> FinishedL1Batch {

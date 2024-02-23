@@ -24,6 +24,7 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
         testTokens,
         governorPrivateKeyArgs,
         deployerL2ContractInput,
+        deployerPrivateKeyArgs,
         nativeERC20
     } = initArgs;
 
@@ -45,8 +46,8 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
 
     await announced('Compiling JS packages', run.yarn());
     await announced('Compile l2 contracts', compiler.compileAll());
-    await announced('Drop postgres db', db.drop());
-    await announced('Setup postgres db', db.setup());
+    await announced('Drop postgres db', db.drop({ server: true, prover: true }));
+    await announced('Setup postgres db', db.setup({ server: true, prover: true }));
     await announced('Clean rocksdb', clean('db'));
     await announced('Clean backups', clean('backups'));
     await announced('Building contracts', contract.build());
@@ -61,10 +62,10 @@ export async function init(initArgs: InitArgs = DEFAULT_ARGS) {
     }
 
     await announced('Building contracts', contract.build());
-    await announced('Deploying L1 verifier', contract.deployVerifier([]));
+    await announced('Deploying L1 verifier', contract.deployVerifier(deployerPrivateKeyArgs));
     await announced('Reloading env', env.reload());
     await announced('Running server genesis setup', server.genesisFromSources());
-    await announced('Deploying L1 contracts', contract.redeployL1(governorPrivateKeyArgs));
+    await announced('Deploying L1 contracts', contract.redeployL1(deployerPrivateKeyArgs));
     await announced('Initializing validator', contract.initializeValidator(governorPrivateKeyArgs));
     await announced('Reloading env', env.reload());
 
@@ -97,8 +98,8 @@ export async function reinit() {
     await announced('Setting up containers', up());
     await announced('Compiling JS packages', run.yarn());
     await announced('Compile l2 contracts', compiler.compileAll());
-    await announced('Drop postgres db', db.drop());
-    await announced('Setup postgres db', db.setup());
+    await announced('Drop postgres db', db.drop({ server: true, prover: true }));
+    await announced('Setup postgres db', db.setup({ server: true, prover: true }));
     await announced('Clean rocksdb', clean('db'));
     await announced('Clean backups', clean('backups'));
     await announced('Building contracts', contract.build());
@@ -166,6 +167,7 @@ export interface InitArgs {
     skipEnvSetup: boolean;
     nativeERC20: boolean;
     governorPrivateKeyArgs: any[];
+    deployerPrivateKeyArgs: any[];
     deployerL2ContractInput: {
         args: any[];
         includePaymaster: boolean;
@@ -182,6 +184,7 @@ const DEFAULT_ARGS: InitArgs = {
     skipEnvSetup: false,
     nativeERC20: false,
     governorPrivateKeyArgs: [],
+    deployerPrivateKeyArgs: [],
     deployerL2ContractInput: { args: [], includePaymaster: true, includeL2WETH: true },
     testTokens: { deploy: true, args: [] }
 };
@@ -198,6 +201,7 @@ export const initCommand = new Command('init')
             governorPrivateKeyArgs: [],
             deployerL2ContractInput: { args: [], includePaymaster: true, includeL2WETH: true },
             testTokens: { deploy: true, args: [] },
+            deployerPrivateKeyArgs: [],
             nativeERC20: cmd.nativeErc20
         };
         await init(initArgs);

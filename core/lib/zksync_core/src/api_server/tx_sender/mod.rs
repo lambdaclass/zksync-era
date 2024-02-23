@@ -26,7 +26,8 @@ use zksync_types::{
 };
 use zksync_utils::h256_to_u256;
 
-pub(super) use self::{proxy::TxProxy, result::SubmitTxError};
+pub(super) use self::result::SubmitTxError;
+use self::tx_sink::TxSink;
 use crate::{
     api_server::{
         execution_sandbox::{
@@ -37,14 +38,16 @@ use crate::{
         tx_sender::result::ApiCallResult,
     },
     fee_model::BatchFeeModelInputProvider,
-    metrics::{TxStage, APP_METRICS},
     state_keeper::seal_criteria::{ConditionalSealer, NoopSealer, SealData},
+    utils::pending_protocol_version,
 };
 
-mod proxy;
+pub mod master_pool_sink;
+pub mod proxy;
 mod result;
 #[cfg(test)]
 pub(crate) mod tests;
+pub mod tx_sink;
 
 #[derive(Debug, Clone)]
 pub struct MultiVMBaseSystemContracts {
@@ -60,6 +63,8 @@ pub struct MultiVMBaseSystemContracts {
     pub(crate) post_allowlist_removal: BaseSystemContracts,
     /// Contracts to be used after the 1.4.1 upgrade
     pub(crate) post_1_4_1: BaseSystemContracts,
+    /// Contracts to be used after the 1.4.2 upgrade
+    pub(crate) post_1_4_2: BaseSystemContracts,
 }
 
 impl MultiVMBaseSystemContracts {
@@ -85,7 +90,8 @@ impl MultiVMBaseSystemContracts {
             | ProtocolVersionId::Version17 => self.post_virtual_blocks_finish_upgrade_fix,
             ProtocolVersionId::Version18 => self.post_boojum,
             ProtocolVersionId::Version19 => self.post_allowlist_removal,
-            ProtocolVersionId::Version20 | ProtocolVersionId::Version21 => self.post_1_4_1,
+            ProtocolVersionId::Version20 => self.post_1_4_1,
+            ProtocolVersionId::Version21 | ProtocolVersionId::Version22 => self.post_1_4_2,
         }
     }
 }
@@ -118,6 +124,7 @@ impl ApiContracts {
                 post_boojum: BaseSystemContracts::estimate_gas_post_boojum(),
                 post_allowlist_removal: BaseSystemContracts::estimate_gas_post_allowlist_removal(),
                 post_1_4_1: BaseSystemContracts::estimate_gas_post_1_4_1(),
+                post_1_4_2: BaseSystemContracts::estimate_gas_post_1_4_2(),
             },
             eth_call: MultiVMBaseSystemContracts {
                 pre_virtual_blocks: BaseSystemContracts::playground_pre_virtual_blocks(),
@@ -127,6 +134,7 @@ impl ApiContracts {
                 post_boojum: BaseSystemContracts::playground_post_boojum(),
                 post_allowlist_removal: BaseSystemContracts::playground_post_allowlist_removal(),
                 post_1_4_1: BaseSystemContracts::playground_post_1_4_1(),
+                post_1_4_2: BaseSystemContracts::playground_post_1_4_2(),
             },
         }
     }
@@ -139,37 +147,28 @@ pub struct TxSenderBuilder {
     config: TxSenderConfig,
     /// Connection pool for read requests.
     replica_connection_pool: ConnectionPool,
-    /// Connection pool for write requests. If not set, `proxy` must be set.
-    master_connection_pool: Option<ConnectionPool>,
-    /// Proxy to submit transactions to the network. If not set, `master_connection_pool` must be set.
-    proxy: Option<TxProxy>,
+    /// Sink to be used to persist transactions.
+    tx_sink: Arc<dyn TxSink>,
     /// Batch sealer used to check whether transaction can be executed by the sequencer.
     sealer: Option<Arc<dyn ConditionalSealer>>,
 }
 
 impl TxSenderBuilder {
-    pub fn new(config: TxSenderConfig, replica_connection_pool: ConnectionPool) -> Self {
+    pub fn new(
+        config: TxSenderConfig,
+        replica_connection_pool: ConnectionPool,
+        tx_sink: Arc<dyn TxSink>,
+    ) -> Self {
         Self {
             config,
             replica_connection_pool,
-            master_connection_pool: None,
-            proxy: None,
+            tx_sink,
             sealer: None,
         }
     }
 
     pub fn with_sealer(mut self, sealer: Arc<dyn ConditionalSealer>) -> Self {
         self.sealer = Some(sealer);
-        self
-    }
-
-    pub fn with_tx_proxy(mut self, main_node_url: &str) -> Self {
-        self.proxy = Some(TxProxy::new(main_node_url));
-        self
-    }
-
-    pub fn with_main_connection_pool(mut self, master_connection_pool: ConnectionPool) -> Self {
-        self.master_connection_pool = Some(master_connection_pool);
         self
     }
 
@@ -180,21 +179,15 @@ impl TxSenderBuilder {
         api_contracts: ApiContracts,
         storage_caches: PostgresStorageCaches,
     ) -> TxSender {
-        assert!(
-            self.master_connection_pool.is_some() || self.proxy.is_some(),
-            "Either master connection pool or proxy must be set"
-        );
-
         // Use noop sealer if no sealer was explicitly provided.
         let sealer = self.sealer.unwrap_or_else(|| Arc::new(NoopSealer));
 
         TxSender(Arc::new(TxSenderInner {
             sender_config: self.config,
-            master_connection_pool: self.master_connection_pool,
+            tx_sink: self.tx_sink,
             replica_connection_pool: self.replica_connection_pool,
             batch_fee_input_provider,
             api_contracts,
-            proxy: self.proxy,
             vm_concurrency_limiter,
             storage_caches,
             sealer,
@@ -242,13 +235,12 @@ impl TxSenderConfig {
 
 pub struct TxSenderInner {
     pub(super) sender_config: TxSenderConfig,
-    pub master_connection_pool: Option<ConnectionPool>,
+    /// Sink to be used to persist transactions.
+    pub tx_sink: Arc<dyn TxSink>,
     pub replica_connection_pool: ConnectionPool,
     // Used to keep track of gas prices for the fee ticker.
     pub batch_fee_input_provider: Arc<dyn BatchFeeModelInputProvider>,
     pub(super) api_contracts: ApiContracts,
-    /// Optional transaction proxy to be used for transaction submission.
-    pub(super) proxy: Option<TxProxy>,
     /// Used to limit the amount of VMs that can be executed simultaneously.
     pub(super) vm_concurrency_limiter: Arc<VmConcurrencyLimiter>,
     // Caches used in VM execution.
@@ -346,42 +338,14 @@ impl TxSender {
         let stage_started_at = Instant::now();
         self.ensure_tx_executable(tx.clone().into(), &execution_output.metrics, true)?;
 
-        if let Some(proxy) = &self.0.proxy {
-            // We're running an external node: we have to proxy the transaction to the main node.
-            // But before we do that, save the tx to cache in case someone will request it
-            // Before it reaches the main node.
-            proxy.save_tx(tx.hash(), tx.clone()).await;
-            proxy.submit_tx(&tx).await?;
-            // Now, after we are sure that the tx is on the main node, remove it from cache
-            // since we don't want to store txs that might have been replaced or otherwise removed
-            // from the mempool.
-            proxy.forget_tx(tx.hash()).await;
-            SANDBOX_METRICS.submit_tx[&SubmitTxStage::TxProxy].observe(stage_started_at.elapsed());
-            APP_METRICS.processed_txs[&TxStage::Proxied].inc();
-            return Ok(L2TxSubmissionResult::Proxied);
-        } else {
-            assert!(
-                self.0.master_connection_pool.is_some(),
-                "TxSender is instantiated without both master connection pool and tx proxy"
-            );
-        }
-
         let nonce = tx.common_data.nonce.0;
         let hash = tx.hash();
         let initiator_account = tx.initiator_account();
         let submission_res_handle = self
             .0
-            .master_connection_pool
-            .as_ref()
-            .unwrap() // Checked above
-            .access_storage_tagged("api")
-            .await
-            .unwrap()
-            .transactions_dal()
-            .insert_transaction_l2(tx, execution_output.metrics)
-            .await;
-
-        APP_METRICS.processed_txs[&TxStage::Mempool(submission_res_handle)].inc();
+            .tx_sink
+            .submit_tx(tx, execution_output.metrics)
+            .await?;
 
         match submission_res_handle {
             L2TxSubmissionResult::AlreadyExecuted => {
@@ -398,6 +362,11 @@ impl TxSender {
                 ))
             }
             L2TxSubmissionResult::Duplicate => Err(SubmitTxError::IncorrectTx(TxDuplication(hash))),
+            L2TxSubmissionResult::Proxied => {
+                SANDBOX_METRICS.submit_tx[&SubmitTxStage::TxProxy]
+                    .observe(stage_started_at.elapsed());
+                Ok(submission_res_handle)
+            }
             _ => {
                 SANDBOX_METRICS.submit_tx[&SubmitTxStage::DbInsert]
                     .observe(stage_started_at.elapsed());
@@ -570,10 +539,9 @@ impl TxSender {
         let balance = self
             .acquire_replica_connection()
             .await?
-            .storage_dal()
-            .get_by_key(&eth_balance_key)
-            .await?
-            .unwrap_or_default();
+            .storage_web3_dal()
+            .get_value(&eth_balance_key)
+            .await?;
         Ok(h256_to_u256(balance))
     }
 
@@ -665,11 +633,9 @@ impl TxSender {
 
         let mut connection = self.acquire_replica_connection().await?;
         let block_args = BlockArgs::pending(&mut connection).await?;
-        let protocol_version = block_args
-            .resolve_block_info(&mut connection)
+        let protocol_version = pending_protocol_version(&mut connection)
             .await
-            .with_context(|| format!("failed resolving block info for {block_args:?}"))?
-            .protocol_version;
+            .context("failed getting pending protocol version")?;
         drop(connection);
 
         let fee_input = {
@@ -710,16 +676,15 @@ impl TxSender {
         let account_code_hash = self
             .acquire_replica_connection()
             .await?
-            .storage_dal()
-            .get_by_key(&hashed_key)
+            .storage_web3_dal()
+            .get_value(&hashed_key)
             .await
             .with_context(|| {
                 format!(
                     "failed getting code hash for account {:?}",
                     tx.initiator_account()
                 )
-            })?
-            .unwrap_or_default();
+            })?;
 
         if !tx.is_l1()
             && account_code_hash == H256::zero()
@@ -919,12 +884,9 @@ impl TxSender {
 
     pub async fn gas_price(&self) -> anyhow::Result<u64> {
         let mut connection = self.acquire_replica_connection().await?;
-        let block_args = BlockArgs::pending(&mut connection).await?;
-        let protocol_version = block_args
-            .resolve_block_info(&mut connection)
+        let protocol_version = pending_protocol_version(&mut connection)
             .await
-            .with_context(|| format!("failed resolving block info for {block_args:?}"))?
-            .protocol_version;
+            .context("failed obtaining pending protocol version")?;
         drop(connection);
 
         let (base_fee, _) = derive_base_fee_and_gas_per_pubdata(

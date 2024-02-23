@@ -32,7 +32,7 @@ describe('ERC20 contract checks', () => {
             return;
         }
         const amount = 500;
-        let tokenAddress = isNativeErc20 ? tokenDetails.l1Address : undefined
+        let tokenAddress = isNativeErc20 ? tokenDetails.l1Address : undefined;
 
         const l1ERC20InitialBalance = await alice.getBalanceL1(tokenAddress);
         const initialBalanceL2 = await alice.getBalance();

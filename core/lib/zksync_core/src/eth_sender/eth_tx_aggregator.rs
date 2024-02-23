@@ -5,20 +5,21 @@ use zksync_config::configs::eth_sender::SenderConfig;
 use zksync_contracts::BaseSystemContractsHashes;
 use zksync_dal::{ConnectionPool, StorageProcessor};
 use zksync_eth_client::{BoundEthInterface, CallFunctionArgs};
+use zksync_l1_contract_interface::{
+    multicall3::{Multicall3Call, Multicall3Result},
+    Detokenize, Tokenizable, Tokenize,
+};
 use zksync_types::{
-    aggregated_operations::AggregatedOperation,
-    contracts::{Multicall3Call, Multicall3Result},
+    commitment::SerializeCommitment,
     eth_sender::EthTx,
-    ethabi::{Contract, Token},
+    ethabi::Token,
+    l2_to_l1_log::UserL2ToL1Log,
     protocol_version::{L1VerifierConfig, VerifierParams},
-    vk_transform::l1_vk_commitment,
-    web3::contract::{
-        tokens::{Detokenize, Tokenizable},
-        Error,
-    },
-    Address, ProtocolVersionId, H256, U256,
+    web3::contract::Error as Web3ContractError,
+    Address, L2ChainId, ProtocolVersionId, H256, U256,
 };
 
+use super::aggregated_operations::AggregatedOperation;
 use crate::{
     eth_sender::{
         metrics::{PubdataKind, METRICS},
@@ -51,19 +52,25 @@ pub struct EthTxAggregator {
     pub(super) main_zksync_contract_address: Address,
     functions: ZkSyncFunctions,
     base_nonce: u64,
+    rollup_chain_id: L2ChainId,
 }
 
 impl EthTxAggregator {
-    pub fn new(
+    pub async fn new(
         config: SenderConfig,
         aggregator: Aggregator,
         eth_client: Arc<dyn BoundEthInterface>,
         timelock_contract_address: Address,
         l1_multicall3_address: Address,
         main_zksync_contract_address: Address,
-        base_nonce: u64,
+        rollup_chain_id: L2ChainId,
     ) -> Self {
         let functions = ZkSyncFunctions::default();
+        let base_nonce = eth_client
+            .pending_nonce("eth_sender")
+            .await
+            .unwrap()
+            .as_u64();
         Self {
             config,
             aggregator,
@@ -73,6 +80,7 @@ impl EthTxAggregator {
             main_zksync_contract_address,
             functions,
             base_nonce,
+            rollup_chain_id,
         }
     }
 
@@ -189,9 +197,12 @@ impl EthTxAggregator {
         token: Token,
     ) -> Result<MulticallData, ETHSenderError> {
         let parse_error = |tokens: &[Token]| {
-            Err(ETHSenderError::ParseError(Error::InvalidOutputType(
-                format!("Failed to parse multicall token: {:?}", tokens),
-            )))
+            Err(ETHSenderError::ParseError(
+                Web3ContractError::InvalidOutputType(format!(
+                    "Failed to parse multicall token: {:?}",
+                    tokens
+                )),
+            ))
         };
 
         if let Token::Array(call_results) = token {
@@ -205,24 +216,24 @@ impl EthTxAggregator {
                 Multicall3Result::from_token(call_results_iterator.next().unwrap())?.return_data;
 
             if multicall3_bootloader.len() != 32 {
-                return Err(ETHSenderError::ParseError(Error::InvalidOutputType(
-                    format!(
+                return Err(ETHSenderError::ParseError(
+                    Web3ContractError::InvalidOutputType(format!(
                         "multicall3 bootloader hash data is not of the len of 32: {:?}",
                         multicall3_bootloader
-                    ),
-                )));
+                    )),
+                ));
             }
             let bootloader = H256::from_slice(&multicall3_bootloader);
 
             let multicall3_default_aa =
                 Multicall3Result::from_token(call_results_iterator.next().unwrap())?.return_data;
             if multicall3_default_aa.len() != 32 {
-                return Err(ETHSenderError::ParseError(Error::InvalidOutputType(
-                    format!(
+                return Err(ETHSenderError::ParseError(
+                    Web3ContractError::InvalidOutputType(format!(
                         "multicall3 default aa hash data is not of the len of 32: {:?}",
                         multicall3_default_aa
-                    ),
-                )));
+                    )),
+                ));
             }
             let default_aa = H256::from_slice(&multicall3_default_aa);
             let base_system_contracts_hashes = BaseSystemContractsHashes {
@@ -233,12 +244,12 @@ impl EthTxAggregator {
             let multicall3_verifier_params =
                 Multicall3Result::from_token(call_results_iterator.next().unwrap())?.return_data;
             if multicall3_verifier_params.len() != 96 {
-                return Err(ETHSenderError::ParseError(Error::InvalidOutputType(
-                    format!(
+                return Err(ETHSenderError::ParseError(
+                    Web3ContractError::InvalidOutputType(format!(
                         "multicall3 verifier params data is not of the len of 96: {:?}",
                         multicall3_default_aa
-                    ),
-                )));
+                    )),
+                ));
             }
             let recursion_node_level_vk_hash = H256::from_slice(&multicall3_verifier_params[..32]);
             let recursion_leaf_level_vk_hash =
@@ -254,24 +265,24 @@ impl EthTxAggregator {
             let multicall3_verifier_address =
                 Multicall3Result::from_token(call_results_iterator.next().unwrap())?.return_data;
             if multicall3_verifier_address.len() != 32 {
-                return Err(ETHSenderError::ParseError(Error::InvalidOutputType(
-                    format!(
+                return Err(ETHSenderError::ParseError(
+                    Web3ContractError::InvalidOutputType(format!(
                         "multicall3 verifier address data is not of the len of 32: {:?}",
                         multicall3_verifier_address
-                    ),
-                )));
+                    )),
+                ));
             }
             let verifier_address = Address::from_slice(&multicall3_verifier_address[12..]);
 
             let multicall3_protocol_version =
                 Multicall3Result::from_token(call_results_iterator.next().unwrap())?.return_data;
             if multicall3_protocol_version.len() != 32 {
-                return Err(ETHSenderError::ParseError(Error::InvalidOutputType(
-                    format!(
+                return Err(ETHSenderError::ParseError(
+                    Web3ContractError::InvalidOutputType(format!(
                         "multicall3 protocol version data is not of the len of 32: {:?}",
                         multicall3_protocol_version
-                    ),
-                )));
+                    )),
+                ));
             }
             let protocol_version_id = U256::from_big_endian(&multicall3_protocol_version)
                 .try_into()
@@ -291,34 +302,12 @@ impl EthTxAggregator {
     async fn get_recursion_scheduler_level_vk_hash(
         &mut self,
         verifier_address: Address,
-        contracts_are_pre_boojum: bool,
     ) -> Result<H256, ETHSenderError> {
-        // This is here for backward compatibility with the old verifier:
-        // Pre-boojum verifier returns the full verification key;
-        // New verifier returns the hash of the verification key
-        // tracing::debug!("Calling get_verification_key");
-        if contracts_are_pre_boojum {
-            let abi = Contract {
-                functions: [(
-                    self.functions.get_verification_key.name.clone(),
-                    vec![self.functions.get_verification_key.clone()],
-                )]
-                .into(),
-                ..Default::default()
-            };
-            let args = CallFunctionArgs::new(&self.functions.get_verification_key.name, ())
-                .for_contract(verifier_address, abi);
-
-            let vk = self.eth_client.call_contract_function(args).await?;
-            Ok(l1_vk_commitment(Token::from_tokens(vk)?))
-        } else {
-            let get_vk_hash = self.functions.verification_key_hash.as_ref();
-            // tracing::debug!("Calling verificationKeyHash");
-            let args = CallFunctionArgs::new(&get_vk_hash.unwrap().name, ())
-                .for_contract(verifier_address, self.functions.verifier_contract.clone());
-            let vk_hash = self.eth_client.call_contract_function(args).await?;
-            Ok(H256::from_tokens(vk_hash)?)
-        }
+        let get_vk_hash = &self.functions.verification_key_hash;
+        let args = CallFunctionArgs::new(&get_vk_hash.name, ())
+            .for_contract(verifier_address, self.functions.verifier_contract.clone());
+        let vk_hash = self.eth_client.call_contract_function(args).await?;
+        Ok(H256::from_tokens(vk_hash)?)
     }
 
     #[tracing::instrument(skip(self, storage))]
@@ -335,10 +324,10 @@ impl EthTxAggregator {
             tracing::error!("Failed to get multicall data {err:?}");
             err
         })?;
-        let contracts_are_pre_boojum = protocol_version_id.is_pre_boojum();
+        let contracts_are_pre_shared_bridge = protocol_version_id.is_pre_shared_bridge();
 
         let recursion_scheduler_level_vk_hash = self
-            .get_recursion_scheduler_level_vk_hash(verifier_address, contracts_are_pre_boojum)
+            .get_recursion_scheduler_level_vk_hash(verifier_address)
             .await
             .map_err(|err| {
                 tracing::error!("Failed to get VK hash from the Verifier {err:?}");
@@ -359,7 +348,7 @@ impl EthTxAggregator {
             .await
         {
             let tx = self
-                .save_eth_tx(storage, &agg_op, contracts_are_pre_boojum)
+                .save_eth_tx(storage, &agg_op, contracts_are_pre_shared_bridge)
                 .await?;
             Self::report_eth_tx_saving(storage, agg_op, &tx).await;
         }
@@ -380,12 +369,14 @@ impl EthTxAggregator {
 
         if let AggregatedOperation::Commit(commit_op) = &aggregated_op {
             for batch in &commit_op.l1_batches {
-                METRICS.pubdata_size[&PubdataKind::L2ToL1MessagesCompressed]
-                    .observe(batch.metadata.l2_l1_messages_compressed.len());
-                METRICS.pubdata_size[&PubdataKind::InitialWritesCompressed]
-                    .observe(batch.metadata.initial_writes_compressed.len());
-                METRICS.pubdata_size[&PubdataKind::RepeatedWritesCompressed]
-                    .observe(batch.metadata.repeated_writes_compressed.len());
+                METRICS.pubdata_size[&PubdataKind::StateDiffs]
+                    .observe(batch.metadata.state_diffs_compressed.len());
+                METRICS.pubdata_size[&PubdataKind::UserL2ToL1Logs]
+                    .observe(batch.header.l2_to_l1_logs.len() * UserL2ToL1Log::SERIALIZED_SIZE);
+                METRICS.pubdata_size[&PubdataKind::LongL2ToL1Messages]
+                    .observe(batch.header.l2_to_l1_messages.iter().map(Vec::len).sum());
+                METRICS.pubdata_size[&PubdataKind::RawPublishedBytecodes]
+                    .observe(batch.raw_published_factory_deps.iter().map(Vec::len).sum());
             }
         }
 
@@ -400,61 +391,77 @@ impl EthTxAggregator {
     fn encode_aggregated_op(
         &self,
         op: &AggregatedOperation,
-        contracts_are_pre_boojum: bool,
+        contracts_are_pre_shared_bridge: bool,
     ) -> Vec<u8> {
-        let operation_is_pre_boojum = op.protocol_version().is_pre_boojum();
+        let operation_is_pre_shared_bridge = op.protocol_version().is_pre_shared_bridge();
+        assert_eq!(
+            contracts_are_pre_shared_bridge,
+            operation_is_pre_shared_bridge
+        );
 
-        // For "commit" and "prove" operations it's necessary that the contracts are of the same version as L1 batches are.
-        // For "execute" it's not required, i.e. we can "execute" pre-boojum batches with post-boojum contracts.
-        match &op {
+        let mut args = vec![Token::Uint(self.rollup_chain_id.as_u64().into())];
+
+        match op.clone() {
             AggregatedOperation::Commit(op) => {
-                assert_eq!(contracts_are_pre_boojum, operation_is_pre_boojum);
-                let f = if contracts_are_pre_boojum {
-                    &self.functions.pre_boojum_commit
-                } else {
+                if contracts_are_pre_shared_bridge {
                     self.functions
-                        .post_boojum_commit
+                        .pre_shared_bridge_commit
+                        .encode_input(&op.into_tokens())
+                        .expect("Failed to encode commit transaction data")
+                } else {
+                    args.extend(op.into_tokens());
+                    self.functions
+                        .post_shared_bridge_commit
                         .as_ref()
-                        .expect("Missing ABI for commitBatches")
-                };
-                f.encode_input(&op.get_eth_tx_args())
+                        .expect("Missing ABI for commitBatchesSharedBridge")
+                        .encode_input(&args)
+                        .expect("Failed to encode commit transaction data")
+                }
             }
             AggregatedOperation::PublishProofOnchain(op) => {
-                assert_eq!(contracts_are_pre_boojum, operation_is_pre_boojum);
-                let f = if contracts_are_pre_boojum {
-                    &self.functions.pre_boojum_prove
-                } else {
+                if contracts_are_pre_shared_bridge {
                     self.functions
-                        .post_boojum_prove
+                        .pre_shared_bridge_prove
+                        .encode_input(&op.into_tokens())
+                        .expect("Failed to encode prove transaction data")
+                } else {
+                    args.extend(op.into_tokens());
+                    self.functions
+                        .post_shared_bridge_prove
                         .as_ref()
-                        .expect("Missing ABI for proveBatches")
-                };
-                f.encode_input(&op.get_eth_tx_args())
+                        .expect("Missing ABI for proveBatchesSharedBridge")
+                        .encode_input(&args)
+                        .expect("Failed to encode prove transaction data")
+                }
             }
             AggregatedOperation::Execute(op) => {
-                let f = if contracts_are_pre_boojum {
-                    &self.functions.pre_boojum_execute
-                } else {
+                if contracts_are_pre_shared_bridge {
                     self.functions
-                        .post_boojum_execute
+                        .pre_shared_bridge_execute
+                        .encode_input(&op.into_tokens())
+                        .expect("Failed to encode execute transaction data")
+                } else {
+                    args.extend(op.into_tokens());
+                    self.functions
+                        .post_shared_bridge_execute
                         .as_ref()
-                        .expect("Missing ABI for executeBatches")
-                };
-                f.encode_input(&op.get_eth_tx_args())
+                        .expect("Missing ABI for executeBatchesSharedBridge")
+                        .encode_input(&args)
+                        .expect("Failed to encode execute transaction data")
+                }
             }
         }
-        .expect("Failed to encode transaction data")
     }
 
     pub(super) async fn save_eth_tx(
         &self,
         storage: &mut StorageProcessor<'_>,
         aggregated_op: &AggregatedOperation,
-        contracts_are_pre_boojum: bool,
+        contracts_are_pre_shared_bridge: bool,
     ) -> Result<EthTx, ETHSenderError> {
         let mut transaction = storage.start_transaction().await.unwrap();
         let nonce = self.get_next_nonce(&mut transaction).await?;
-        let calldata = self.encode_aggregated_op(aggregated_op, contracts_are_pre_boojum);
+        let calldata = self.encode_aggregated_op(aggregated_op, contracts_are_pre_shared_bridge);
         let l1_batch_number_range = aggregated_op.l1_batch_range();
         let op_type = aggregated_op.get_action_type();
 
