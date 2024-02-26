@@ -64,7 +64,8 @@ export class TestMaster {
             this.l2Provider.pollingInterval = 5000;
         }
 
-        this.mainWallet = new zksync.Wallet(suiteWalletPK, this.l2Provider, this.l1Provider);
+        // TODO: suiteWalletPK should be the same as the mainWalletPK used in context-owner.ts, otherwise, account won't have funds to operate with.
+        this.mainWallet = new zksync.Wallet("0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110", this.l2Provider, this.l1Provider);
     }
 
     /**
