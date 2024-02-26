@@ -65,7 +65,7 @@ describe('ERC20 contract checks', () => {
         });
         const depositHash = depositTx.hash;
         await depositTx.wait();
-        
+
         const receipt = await alice._providerL1().getTransactionReceipt(depositHash);
         const fee = receipt.effectiveGasPrice.mul(receipt.gasUsed);
 
@@ -79,7 +79,6 @@ describe('ERC20 contract checks', () => {
 
         const finalL2Balance = await alice.getBalance();
         expect(initialL2Balance).bnToBeLte(finalL2Balance.add(amount));
-
     });
 
     // test('Can perform a transfer', async () => {

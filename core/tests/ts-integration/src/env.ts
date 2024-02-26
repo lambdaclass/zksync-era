@@ -120,8 +120,8 @@ export async function loadTestEnvironment(): Promise<TestEnvironment> {
             name: baseToken.name,
             symbol: baseToken.symbol,
             decimals: baseToken.decimals,
-            l1Address: baseToken.address, 
-            l2Address: "0x000000000000000000000000000000000000800a" // todo: remove hardcoded value
+            l1Address: baseToken.address,
+            l2Address: '0x000000000000000000000000000000000000800a' // todo: remove hardcoded value
         }
     };
 }
