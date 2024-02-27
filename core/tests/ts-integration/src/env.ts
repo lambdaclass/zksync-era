@@ -4,6 +4,7 @@ import * as ethers from 'ethers';
 import * as zksync from 'zksync-ethers';
 import { TestEnvironment } from './types';
 import { Reporter } from './reporter';
+import { L2_ETH_TOKEN_ADDRESS } from 'zksync-web3/build/src/utils';
 
 /**
  * Attempts to connect to server.
@@ -121,7 +122,7 @@ export async function loadTestEnvironment(): Promise<TestEnvironment> {
             symbol: baseToken.symbol,
             decimals: baseToken.decimals,
             l1Address: baseToken.address,
-            l2Address: '0x000000000000000000000000000000000000800a' // todo: remove hardcoded value
+            l2Address: L2_ETH_TOKEN_ADDRESS
         }
     };
 }
