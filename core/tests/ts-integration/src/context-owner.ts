@@ -197,7 +197,7 @@ export class TestContextOwner {
         const l2ETHAmountToDeposit = await this.ensureBalances(accountsAmount);
         const l2ERC20AmountToDeposit = ERC20_PER_ACCOUNT.mul(accountsAmount);
         const wallets = this.createTestWallets(suites);
-        await this.distributeL1BaseToken(l2ERC20AmountToDeposit);
+        await this.distributeL1BaseToken(wallets, l2ERC20AmountToDeposit);
         await this.cancelAllowances();
         await this.distributeL1Tokens(wallets, l2ETHAmountToDeposit, l2ERC20AmountToDeposit);
         await this.distributeL2Tokens(wallets);
@@ -257,7 +257,7 @@ export class TestContextOwner {
      * Sends L1 tokens to the test wallet accounts.
      * Additionally, deposits L1 tokens to the main account for further distribution on L2 (if required).
      */
-    private async distributeL1BaseToken(l2erc20DepositAmount: ethers.BigNumber) {
+    private async distributeL1BaseToken(wallets: TestWallets, l2erc20DepositAmount: ethers.BigNumber) {
         this.reporter.startAction(`Distributing base tokens on L1`);
         const baseTokenAddress = process.env.CONTRACTS_BASE_TOKEN_ADDR!;
         if (baseTokenAddress != zksync.utils.ETH_ADDRESS_IN_CONTRACTS) {
@@ -321,6 +321,20 @@ export class TestContextOwner {
             l1TxPromises.push(baseDepositPromise);
 
             this.reporter.debug(`Sent ${l1TxPromises.length} base token initial transactions on L1`);
+
+            // Transfer base token to wallets
+            const baseTransfers = await sendTransfers(
+                baseTokenAddress,
+                this.mainEthersWallet,
+                wallets,
+                ERC20_PER_ACCOUNT,
+                nonce,
+                gasPrice,
+                this.reporter
+            );
+            nonce += baseTransfers.length;
+            l1TxPromises.push(...baseTransfers);
+
             await Promise.all(l1TxPromises);
         }
         this.reporter.finishAction();
