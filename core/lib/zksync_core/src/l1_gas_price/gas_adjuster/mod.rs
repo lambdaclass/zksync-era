@@ -126,7 +126,6 @@ impl<E: EthInterface> L1GasPriceProvider for GasAdjuster<E> {
         }
 
         let effective_gas_price = self.get_base_fee(0) + self.get_priority_fee();
-
         let calculated_price =
             (self.config.internal_l1_pricing_multiplier * effective_gas_price as f64) as u64;
 
@@ -135,7 +134,6 @@ impl<E: EthInterface> L1GasPriceProvider for GasAdjuster<E> {
             Some(fetcher) => fetcher.conversion_rate().unwrap_or(1),
             None => 1,
         };
-
         self.bound_gas_price(calculated_price) * conversion_rate
     }
 

@@ -121,4 +121,6 @@ pub trait ZksNamespace {
         keys: Vec<H256>,
         l1_batch_number: L1BatchNumber,
     ) -> RpcResult<Proof>;
+    #[method(name = "l1GasPriceConverted")]
+    async fn l1_gas_price_converted(&self) -> RpcResult<U64>;
 }

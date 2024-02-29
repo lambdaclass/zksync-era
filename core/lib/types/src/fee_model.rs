@@ -195,17 +195,19 @@ impl FeeModelConfig {
     }
 }
 
+type GasPrice = u64;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct FeeParamsV1 {
     pub config: FeeModelConfigV1,
-    pub l1_gas_price: u64,
+    pub l1_gas_price: GasPrice,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct FeeParamsV2 {
     pub config: FeeModelConfigV2,
     pub l1_gas_price: u64,
-    pub l1_pubdata_price: u64,
+    pub l1_pubdata_price: GasPrice,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -223,5 +225,11 @@ impl FeeParams {
             },
             l1_gas_price: 1_000_000_000,
         })
+    }
+    pub fn l1_gas_price(&self) -> GasPrice {
+        match self {
+            crate::fee_model::FeeParams::V1(FeeParamsV1 { l1_gas_price, .. }) => *l1_gas_price,
+            crate::fee_model::FeeParams::V2(FeeParamsV2 { l1_gas_price, .. }) => *l1_gas_price,
+        }
     }
 }

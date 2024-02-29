@@ -646,4 +646,14 @@ impl ZksNamespace {
             storage_proof,
         })
     }
+    pub async fn l1_gas_price_converted_impl(&self) -> Result<U64, Web3Error> {
+        Ok(self
+            .state
+            .tx_sender
+            .0
+            .batch_fee_input_provider
+            .get_fee_model_params()
+            .l1_gas_price()
+            .into())
+    }
 }

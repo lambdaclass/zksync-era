@@ -172,4 +172,9 @@ impl ZksNamespaceServer for ZksNamespace {
             .await
             .map_err(into_jsrpc_error)
     }
+    async fn l1_gas_price_converted(&self) -> RpcResult<U64> {
+        self.l1_gas_price_converted_impl()
+            .await
+            .map_err(into_jsrpc_error)
+    }
 }

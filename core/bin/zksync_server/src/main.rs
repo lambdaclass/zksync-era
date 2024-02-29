@@ -122,7 +122,6 @@ async fn main() -> anyhow::Result<()> {
         object_store_config: ObjectStoreConfig::from_env().ok(),
         native_token_fetcher_config: NativeTokenFetcherConfig::from_env().ok(),
     };
-
     let postgres_config = configs.postgres_config.clone().context("PostgresConfig")?;
 
     if opt.genesis || is_genesis_needed(&postgres_config).await {
