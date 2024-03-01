@@ -64,15 +64,12 @@ mod tests {
                 internal_enforced_l1_gas_price: None,
                 poll_period: 15,
                 max_l1_gas_price: Some(100000000),
-                l1_gas_per_pubdata_byte: 17,
             },
         }
     }
 
     fn validium_expected_config() -> ETHSenderConfig {
-        let mut validium_config = rollup_expected_config();
-        validium_config.gas_adjuster.l1_gas_per_pubdata_byte = 0;
-        validium_config
+        rollup_expected_config()
     }
 
     fn from_env(config: &str, expected_config: ETHSenderConfig) {

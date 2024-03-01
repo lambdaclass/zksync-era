@@ -84,7 +84,7 @@ impl EthSenderTester {
         gateway.advance_block_number(Self::WAIT_CONFIRMATIONS);
 
         let gas_adjuster = Arc::new(
-            GasAdjuster::new(
+            RollupGasAdjuster::new(
                 gateway.clone(),
                 GasAdjusterConfig {
                     max_base_fee_samples: Self::MAX_BASE_FEE_SAMPLES,
@@ -114,8 +114,9 @@ impl EthSenderTester {
             Address::random(),
             contracts_config.l1_multicall3_addr,
             Address::random(),
-            0,
-        );
+            Default::default(),
+        )
+        .await;
 
         let manager = EthTxManager::new(
             eth_sender_config.sender,

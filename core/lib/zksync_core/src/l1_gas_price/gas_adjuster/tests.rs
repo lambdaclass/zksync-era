@@ -4,6 +4,7 @@ use zksync_config::GasAdjusterConfig;
 use zksync_eth_client::clients::MockEthereum;
 
 use super::{GasAdjuster, GasStatisticsInner};
+use crate::l1_gas_price::{RollupGasAdjuster, ValidiumGasAdjuster};
 
 /// Check that we compute the median correctly
 #[test]
@@ -27,8 +28,7 @@ fn samples_queue() {
 }
 
 /// Check that we properly fetch base fees as block are mined
-#[tokio::test]
-async fn kept_updated() {
+async fn kept_updated(rollup_mode: bool) {
     let eth_client =
         Arc::new(MockEthereum::default().with_fee_history(vec![0, 4, 6, 8, 7, 5, 5, 8, 10, 9]));
     eth_client.advance_block_number(5);
@@ -44,18 +44,27 @@ async fn kept_updated() {
             internal_enforced_l1_gas_price: None,
             poll_period: 5,
             max_l1_gas_price: None,
-            l1_gas_per_pubdata_byte: 17,
         },
     )
     .await
     .unwrap();
 
-    assert_eq!(adjuster.statistics.0.read().unwrap().samples.len(), 5);
-    assert_eq!(adjuster.statistics.0.read().unwrap().median(), 6);
+    assert_eq!(adjuster.statistics().0.read().unwrap().samples.len(), 5);
+    assert_eq!(adjuster.statistics().0.read().unwrap().median(), 6);
 
     eth_client.advance_block_number(3);
     adjuster.keep_updated().await.unwrap();
 
-    assert_eq!(adjuster.statistics.0.read().unwrap().samples.len(), 5);
-    assert_eq!(adjuster.statistics.0.read().unwrap().median(), 7);
+    assert_eq!(adjuster.statistics().0.read().unwrap().samples.len(), 5);
+    assert_eq!(adjuster.statistics().0.read().unwrap().median(), 7);
+}
+
+#[tokio::test]
+async fn kept_updated_rollup() {
+    kept_updated(true).await
+}
+
+#[tokio::test]
+async fn kept_updated_validium() {
+    kept_updated(false).await
 }
