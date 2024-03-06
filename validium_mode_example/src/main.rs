@@ -218,7 +218,7 @@ async fn display_tx_details(
 ) {
     let l2_deploy_tx_details = wait_for_l2_tx_details(tx_receipt.transaction_hash).await;
 
-    display_gas_and_hash("L2 deploy tx", &l2_provider, tx_receipt.transaction_hash).await;
+    display_gas_and_hash("L2 tx", &l2_provider, tx_receipt.transaction_hash).await;
     display_gas_and_hash(
         "L1 commit tx",
         &l1_provider,
