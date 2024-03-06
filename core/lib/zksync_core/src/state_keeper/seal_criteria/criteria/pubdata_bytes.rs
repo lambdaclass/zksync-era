@@ -17,7 +17,7 @@ impl SealCriterion for PubDataBytesCriterion {
         tx_data: &SealData,
         protocol_version: ProtocolVersionId,
     ) -> SealResolution {
-        let max_pubdata_per_l1_batch = MAX_PUBDATA_PER_L1_BATCH as usize;
+        let max_pubdata_per_l1_batch = config.max_pubdata_per_batch as usize;
         let reject_bound =
             (max_pubdata_per_l1_batch as f64 * config.reject_tx_at_eth_params_percentage).round();
         let include_and_seal_bound =
