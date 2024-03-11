@@ -137,7 +137,8 @@ impl<E: EthInterface> L1GasPriceProvider for GasAdjuster<E> {
         let calculated_price =
             (self.config.internal_l1_pricing_multiplier * effective_gas_price as f64) as u64;
 
-        let conversion_rate = self.native_token_fetcher.conversion_rate().unwrap_or(1);
+        // let conversion_rate = self.native_token_fetcher.conversion_rate().unwrap_or(1);
+        let conversion_rate = 1;
 
         self.bound_gas_price(calculated_price) * conversion_rate
     }

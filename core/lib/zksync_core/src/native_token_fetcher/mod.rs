@@ -1,9 +1,12 @@
-use std::{cmp::min, sync::Arc};
+use std::{
+    cmp::min,
+    sync::{Arc, Mutex as StdMutex}, // We use Mutex from std to prevent having to await on the lock
+};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use bigdecimal::BigDecimal;
 use hex::ToHex;
-use metrics::atomics::AtomicU64;
 use tokio::sync::Mutex;
 use zksync_config::configs::native_token_fetcher::NativeTokenFetcherConfig;
 
@@ -11,7 +14,7 @@ use zksync_config::configs::native_token_fetcher::NativeTokenFetcherConfig;
 /// determine gas prices, as they partially depend on L1 gas prices, denominated in `eth`.
 #[async_trait]
 pub trait ConversionRateFetcher: 'static + std::fmt::Debug + Send + Sync {
-    fn conversion_rate(&self) -> anyhow::Result<u64>;
+    fn conversion_rate(&self) -> anyhow::Result<BigDecimal>;
     async fn update(&self) -> anyhow::Result<()>;
 }
 
@@ -26,8 +29,8 @@ impl NoOpConversionRateFetcher {
 
 #[async_trait]
 impl ConversionRateFetcher for NoOpConversionRateFetcher {
-    fn conversion_rate(&self) -> anyhow::Result<u64> {
-        Ok(1)
+    fn conversion_rate(&self) -> anyhow::Result<BigDecimal> {
+        Ok(BigDecimal::from(1))
     }
 
     async fn update(&self) -> anyhow::Result<()> {
@@ -40,7 +43,7 @@ impl ConversionRateFetcher for NoOpConversionRateFetcher {
 #[derive(Debug)]
 pub(crate) struct NativeTokenFetcher {
     pub config: NativeTokenFetcherConfig,
-    pub latest_to_eth_conversion_rate: AtomicU64,
+    pub latest_to_eth_conversion_rate: Arc<StdMutex<BigDecimal>>,
     http_client: reqwest::Client,
     error_reporter: Arc<Mutex<ErrorReporter>>,
 }
@@ -57,7 +60,7 @@ impl NativeTokenFetcher {
             ))
             .send()
             .await?
-            .json::<u64>()
+            .json::<BigDecimal>()
             .await
             .context("Unable to parse the response of the native token conversion rate server")?;
 
@@ -65,7 +68,7 @@ impl NativeTokenFetcher {
 
         Ok(Self {
             config,
-            latest_to_eth_conversion_rate: AtomicU64::new(conversion_rate),
+            latest_to_eth_conversion_rate: Arc::new(StdMutex::new(conversion_rate)),
             http_client,
             error_reporter,
         })
@@ -74,11 +77,17 @@ impl NativeTokenFetcher {
 
 #[async_trait]
 impl ConversionRateFetcher for NativeTokenFetcher {
-    fn conversion_rate(&self) -> anyhow::Result<u64> {
-        anyhow::Ok(
-            self.latest_to_eth_conversion_rate
-                .load(std::sync::atomic::Ordering::Relaxed),
-        )
+    fn conversion_rate(&self) -> anyhow::Result<BigDecimal> {
+        let lock = match self.latest_to_eth_conversion_rate.lock() {
+            Ok(lock) => lock,
+            Err(err) => {
+                return Err(anyhow!(
+                    "Error while getting lock of lates conversion rate: {:?}",
+                    err,
+                ));
+            }
+        };
+        anyhow::Ok(lock.clone())
     }
 
     async fn update(&self) -> anyhow::Result<()> {
@@ -93,11 +102,11 @@ impl ConversionRateFetcher for NativeTokenFetcher {
             .await
         {
             Ok(response) => {
-                let conversion_rate = response.json::<u64>().await.context(
+                let conversion_rate = response.json::<BigDecimal>().await.context(
                     "Unable to parse the response of the native token conversion rate server",
                 )?;
-                self.latest_to_eth_conversion_rate
-                    .store(conversion_rate, std::sync::atomic::Ordering::Relaxed);
+                // self.latest_to_eth_conversion_rate
+                //     .store(conversion_rate, std::sync::atomic::Ordering::Relaxed);
                 self.error_reporter.lock().await.reset();
             }
             Err(err) => self
