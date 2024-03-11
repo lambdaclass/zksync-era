@@ -25,7 +25,8 @@ use zksync_types::{
         TransactionExecutionResult,
     },
     utils::{storage_key_for_eth_balance, storage_key_for_standard_token_balance},
-    AccountTreeId, Address, L1BatchNumber, Nonce, StorageKey, StorageLog, VmEvent, H256, U64,
+    AccountTreeId, Address, Bytes, L1BatchNumber, Nonce, StorageKey, StorageLog, VmEvent, H256,
+    U64,
 };
 use zksync_utils::u256_to_h256;
 use zksync_web3_decl::{
@@ -254,7 +255,7 @@ impl StorageInitialization {
 async fn test_http_server(test: impl HttpTest) {
     let pool = ConnectionPool::test_pool().await;
     let network_config = NetworkConfig::for_tests();
-    let mut storage = pool.access_storage().await.unwrap();
+    let mut storage: StorageProcessor<'_> = pool.access_storage().await.unwrap();
     test.storage_initialization()
         .prepare_storage(&network_config, &mut storage)
         .await
@@ -943,13 +944,22 @@ impl GetPubdataTest {
 
 #[async_trait]
 impl HttpTest for GetPubdataTest {
+    fn storage_initialization(&self) -> StorageInitialization {
+        StorageInitialization::Genesis
+    }
+
     async fn test(&self, client: &HttpClient, pool: &ConnectionPool) -> anyhow::Result<()> {
-        let pubdata = client.get_batch_pubdata().await?;
-        assert_eq!(pubdata, HashMap::new());
+        let pubdata = client.get_batch_pubdata(L1BatchNumber(1)).await?;
+        assert_eq!(pubdata, None);
 
-        // let mut storage = pool.access_storage().await?;
-        // store_miniblock(&mut storage, MiniblockNumber(1), &[]).await?;
+        let mut storage = pool.access_storage().await?;
+        storage
+            .blocks_dal()
+            .insert_mock_l1_batch(&create_l1_batch(1))
+            .await?;
 
+        let pubdata = client.get_batch_pubdata(L1BatchNumber(1)).await?;
+        assert!(pubdata.is_some());
         // let eth_balance_key = storage_key_for_eth_balance(&Self::ADDRESS);
         // let eth_balance = U256::one() << 64;
         // let eth_balance_log = StorageLog::new_write_log(eth_balance_key, u256_to_h256(eth_balance));

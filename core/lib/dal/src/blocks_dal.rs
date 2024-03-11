@@ -12,6 +12,7 @@ use zksync_types::{
     block::{BlockGasCount, L1BatchHeader, L1BatchTreeData, MiniblockHeader},
     circuit::CircuitStatistic,
     commitment::{L1BatchCommitmentArtifacts, L1BatchWithMetadata},
+    l1,
     zk_evm_types::LogQuery,
     Address, L1BatchNumber, MiniblockNumber, ProtocolVersionId, H256, U256,
 };
@@ -1680,6 +1681,7 @@ impl BlocksDal<'_, '_> {
         &mut self,
         number: L1BatchNumber,
     ) -> anyhow::Result<Option<L1BatchWithMetadata>> {
+        println!("Getting l1 batch metadata for {}", number.0);
         let Some(l1_batch) = self
             .get_storage_l1_batch(number)
             .await
@@ -1687,9 +1689,15 @@ impl BlocksDal<'_, '_> {
         else {
             return Ok(None);
         };
-        self.get_l1_batch_with_metadata(l1_batch)
+        println!("Got l1 batch {:?}", l1_batch);
+
+        let l1_batch_with_metadata = self
+            .get_l1_batch_with_metadata(l1_batch)
             .await
-            .context("get_l1_batch_with_metadata")
+            .context("get_l1_batch_with_metadata");
+
+        println!("L1 batch with metadata {:?}", l1_batch_with_metadata);
+        l1_batch_with_metadata
     }
 
     pub async fn get_l1_batch_tree_data(
@@ -1726,10 +1734,18 @@ impl BlocksDal<'_, '_> {
             .get_l1_batch_factory_deps(L1BatchNumber(storage_batch.number as u32))
             .await
             .context("get_l1_batch_factory_deps()")?;
+
+        println!("Unsorted factory deps {:?}", unsorted_factory_deps.clone());
+
         let header: L1BatchHeader = storage_batch.clone().into();
         let Ok(metadata) = storage_batch.try_into() else {
+            println!("Failed to convert storage batch into metadata");
             return Ok(None);
         };
+        println!(
+            "Getting raw published bytecode hashes for {}",
+            header.number.0
+        );
         let raw_published_bytecode_hashes = self
             .storage
             .events_dal()
