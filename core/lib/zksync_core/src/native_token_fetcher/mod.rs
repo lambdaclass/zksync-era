@@ -81,8 +81,12 @@ impl ConversionRateFetcher for NativeTokenFetcher {
         let lock = match self.latest_to_eth_conversion_rate.lock() {
             Ok(lock) => lock,
             Err(err) => {
+                tracing::error!(
+                    "Error while getting lock of latest conversion rate: {:?}",
+                    err,
+                );
                 return Err(anyhow!(
-                    "Error while getting lock of lates conversion rate: {:?}",
+                    "Error while getting lock of latest conversion rate: {:?}",
                     err,
                 ));
             }
@@ -105,8 +109,22 @@ impl ConversionRateFetcher for NativeTokenFetcher {
                 let conversion_rate = response.json::<BigDecimal>().await.context(
                     "Unable to parse the response of the native token conversion rate server",
                 )?;
-                // self.latest_to_eth_conversion_rate
-                //     .store(conversion_rate, std::sync::atomic::Ordering::Relaxed);
+                match self.latest_to_eth_conversion_rate.lock() {
+                    Ok(mut lock) => {
+                        *lock = conversion_rate;
+                    }
+                    Err(err) => {
+                        tracing::error!(
+                            "Error while getting lock of latest conversion rate: {:?}",
+                            err,
+                        );
+                        return Err(anyhow!(
+                            "Error while getting lock of latest conversion rate: {:?}",
+                            err,
+                        ));
+                    }
+                }
+
                 self.error_reporter.lock().await.reset();
             }
             Err(err) => self
