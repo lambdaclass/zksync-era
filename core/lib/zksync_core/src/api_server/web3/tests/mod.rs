@@ -933,3 +933,73 @@ impl HttpTest for AllAccountBalancesTest {
 async fn getting_all_account_balances() {
     test_http_server(AllAccountBalancesTest).await;
 }
+
+#[derive(Debug)]
+struct GetPubdataTest;
+
+impl GetPubdataTest {
+    const ADDRESS: Address = Address::repeat_byte(0x11);
+}
+
+#[async_trait]
+impl HttpTest for GetPubdataTest {
+    async fn test(&self, client: &HttpClient, pool: &ConnectionPool) -> anyhow::Result<()> {
+        let pubdata = client.get_batch_pubdata().await?;
+        assert_eq!(pubdata, HashMap::new());
+
+        // let mut storage = pool.access_storage().await?;
+        // store_miniblock(&mut storage, MiniblockNumber(1), &[]).await?;
+
+        // let eth_balance_key = storage_key_for_eth_balance(&Self::ADDRESS);
+        // let eth_balance = U256::one() << 64;
+        // let eth_balance_log = StorageLog::new_write_log(eth_balance_key, u256_to_h256(eth_balance));
+        // storage
+        //     .storage_logs_dal()
+        //     .insert_storage_logs(MiniblockNumber(1), &[(H256::zero(), vec![eth_balance_log])])
+        //     .await?;
+        // // Create a custom token, but don't set balance for it yet.
+        // let custom_token = TokenInfo {
+        //     l1_address: Address::repeat_byte(0xfe),
+        //     l2_address: Address::repeat_byte(0xfe),
+        //     metadata: TokenMetadata::default(Address::repeat_byte(0xfe)),
+        // };
+        // storage
+        //     .tokens_dal()
+        //     .add_tokens(slice::from_ref(&custom_token))
+        //     .await?;
+
+        // let balances = client.get_all_account_balances(Self::ADDRESS).await?;
+        // assert_eq!(balances, HashMap::from([(Address::zero(), eth_balance)]));
+
+        // store_miniblock(&mut storage, MiniblockNumber(2), &[]).await?;
+        // let token_balance_key = storage_key_for_standard_token_balance(
+        //     AccountTreeId::new(custom_token.l2_address),
+        //     &Self::ADDRESS,
+        // );
+        // let token_balance = 123.into();
+        // let token_balance_log =
+        //     StorageLog::new_write_log(token_balance_key, u256_to_h256(token_balance));
+        // storage
+        //     .storage_logs_dal()
+        //     .insert_storage_logs(
+        //         MiniblockNumber(2),
+        //         &[(H256::zero(), vec![token_balance_log])],
+        //     )
+        //     .await?;
+
+        // let balances = client.get_all_account_balances(Self::ADDRESS).await?;
+        // assert_eq!(
+        //     balances,
+        //     HashMap::from([
+        //         (Address::zero(), eth_balance),
+        //         (custom_token.l2_address, token_balance),
+        //     ])
+        // );
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn get_batch_pubdata_impl() {
+    test_http_server(GetPubdataTest).await;
+}
