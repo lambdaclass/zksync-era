@@ -1687,12 +1687,9 @@ impl BlocksDal<'_, '_> {
         else {
             return Ok(None);
         };
-        let l1_batch_with_metadata = self
-            .get_l1_batch_with_metadata(l1_batch)
+        self.get_l1_batch_with_metadata(l1_batch)
             .await
-            .context("get_l1_batch_with_metadata");
-
-        l1_batch_with_metadata
+            .context("get_l1_batch_with_metadata")
     }
 
     pub async fn get_l1_batch_tree_data(
@@ -1729,7 +1726,6 @@ impl BlocksDal<'_, '_> {
             .get_l1_batch_factory_deps(L1BatchNumber(storage_batch.number as u32))
             .await
             .context("get_l1_batch_factory_deps()")?;
-
         let header: L1BatchHeader = storage_batch.clone().into();
         let Ok(metadata) = storage_batch.try_into() else {
             return Ok(None);

@@ -192,7 +192,7 @@ impl TryInto<L1BatchMetadata> for StorageL1Batch {
     type Error = StorageL1BatchConvertError;
 
     fn try_into(self) -> Result<L1BatchMetadata, Self::Error> {
-        let result = L1BatchMetadata {
+        Ok(L1BatchMetadata {
             root_hash: H256::from_slice(&self.hash.ok_or(StorageL1BatchConvertError::Incomplete)?),
             rollup_last_leaf_index: self
                 .rollup_last_leaf_index
@@ -250,10 +250,7 @@ impl TryInto<L1BatchMetadata> for StorageL1Batch {
             bootloader_initial_content_commitment: self
                 .bootloader_initial_content_commitment
                 .map(|v| H256::from_slice(&v)),
-        };
-
-        println!("Result: {:?}", result);
-        Ok(result)
+        })
     }
 }
 
