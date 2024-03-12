@@ -192,36 +192,6 @@ impl TryInto<L1BatchMetadata> for StorageL1Batch {
     type Error = StorageL1BatchConvertError;
 
     fn try_into(self) -> Result<L1BatchMetadata, Self::Error> {
-        println!("Trying into");
-        println!("Hash is: {:?}", self.hash.is_some());
-        println!(
-            "Rollup last leaf index is: {:?}",
-            self.rollup_last_leaf_index.is_some()
-        );
-        println!("Merkle root hash is: {:?}", self.merkle_root_hash.is_some());
-        println!(
-            "Compressed initial writes is: {:?}",
-            self.compressed_initial_writes.is_some()
-        );
-        println!(
-            "Compressed repeated writes is: {:?}",
-            self.compressed_repeated_writes.is_some()
-        );
-        println!(
-            "L2 L1 merkle root is: {:?}",
-            self.l2_l1_merkle_root.is_some()
-        );
-        println!("Aux data hash is: {:?}", self.aux_data_hash.is_some());
-        println!(
-            "Meta parameters hash is: {:?}",
-            self.meta_parameters_hash.is_some()
-        );
-        println!(
-            "Pass through data hash is: {:?}",
-            self.pass_through_data_hash.is_some()
-        );
-        println!("Commitment is: {:?}", self.commitment.is_some());
-
         let result = L1BatchMetadata {
             root_hash: H256::from_slice(&self.hash.ok_or(StorageL1BatchConvertError::Incomplete)?),
             rollup_last_leaf_index: self

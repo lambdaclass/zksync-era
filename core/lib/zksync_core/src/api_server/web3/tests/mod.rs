@@ -15,6 +15,7 @@ use zksync_health_check::CheckHealth;
 use zksync_types::{
     api,
     block::MiniblockHeader,
+    commitment::L1BatchMetadata,
     fee::TransactionExecutionMetrics,
     get_nonce_key,
     l2::L2Tx,
@@ -40,6 +41,7 @@ use crate::{
         execution_sandbox::testonly::MockTransactionExecutor,
         tx_sender::tests::create_test_tx_sender,
     },
+    eth_sender::aggregated_operations::AggregatedOperation,
     genesis::{ensure_genesis_state, GenesisParams},
     utils::testonly::{
         create_l1_batch, create_l1_batch_metadata, create_l2_transaction, create_miniblock,
@@ -953,58 +955,32 @@ impl HttpTest for GetPubdataTest {
         assert_eq!(pubdata, None);
 
         let mut storage = pool.access_storage().await?;
+
+        // Insertion
+        let header = create_l1_batch(1);
+        let metadata = L1BatchMetadata::default();
+
         storage
             .blocks_dal()
-            .insert_mock_l1_batch(&create_l1_batch(1))
-            .await?;
+            .insert_mock_l1_batch(&header)
+            .await
+            .unwrap();
+        storage
+            .blocks_dal()
+            .save_l1_batch_tree_data(header.number, &metadata.tree_data())
+            .await
+            .unwrap();
+        storage
+            .blocks_dal()
+            .save_l1_batch_commitment_artifacts(
+                header.number,
+                &l1_batch_metadata_to_commitment_artifacts(&metadata),
+            )
+            .await
+            .unwrap();
 
         let pubdata = client.get_batch_pubdata(L1BatchNumber(1)).await?;
         assert!(pubdata.is_some());
-        // let eth_balance_key = storage_key_for_eth_balance(&Self::ADDRESS);
-        // let eth_balance = U256::one() << 64;
-        // let eth_balance_log = StorageLog::new_write_log(eth_balance_key, u256_to_h256(eth_balance));
-        // storage
-        //     .storage_logs_dal()
-        //     .insert_storage_logs(MiniblockNumber(1), &[(H256::zero(), vec![eth_balance_log])])
-        //     .await?;
-        // // Create a custom token, but don't set balance for it yet.
-        // let custom_token = TokenInfo {
-        //     l1_address: Address::repeat_byte(0xfe),
-        //     l2_address: Address::repeat_byte(0xfe),
-        //     metadata: TokenMetadata::default(Address::repeat_byte(0xfe)),
-        // };
-        // storage
-        //     .tokens_dal()
-        //     .add_tokens(slice::from_ref(&custom_token))
-        //     .await?;
-
-        // let balances = client.get_all_account_balances(Self::ADDRESS).await?;
-        // assert_eq!(balances, HashMap::from([(Address::zero(), eth_balance)]));
-
-        // store_miniblock(&mut storage, MiniblockNumber(2), &[]).await?;
-        // let token_balance_key = storage_key_for_standard_token_balance(
-        //     AccountTreeId::new(custom_token.l2_address),
-        //     &Self::ADDRESS,
-        // );
-        // let token_balance = 123.into();
-        // let token_balance_log =
-        //     StorageLog::new_write_log(token_balance_key, u256_to_h256(token_balance));
-        // storage
-        //     .storage_logs_dal()
-        //     .insert_storage_logs(
-        //         MiniblockNumber(2),
-        //         &[(H256::zero(), vec![token_balance_log])],
-        //     )
-        //     .await?;
-
-        // let balances = client.get_all_account_balances(Self::ADDRESS).await?;
-        // assert_eq!(
-        //     balances,
-        //     HashMap::from([
-        //         (Address::zero(), eth_balance),
-        //         (custom_token.l2_address, token_balance),
-        //     ])
-        // );
         Ok(())
     }
 }

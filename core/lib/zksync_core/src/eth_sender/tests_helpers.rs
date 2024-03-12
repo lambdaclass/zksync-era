@@ -12,7 +12,7 @@ use zksync_l1_contract_interface::i_executor::methods::{ExecuteBatches, ProveBat
 use zksync_object_store::ObjectStoreFactory;
 use zksync_types::{
     block::L1BatchHeader,
-    commitment::{L1BatchMetaParameters, L1BatchMetadata, L1BatchWithMetadata},
+    commitment::{L1BatchMetadata, L1BatchWithMetadata},
     ethabi::Token,
     helpers::unix_timestamp_ms,
     web3::contract::Error,
@@ -36,7 +36,7 @@ static DUMMY_OPERATION: Lazy<AggregatedOperation> = Lazy::new(|| {
     AggregatedOperation::Execute(ExecuteBatches {
         l1_batches: vec![L1BatchWithMetadata {
             header: create_l1_batch(1),
-            metadata: default_l1_batch_metadata(),
+            metadata: L1BatchMetadata::default(),
             raw_published_factory_deps: Vec::new(),
         }],
     })
@@ -149,31 +149,8 @@ impl EthSenderTester {
 fn l1_batch_with_metadata(header: L1BatchHeader) -> L1BatchWithMetadata {
     L1BatchWithMetadata {
         header,
-        metadata: default_l1_batch_metadata(),
+        metadata: L1BatchMetadata::default(),
         raw_published_factory_deps: vec![],
-    }
-}
-
-fn default_l1_batch_metadata() -> L1BatchMetadata {
-    L1BatchMetadata {
-        root_hash: Default::default(),
-        rollup_last_leaf_index: 0,
-        merkle_root_hash: Default::default(),
-        initial_writes_compressed: Some(vec![]),
-        repeated_writes_compressed: Some(vec![]),
-        commitment: Default::default(),
-        l2_l1_merkle_root: Default::default(),
-        block_meta_params: L1BatchMetaParameters {
-            zkporter_is_available: false,
-            bootloader_code_hash: Default::default(),
-            default_aa_code_hash: Default::default(),
-        },
-        aux_data_hash: Default::default(),
-        meta_parameters_hash: Default::default(),
-        pass_through_data_hash: Default::default(),
-        events_queue_commitment: Some(H256::zero()),
-        bootloader_initial_content_commitment: Some(H256::zero()),
-        state_diffs_compressed: vec![],
     }
 }
 
@@ -617,7 +594,8 @@ async fn insert_l1_batch(tester: &EthSenderTester, number: L1BatchNumber) -> L1B
         .insert_mock_l1_batch(&header)
         .await
         .unwrap();
-    let metadata = default_l1_batch_metadata();
+    let metadata = L1BatchMetadata::default();
+
     tester
         .storage()
         .await

@@ -99,6 +99,31 @@ impl L1BatchMetadata {
     }
 }
 
+impl Default for L1BatchMetadata {
+    fn default() -> Self {
+        L1BatchMetadata {
+            root_hash: Default::default(),
+            rollup_last_leaf_index: 0,
+            merkle_root_hash: Default::default(),
+            initial_writes_compressed: Some(vec![]),
+            repeated_writes_compressed: Some(vec![]),
+            commitment: Default::default(),
+            l2_l1_merkle_root: Default::default(),
+            block_meta_params: L1BatchMetaParameters {
+                zkporter_is_available: false,
+                bootloader_code_hash: Default::default(),
+                default_aa_code_hash: Default::default(),
+            },
+            aux_data_hash: Default::default(),
+            meta_parameters_hash: Default::default(),
+            pass_through_data_hash: Default::default(),
+            events_queue_commitment: Some(H256::zero()),
+            bootloader_initial_content_commitment: Some(H256::zero()),
+            state_diffs_compressed: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct L1BatchWithMetadata {
     pub header: L1BatchHeader,
@@ -446,7 +471,7 @@ impl L1BatchAuxiliaryOutput {
 }
 
 /// Meta parameters for an L1 batch. They are the same for each L1 batch per run.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct L1BatchMetaParameters {
     pub zkporter_is_available: bool,
     pub bootloader_code_hash: H256,
