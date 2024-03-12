@@ -6,7 +6,7 @@ use std::{
 };
 
 use bigdecimal::BigDecimal;
-use num::One;
+use num::{One, Zero};
 use tokio::sync::watch;
 use zksync_config::GasAdjusterConfig;
 use zksync_eth_client::{Error, EthInterface};
@@ -140,24 +140,23 @@ impl<E: EthInterface> L1GasPriceProvider for GasAdjuster<E> {
         let calculated_price =
             (self.config.internal_l1_pricing_multiplier * effective_gas_price as f64) as u64;
 
-        // To convert from BigDecimal to U256:
-        // 1. Round the value to the nearest integer.
-        // 2. Convert the rounded value to a string.
-        // 3. Convert the string to U256.
-        // - In case of conversion failure, assume it's overflow and return max value.
-        // -- TODO: if the value is greater or equal to U256::max_value(),
-        // --       the return value might also overflow.
-        let conversion_rate = U256::from_dec_str(
-            &self
-                .native_token_fetcher
-                .conversion_rate()
-                .unwrap_or(BigDecimal::one())
-                .round(0)
-                .to_string(),
-        )
-        .unwrap_or(U256::max_value());
+        let gas_price = BigDecimal::from(self.bound_gas_price(calculated_price));
 
-        U256::from(self.bound_gas_price(calculated_price)) * conversion_rate
+        let conversion_rate = self
+            .native_token_fetcher
+            .conversion_rate()
+            .unwrap_or(BigDecimal::one());
+
+        // Casting directly from BigDecimal to U256 is not possible,
+        // so we first remove the fractional part, convert to string and then to U256.
+        U256::from_dec_str(
+            &match (gas_price * conversion_rate).round(0) {
+                zero if zero == BigDecimal::zero() => BigDecimal::one(),
+                val => val,
+            }
+            .to_string(),
+        )
+        .unwrap_or(U256::max_value()) // assume overflow (should never happen)
     }
 
     fn estimate_effective_pubdata_price(&self) -> U256 {
