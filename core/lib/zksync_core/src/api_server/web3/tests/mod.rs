@@ -26,8 +26,7 @@ use zksync_types::{
         TransactionExecutionResult,
     },
     utils::{storage_key_for_eth_balance, storage_key_for_standard_token_balance},
-    AccountTreeId, Address, Bytes, L1BatchNumber, Nonce, StorageKey, StorageLog, VmEvent, H256,
-    U64,
+    AccountTreeId, Address, L1BatchNumber, Nonce, StorageKey, StorageLog, VmEvent, H256, U64,
 };
 use zksync_utils::u256_to_h256;
 use zksync_web3_decl::{
@@ -41,7 +40,6 @@ use crate::{
         execution_sandbox::testonly::MockTransactionExecutor,
         tx_sender::tests::create_test_tx_sender,
     },
-    eth_sender::aggregated_operations::AggregatedOperation,
     genesis::{ensure_genesis_state, GenesisParams},
     utils::testonly::{
         create_l1_batch, create_l1_batch_metadata, create_l2_transaction, create_miniblock,
@@ -940,9 +938,7 @@ async fn getting_all_account_balances() {
 #[derive(Debug)]
 struct GetPubdataTest;
 
-impl GetPubdataTest {
-    const ADDRESS: Address = Address::repeat_byte(0x11);
-}
+impl GetPubdataTest {}
 
 #[async_trait]
 impl HttpTest for GetPubdataTest {
