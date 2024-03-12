@@ -5,6 +5,7 @@ use std::fmt;
 pub use gas_adjuster::GasAdjuster;
 pub use main_node_fetcher::MainNodeFeeParamsFetcher;
 pub use singleton::GasAdjusterSingleton;
+use zksync_types::U256;
 
 mod gas_adjuster;
 mod main_node_fetcher;
@@ -15,12 +16,12 @@ pub mod singleton;
 pub trait L1GasPriceProvider: fmt::Debug + 'static + Send + Sync {
     /// Returns a best guess of a realistic value for the L1 gas price.
     /// Return value is in wei.
-    fn estimate_effective_gas_price(&self) -> u64;
+    fn estimate_effective_gas_price(&self) -> U256;
 
     /// Returns a best guess of a realistic value for the L1 pubdata price.
     /// Note that starting with EIP4844 it will become independent from the gas price.
     /// Return value is in wei.
-    fn estimate_effective_pubdata_price(&self) -> u64;
+    fn estimate_effective_pubdata_price(&self) -> U256;
 }
 
 /// Extended version of `L1GasPriceProvider` that can provide parameters

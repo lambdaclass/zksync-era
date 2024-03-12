@@ -5,10 +5,13 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use bigdecimal::BigDecimal;
+use num::One;
 use tokio::sync::watch;
 use zksync_config::GasAdjusterConfig;
 use zksync_eth_client::{Error, EthInterface};
 use zksync_system_constants::L1_GAS_PER_PUBDATA_BYTE;
+use zksync_types::U256;
 
 use self::metrics::METRICS;
 use super::{L1GasPriceProvider, L1TxParamsProvider};
@@ -127,9 +130,9 @@ impl<E: EthInterface> GasAdjuster<E> {
 impl<E: EthInterface> L1GasPriceProvider for GasAdjuster<E> {
     /// Returns the sum of base and priority fee, in wei, not considering time in mempool.
     /// Can be used to get an estimate of current gas price.
-    fn estimate_effective_gas_price(&self) -> u64 {
+    fn estimate_effective_gas_price(&self) -> U256 {
         if let Some(price) = self.config.internal_enforced_l1_gas_price {
-            return price;
+            return U256::from(price);
         }
 
         let effective_gas_price = self.get_base_fee(0) + self.get_priority_fee();
@@ -137,15 +140,29 @@ impl<E: EthInterface> L1GasPriceProvider for GasAdjuster<E> {
         let calculated_price =
             (self.config.internal_l1_pricing_multiplier * effective_gas_price as f64) as u64;
 
-        // let conversion_rate = self.native_token_fetcher.conversion_rate().unwrap_or(1);
-        let conversion_rate = 1;
+        // To convert from BigDecimal to U256:
+        // 1. Round the value to the nearest integer.
+        // 2. Convert the rounded value to a string.
+        // 3. Convert the string to U256.
+        // - In case of conversion failure, assume it's overflow and return max value.
+        // -- TODO: if the value is greater or equal to U256::max_value(),
+        // --       the return value might also overflow.
+        let conversion_rate = U256::from_dec_str(
+            &self
+                .native_token_fetcher
+                .conversion_rate()
+                .unwrap_or(BigDecimal::one())
+                .round(0)
+                .to_string(),
+        )
+        .unwrap_or(U256::max_value());
 
-        self.bound_gas_price(calculated_price) * conversion_rate
+        U256::from(self.bound_gas_price(calculated_price)) * conversion_rate
     }
 
-    fn estimate_effective_pubdata_price(&self) -> u64 {
+    fn estimate_effective_pubdata_price(&self) -> U256 {
         // For now, pubdata is only sent via calldata, so its price is pegged to the L1 gas price.
-        self.estimate_effective_gas_price() * L1_GAS_PER_PUBDATA_BYTE as u64
+        self.estimate_effective_gas_price() * L1_GAS_PER_PUBDATA_BYTE
     }
 }
 
