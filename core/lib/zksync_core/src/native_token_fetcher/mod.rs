@@ -5,10 +5,10 @@ use std::{
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use bigdecimal::BigDecimal;
 use hex::ToHex;
 use tokio::sync::Mutex;
 use zksync_config::configs::native_token_fetcher::NativeTokenFetcherConfig;
+use zksync_dal::BigDecimal;
 
 /// Trait used to query the stack's native token conversion rate. Used to properly
 /// determine gas prices, as they partially depend on L1 gas prices, denominated in `eth`.
