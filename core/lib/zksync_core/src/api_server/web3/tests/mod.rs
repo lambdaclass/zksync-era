@@ -15,10 +15,11 @@ use zksync_health_check::CheckHealth;
 use zksync_types::{
     api,
     block::MiniblockHeader,
-    commitment::L1BatchMetadata,
+    commitment::{L1BatchMetadata, L1BatchWithMetadata},
     fee::TransactionExecutionMetrics,
     get_nonce_key,
     l2::L2Tx,
+    l2_to_l1_log::{L2ToL1Log, UserL2ToL1Log},
     storage::get_code_key,
     tokens::{TokenInfo, TokenMetadata},
     tx::{
@@ -26,7 +27,8 @@ use zksync_types::{
         TransactionExecutionResult,
     },
     utils::{storage_key_for_eth_balance, storage_key_for_standard_token_balance},
-    AccountTreeId, Address, L1BatchNumber, Nonce, StorageKey, StorageLog, VmEvent, H256, U64,
+    AccountTreeId, Address, Bytes, L1BatchNumber, Nonce, StorageKey, StorageLog, VmEvent, H256,
+    U64,
 };
 use zksync_utils::u256_to_h256;
 use zksync_web3_decl::{
@@ -950,11 +952,29 @@ impl HttpTest for GetPubdataTest {
         let pubdata = client.get_batch_pubdata(L1BatchNumber(1)).await?;
         assert_eq!(pubdata, None);
 
+        let mut expected_pubdata: Vec<u8> = vec![];
         let mut storage = pool.access_storage().await?;
 
         // Insertion
-        let header = create_l1_batch(1);
+        let mut header = create_l1_batch(1);
+        let l2_to_l1_log = L2ToL1Log {
+            shard_id: 1,
+            tx_number_in_block: 1,
+            is_service: false,
+            sender: Address::repeat_byte(1),
+            key: H256::repeat_byte(1),
+            value: H256::repeat_byte(1),
+        };
+        let user_l2_to_l1_log = UserL2ToL1Log(l2_to_l1_log);
+
+        header.l2_to_l1_logs.push(user_l2_to_l1_log.clone());
+        expected_pubdata.extend((header.l2_to_l1_logs.len() as u32).to_be_bytes());
+        expected_pubdata.extend(user_l2_to_l1_log.0.to_bytes());
+        expected_pubdata.extend((header.l2_to_l1_messages.len() as u32).to_be_bytes());
+
         let metadata = L1BatchMetadata::default();
+        expected_pubdata.extend((0 as u32).to_be_bytes());
+        expected_pubdata.extend(metadata.clone().state_diffs_compressed);
 
         storage
             .blocks_dal()
@@ -976,7 +996,7 @@ impl HttpTest for GetPubdataTest {
             .unwrap();
 
         let pubdata = client.get_batch_pubdata(L1BatchNumber(1)).await?;
-        assert!(pubdata.is_some());
+        assert_eq!(pubdata, Some(expected_pubdata.into()));
         Ok(())
     }
 }
