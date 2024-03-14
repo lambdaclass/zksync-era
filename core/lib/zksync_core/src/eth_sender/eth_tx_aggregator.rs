@@ -461,7 +461,7 @@ impl EthTxAggregator {
         }
     }
 
-    pub(super) async fn save_eth_tx(
+    pub(crate) async fn save_eth_tx(
         &self,
         storage: &mut StorageProcessor<'_>,
         aggregated_op: &AggregatedOperation,
