@@ -15,7 +15,7 @@ use zksync_config::{
     ETHSenderConfig, GasAdjusterConfig,
 };
 use zksync_dal::{transactions_dal::L2TxSubmissionResult, ConnectionPool, StorageProcessor};
-use zksync_eth_client::clients::MockEthereum;
+use zksync_eth_client::{clients::MockEthereum, EthInterface};
 use zksync_health_check::CheckHealth;
 use zksync_object_store::ObjectStoreFactory;
 use zksync_types::{
@@ -33,8 +33,8 @@ use zksync_types::{
         TransactionExecutionResult,
     },
     utils::{storage_key_for_eth_balance, storage_key_for_standard_token_balance},
-    AccountTreeId, Address, L1BatchNumber, L1BlockNumber, Nonce, StorageKey, StorageLog, VmEvent,
-    H256, U64,
+    AccountTreeId, Address, Bytes, L1BatchNumber, L1BlockNumber, Nonce, StorageKey, StorageLog,
+    VmEvent, H256, U64,
 };
 use zksync_utils::u256_to_h256;
 use zksync_web3_decl::{
@@ -1060,32 +1060,37 @@ impl GetPubdataTest {
         vec![1, 2, 3]
     }
 
-    fn build_expected_pubdata() -> Vec<u8> {
-        let l2_to_l1_logs = Self::build_l2_to_l1_logs();
-        let l2_to_l1_messages = Self::build_l2_to_l1_messages();
-        let raw_published_factory_deps = Self::build_raw_published_factory_deps();
-        let state_diffs_compressed = Self::build_state_diffs_compressed();
+    // fn build_expected_pubdata(l1_batch_with_metadata: L1BatchWithMetadata) -> Vec<u8> {
+    //     let l2_to_l1_logs = Self::build_l2_to_l1_logs();
+    //     let l2_to_l1_messages = Self::build_l2_to_l1_messages();
+    //     let raw_published_factory_deps = Self::build_raw_published_factory_deps();
+    //     let state_diffs_compressed = Self::build_state_diffs_compressed();
 
-        let mut expected_pubdata = vec![];
-        expected_pubdata.extend((l2_to_l1_logs.len() as u32).to_be_bytes());
-        for l2_to_l1_log in &l2_to_l1_logs {
-            expected_pubdata.extend(l2_to_l1_log.0.to_bytes());
-        }
-        expected_pubdata.extend((l2_to_l1_messages.len() as u32).to_be_bytes());
-        for msg in &l2_to_l1_messages {
-            expected_pubdata.extend((msg.len() as u32).to_be_bytes());
-            expected_pubdata.extend(msg);
-        }
-        expected_pubdata.extend((raw_published_factory_deps.len() as u32).to_be_bytes());
-        for bytecode in &raw_published_factory_deps {
-            expected_pubdata.extend((bytecode.len() as u32).to_be_bytes());
-            expected_pubdata.extend(bytecode);
-        }
-        dbg!(expected_pubdata.clone());
-        expected_pubdata.extend(&state_diffs_compressed);
+    //     let mut expected_pubdata = vec![];
+    //     expected_pubdata.extend((l2_to_l1_logs.len() as u32).to_be_bytes());
+    //     for l2_to_l1_log in &l2_to_l1_logs {
+    //         expected_pubdata.extend(l2_to_l1_log.0.to_bytes());
+    //     }
+    //     //dbg!(&expected_pubdata.len());
+    //     expected_pubdata.extend((l2_to_l1_messages.len() as u32).to_be_bytes());
+    //     for msg in &l2_to_l1_messages {
+    //         expected_pubdata.extend((msg.len() as u32).to_be_bytes());
+    //         expected_pubdata.extend(msg);
+    //     }
+    //     //dbg!(&expected_pubdata.len());
 
-        expected_pubdata
-    }
+    //     expected_pubdata.extend((raw_published_factory_deps.len() as u32).to_be_bytes());
+    //     for bytecode in &raw_published_factory_deps {
+    //         expected_pubdata.extend((bytecode.len() as u32).to_be_bytes());
+    //         expected_pubdata.extend(bytecode);
+    //     }
+    //     //dbg!(&expected_pubdata.len());
+    //     expected_pubdata.extend(&state_diffs_compressed);
+
+    //     //dbg!(&expected_pubdata.len());
+
+    //     expected_pubdata
+    // }
 }
 
 #[async_trait]
@@ -1153,23 +1158,26 @@ impl HttpTest for GetPubdataTest {
             gas_adjuster.clone(),
             gateway.clone(),
         );
-
-        let block_number = L1BatchNumber(1);
         let mut storage = pool.access_storage().await?;
 
-        let header = Self::insert_l1_batch(&mut storage, block_number).await;
+        let genesis_l1_batch = create_l1_batch(0);
+        let first_l1_batch = Self::insert_l1_batch(&mut storage, L1BatchNumber(1)).await;
+
         Self::commit_l1_batch(
             &aggregator,
             &mut manager,
             &mut storage,
-            header.clone(),
-            header.clone(),
-            L1BlockNumber(1),
+            genesis_l1_batch.clone(),
+            first_l1_batch.clone(),
+            L1BlockNumber(gateway.block_number("").await.unwrap().as_u32()),
         )
         .await;
 
-        let pubdata = client.get_batch_pubdata(block_number).await?;
-        assert_eq!(pubdata, Some(Self::build_expected_pubdata().into()));
+        let l1_batch_with_metadata = Self::l1_batch_with_metadata(first_l1_batch);
+        let expected_pubdata: Bytes = l1_batch_with_metadata.construct_pubdata().into();
+        let pubdata = client.get_batch_pubdata(L1BatchNumber(1)).await?;
+
+        assert_eq!(pubdata, Some(expected_pubdata));
 
         Ok(())
     }
