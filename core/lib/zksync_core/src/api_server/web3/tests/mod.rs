@@ -15,7 +15,7 @@ use zksync_health_check::CheckHealth;
 use zksync_types::{
     api,
     block::MiniblockHeader,
-    commitment::{L1BatchMetadata, L1BatchWithMetadata},
+    commitment::L1BatchMetadata,
     fee::TransactionExecutionMetrics,
     get_nonce_key,
     l2::L2Tx,
@@ -27,8 +27,7 @@ use zksync_types::{
         TransactionExecutionResult,
     },
     utils::{storage_key_for_eth_balance, storage_key_for_standard_token_balance},
-    AccountTreeId, Address, Bytes, L1BatchNumber, Nonce, StorageKey, StorageLog, VmEvent, H256,
-    U64,
+    AccountTreeId, Address, L1BatchNumber, Nonce, StorageKey, StorageLog, VmEvent, H256, U64,
 };
 use zksync_utils::u256_to_h256;
 use zksync_web3_decl::{
