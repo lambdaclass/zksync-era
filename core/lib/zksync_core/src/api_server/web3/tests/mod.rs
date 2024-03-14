@@ -50,8 +50,10 @@ use crate::{
     },
     eth_sender::{
         aggregated_operations::AggregatedOperation,
-        l1_batch_commit_data_generator::RollupModeL1BatchCommitDataGenerator, Aggregator,
-        EthTxAggregator, EthTxManager,
+        l1_batch_commit_data_generator::{
+            RollupModeL1BatchCommitDataGenerator, ValidiumModeL1BatchCommitDataGenerator,
+        },
+        Aggregator, EthTxAggregator, EthTxManager,
     },
     genesis::{ensure_genesis_state, GenesisParams},
     l1_gas_price::GasAdjuster,
@@ -952,80 +954,138 @@ async fn getting_all_account_balances() {
 #[derive(Debug)]
 struct GetPubdataTest;
 
-impl GetPubdataTest {}
+impl GetPubdataTest {
+    const WAIT_CONFIRMATIONS: u64 = 10;
+    const MAX_BASE_FEE_SAMPLES: usize = 3;
 
-fn l1_batch_with_metadata(header: L1BatchHeader) -> L1BatchWithMetadata {
-    L1BatchWithMetadata {
-        header,
-        metadata: L1BatchMetadata::default(),
-        raw_published_factory_deps: vec![],
+    fn l1_batch_with_metadata(header: L1BatchHeader) -> L1BatchWithMetadata {
+        let mut metadata = L1BatchMetadata::default();
+        metadata.state_diffs_compressed = Self::build_state_diffs_compressed();
+        L1BatchWithMetadata {
+            header,
+            metadata: metadata,
+            raw_published_factory_deps: Self::build_raw_published_factory_deps(),
+        }
     }
-}
 
-async fn insert_l1_batch(
-    storage: &mut StorageProcessor<'_>,
-    header: L1BatchHeader,
-) -> L1BatchHeader {
-    // Save L1 batch to the database
-    storage
-        .blocks_dal()
-        .insert_mock_l1_batch(&header)
-        .await
-        .unwrap();
-    let metadata = L1BatchMetadata::default();
+    async fn insert_l1_batch(
+        storage: &mut StorageProcessor<'_>,
+        number: L1BatchNumber,
+    ) -> L1BatchHeader {
+        let mut header = create_l1_batch(number.0);
+        header.l2_to_l1_logs = Self::build_l2_to_l1_logs();
+        header.l2_to_l1_messages = Self::build_l2_to_l1_messages();
+        // Save L1 batch to the database
+        storage
+            .blocks_dal()
+            .insert_mock_l1_batch(&header)
+            .await
+            .unwrap();
+        let metadata = L1BatchMetadata::default();
 
-    storage
-        .blocks_dal()
-        .save_l1_batch_tree_data(header.number, &metadata.tree_data())
-        .await
-        .unwrap();
-    storage
-        .blocks_dal()
-        .save_l1_batch_commitment_artifacts(
-            header.number,
-            &l1_batch_metadata_to_commitment_artifacts(&metadata),
-        )
-        .await
-        .unwrap();
-    header
-}
+        storage
+            .blocks_dal()
+            .save_l1_batch_tree_data(header.number, &metadata.tree_data())
+            .await
+            .unwrap();
+        storage
+            .blocks_dal()
+            .save_l1_batch_commitment_artifacts(
+                header.number,
+                &l1_batch_metadata_to_commitment_artifacts(&metadata),
+            )
+            .await
+            .unwrap();
+        header
+    }
 
-async fn send_operation(
-    aggregator: &EthTxAggregator,
-    manager: &mut EthTxManager,
-    storage: &mut StorageProcessor<'_>,
-    aggregated_operation: AggregatedOperation,
-    current_block: L1BlockNumber,
-) -> H256 {
-    let tx = aggregator
-        .save_eth_tx(storage, &aggregated_operation, true)
-        .await
-        .unwrap();
+    async fn send_operation(
+        aggregator: &EthTxAggregator,
+        manager: &mut EthTxManager,
+        storage: &mut StorageProcessor<'_>,
+        aggregated_operation: AggregatedOperation,
+        current_block: L1BlockNumber,
+    ) -> H256 {
+        let tx = aggregator
+            .save_eth_tx(storage, &aggregated_operation, true)
+            .await
+            .unwrap();
 
-    let hash = manager
-        .send_eth_tx(storage, &tx, 0, current_block)
-        .await
-        .unwrap();
+        let hash = manager
+            .send_eth_tx(storage, &tx, 0, current_block)
+            .await
+            .unwrap();
 
-    // if confirm {
-    //     confirm_tx(tester, hash).await;
-    // }
-    hash
-}
+        hash
+    }
 
-async fn commit_l1_batch(
-    aggregator: &EthTxAggregator,
-    manager: &mut EthTxManager,
-    storage: &mut StorageProcessor<'_>,
-    last_committed_l1_batch: L1BatchHeader,
-    l1_batch: L1BatchHeader,
-    current_block: L1BlockNumber,
-) -> H256 {
-    let operation = AggregatedOperation::Commit(
-        l1_batch_with_metadata(last_committed_l1_batch),
-        vec![l1_batch_with_metadata(l1_batch)],
-    );
-    send_operation(aggregator, manager, storage, operation, current_block).await
+    async fn commit_l1_batch(
+        aggregator: &EthTxAggregator,
+        manager: &mut EthTxManager,
+        storage: &mut StorageProcessor<'_>,
+        last_committed_l1_batch: L1BatchHeader,
+        l1_batch: L1BatchHeader,
+        current_block: L1BlockNumber,
+    ) -> H256 {
+        let operation = AggregatedOperation::Commit(
+            Self::l1_batch_with_metadata(last_committed_l1_batch),
+            vec![Self::l1_batch_with_metadata(l1_batch)],
+        );
+        Self::send_operation(aggregator, manager, storage, operation, current_block).await
+    }
+
+    fn build_l2_to_l1_logs() -> Vec<UserL2ToL1Log> {
+        let l2_to_l1_log = L2ToL1Log {
+            shard_id: 1,
+            tx_number_in_block: 1,
+            is_service: false,
+            sender: Address::repeat_byte(1),
+            key: H256::repeat_byte(1),
+            value: H256::repeat_byte(1),
+        };
+        let user_l2_to_l1_log = UserL2ToL1Log(l2_to_l1_log);
+
+        vec![user_l2_to_l1_log]
+    }
+
+    fn build_l2_to_l1_messages() -> Vec<Vec<u8>> {
+        vec![vec![1, 2, 3]]
+    }
+
+    fn build_raw_published_factory_deps() -> Vec<Vec<u8>> {
+        vec![vec![1, 2, 3]]
+    }
+
+    fn build_state_diffs_compressed() -> Vec<u8> {
+        vec![1, 2, 3]
+    }
+
+    fn build_expected_pubdata() -> Vec<u8> {
+        let l2_to_l1_logs = Self::build_l2_to_l1_logs();
+        let l2_to_l1_messages = Self::build_l2_to_l1_messages();
+        let raw_published_factory_deps = Self::build_raw_published_factory_deps();
+        let state_diffs_compressed = Self::build_state_diffs_compressed();
+
+        let mut expected_pubdata = vec![];
+        expected_pubdata.extend((l2_to_l1_logs.len() as u32).to_be_bytes());
+        for l2_to_l1_log in &l2_to_l1_logs {
+            expected_pubdata.extend(l2_to_l1_log.0.to_bytes());
+        }
+        expected_pubdata.extend((l2_to_l1_messages.len() as u32).to_be_bytes());
+        for msg in &l2_to_l1_messages {
+            expected_pubdata.extend((msg.len() as u32).to_be_bytes());
+            expected_pubdata.extend(msg);
+        }
+        expected_pubdata.extend((raw_published_factory_deps.len() as u32).to_be_bytes());
+        for bytecode in &raw_published_factory_deps {
+            expected_pubdata.extend((bytecode.len() as u32).to_be_bytes());
+            expected_pubdata.extend(bytecode);
+        }
+        dbg!(expected_pubdata.clone());
+        expected_pubdata.extend(&state_diffs_compressed);
+
+        expected_pubdata
+    }
 }
 
 #[async_trait]
@@ -1045,20 +1105,20 @@ impl HttpTest for GetPubdataTest {
             MockEthereum::default()
                 .with_fee_history(
                     std::iter::repeat(0)
-                        .take(10 as usize)
+                        .take(Self::WAIT_CONFIRMATIONS as usize)
                         .chain(vec![10; 100])
                         .collect(),
                 )
                 .with_non_ordering_confirmation(false)
                 .with_multicall_address(contracts_config.l1_multicall3_addr),
         );
-        gateway.advance_block_number(10);
+        gateway.advance_block_number(Self::WAIT_CONFIRMATIONS);
 
         let gas_adjuster = Arc::new(
             GasAdjuster::new(
                 gateway.clone(),
                 GasAdjusterConfig {
-                    max_base_fee_samples: 3,
+                    max_base_fee_samples: Self::MAX_BASE_FEE_SAMPLES,
                     pricing_formula_parameter_a: 3.0,
                     pricing_formula_parameter_b: 2.0,
                     ..eth_sender_config.gas_adjuster
@@ -1094,22 +1154,11 @@ impl HttpTest for GetPubdataTest {
             gateway.clone(),
         );
 
+        let block_number = L1BatchNumber(1);
         let mut storage = pool.access_storage().await?;
-        let mut header = create_l1_batch(1);
-        let l2_to_l1_log = L2ToL1Log {
-            shard_id: 1,
-            tx_number_in_block: 1,
-            is_service: false,
-            sender: Address::repeat_byte(1),
-            key: H256::repeat_byte(1),
-            value: H256::repeat_byte(1),
-        };
-        let user_l2_to_l1_log = UserL2ToL1Log(l2_to_l1_log);
 
-        header.l2_to_l1_logs.push(user_l2_to_l1_log.clone());
-
-        header = insert_l1_batch(&mut storage, header).await;
-        commit_l1_batch(
+        let header = Self::insert_l1_batch(&mut storage, block_number).await;
+        Self::commit_l1_batch(
             &aggregator,
             &mut manager,
             &mut storage,
@@ -1119,10 +1168,8 @@ impl HttpTest for GetPubdataTest {
         )
         .await;
 
-        let pubdata = client.get_batch_pubdata(L1BatchNumber(1)).await?;
-        dbg!(pubdata.clone());
-        assert!(pubdata.is_some());
-        // assert_eq!(pubdata, Some(expected_pubdata.into()));
+        let pubdata = client.get_batch_pubdata(block_number).await?;
+        assert_eq!(pubdata, Some(Self::build_expected_pubdata().into()));
 
         Ok(())
     }
