@@ -5,19 +5,17 @@ use async_trait::async_trait;
 use jsonrpsee::core::ClientError;
 use multivm::zk_evm_latest::ethereum_types::U256;
 use tokio::sync::watch;
-use zksync_config::configs::{
-    api::Web3JsonRpcConfig,
-    chain::{NetworkConfig, StateKeeperConfig},
-    ContractsConfig,
-};
+use zksync_config::configs::{api::Web3JsonRpcConfig, chain::NetworkConfig, ContractsConfig};
 use zksync_dal::{transactions_dal::L2TxSubmissionResult, ConnectionPool, StorageProcessor};
 use zksync_health_check::CheckHealth;
 use zksync_types::{
     api,
-    block::MiniblockHeader,
+    block::{L1BatchHeader, MiniblockHeader},
+    commitment::{L1BatchMetadata, L1BatchWithMetadata},
     fee::TransactionExecutionMetrics,
     get_nonce_key,
     l2::L2Tx,
+    l2_to_l1_log::{L2ToL1Log, UserL2ToL1Log},
     storage::get_code_key,
     tokens::{TokenInfo, TokenMetadata},
     tx::{
@@ -25,7 +23,8 @@ use zksync_types::{
         TransactionExecutionResult,
     },
     utils::{storage_key_for_eth_balance, storage_key_for_standard_token_balance},
-    AccountTreeId, Address, L1BatchNumber, Nonce, StorageKey, StorageLog, VmEvent, H256, U64,
+    AccountTreeId, Address, Bytes, L1BatchNumber, Nonce, StorageKey, StorageLog, VmEvent, H256,
+    U64,
 };
 use zksync_utils::u256_to_h256;
 use zksync_web3_decl::{
@@ -254,7 +253,7 @@ impl StorageInitialization {
 async fn test_http_server(test: impl HttpTest) {
     let pool = ConnectionPool::test_pool().await;
     let network_config = NetworkConfig::for_tests();
-    let mut storage = pool.access_storage().await.unwrap();
+    let mut storage: StorageProcessor<'_> = pool.access_storage().await.unwrap();
     test.storage_initialization()
         .prepare_storage(&network_config, &mut storage)
         .await
@@ -932,4 +931,108 @@ impl HttpTest for AllAccountBalancesTest {
 #[tokio::test]
 async fn getting_all_account_balances() {
     test_http_server(AllAccountBalancesTest).await;
+}
+
+#[derive(Debug)]
+struct GetPubdataTest;
+
+impl GetPubdataTest {
+    async fn insert_l1_batch_with_metadata(
+        storage: &mut StorageProcessor<'_>,
+        l1_batch_header: L1BatchHeader,
+        l1_batch_metadata: L1BatchMetadata,
+    ) -> L1BatchHeader {
+        // Save L1 batch to the database
+        storage
+            .blocks_dal()
+            .insert_mock_l1_batch(&l1_batch_header)
+            .await
+            .unwrap();
+
+        storage
+            .blocks_dal()
+            .save_l1_batch_tree_data(l1_batch_header.number, &l1_batch_metadata.tree_data())
+            .await
+            .unwrap();
+        storage
+            .blocks_dal()
+            .save_l1_batch_commitment_artifacts(
+                l1_batch_header.number,
+                &l1_batch_metadata_to_commitment_artifacts(&l1_batch_metadata),
+            )
+            .await
+            .unwrap();
+
+        storage
+            .blocks_dal()
+            .insert_miniblock(&create_miniblock(l1_batch_header.number.0))
+            .await
+            .unwrap();
+
+        storage
+            .blocks_dal()
+            .mark_miniblocks_as_executed_in_l1_batch(l1_batch_header.number)
+            .await
+            .unwrap();
+
+        l1_batch_header
+    }
+
+    fn build_l2_to_l1_logs() -> Vec<UserL2ToL1Log> {
+        let l2_to_l1_log = L2ToL1Log {
+            shard_id: 1,
+            tx_number_in_block: 1,
+            is_service: false,
+            sender: Address::repeat_byte(1),
+            key: H256::repeat_byte(1),
+            value: H256::repeat_byte(1),
+        };
+        let user_l2_to_l1_log = UserL2ToL1Log(l2_to_l1_log);
+
+        vec![user_l2_to_l1_log]
+    }
+}
+
+#[async_trait]
+impl HttpTest for GetPubdataTest {
+    async fn test(&self, client: &HttpClient, pool: &ConnectionPool) -> anyhow::Result<()> {
+        let l1_batch_number = L1BatchNumber(1);
+        // Assert pubdata is None if L1BatchWithMetadata is not found
+        let pubdata = client.get_batch_pubdata(l1_batch_number).await?;
+        assert_eq!(pubdata, None);
+
+        // Assert pubdata is expected if L1BatchWithMetadata is found
+        // Create L1 batch header and add pubdata (l2_to_l1_logs, l2_to_l1_messages)
+        let mut l1_batch_header: L1BatchHeader = create_l1_batch(l1_batch_number.0);
+        l1_batch_header.l2_to_l1_logs = Self::build_l2_to_l1_logs();
+        l1_batch_header.l2_to_l1_messages = vec![vec![1, 2, 3]];
+
+        // Create metadata
+        let l1_batch_metadata: L1BatchMetadata = create_l1_batch_metadata(l1_batch_number.0);
+
+        // Build L1BatchWithMetadata
+        let l1_batch_with_metadata = L1BatchWithMetadata {
+            header: l1_batch_header.clone(),
+            metadata: l1_batch_metadata.clone(),
+            raw_published_factory_deps: vec![],
+        };
+
+        let expected_pubdata: Bytes = l1_batch_with_metadata.construct_pubdata().into();
+
+        let mut storage = pool.access_storage().await?;
+        Self::insert_l1_batch_with_metadata(&mut storage, l1_batch_header, l1_batch_metadata).await;
+
+        // Call the endpoint
+        let pubdata = client.get_batch_pubdata(l1_batch_number).await?;
+
+        // Assert pubdata is equal to expected pubdata
+        assert_eq!(pubdata, Some(expected_pubdata));
+
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn get_batch_pubdata_impl() {
+    test_http_server(GetPubdataTest).await;
 }

@@ -648,7 +648,16 @@ impl ZksNamespace {
             .get_l1_batch_metadata(l1_batch_number)
             .await
             .map_err(|err| internal_error(METHOD_NAME, err))?
-            .map(|l1_batch_with_metadata| l1_batch_with_metadata.construct_pubdata().into());
+            .map(|l1_batch_with_metadata| {
+                let partial_pubdata = l1_batch_with_metadata.construct_pubdata();
+                // The encoding of empty pubdata results in a vector of zeroes. We should return
+                // `None in this case.
+                if partial_pubdata == vec![0u8; partial_pubdata.len()] {
+                    Bytes::default()
+                } else {
+                    partial_pubdata.into()
+                }
+            });
 
         method_latency.observe();
         Ok(pubdata)

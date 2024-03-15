@@ -3,6 +3,7 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use multivm::interface::{ExecutionResult, VmRevertReason};
+use zksync_config::configs::chain::StateKeeperConfig;
 use zksync_types::{
     get_intrinsic_constants, transaction_request::CallRequest, L2ChainId, PackedEthSignature, U256,
 };
