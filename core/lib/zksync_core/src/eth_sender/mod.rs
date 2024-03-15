@@ -1,4 +1,4 @@
-pub mod aggregated_operations;
+mod aggregated_operations;
 mod aggregator;
 mod error;
 mod eth_tx_aggregator;
