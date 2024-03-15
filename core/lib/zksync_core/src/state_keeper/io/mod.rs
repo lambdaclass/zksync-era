@@ -25,6 +25,7 @@ pub(crate) mod mempool;
 pub(crate) mod seal_logic;
 #[cfg(test)]
 mod tests;
+pub(crate) mod u256_gas_price_migration;
 
 /// Contains information about the un-synced execution state:
 /// Batch data and transactions that were executed before and are marked as so in the DB,

@@ -1,13 +1,13 @@
+use anyhow::Context as _;
+use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive};
+use itertools::all;
+use sqlx::Row;
 use std::{
     collections::HashMap,
     convert::{Into, TryInto},
     ops,
     str::FromStr,
 };
-
-use anyhow::Context as _;
-use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive};
-use sqlx::Row;
 use zksync_types::{
     aggregated_operations::AggregatedActionType,
     block::{BlockGasCount, L1BatchHeader, L1BatchTreeData, MiniblockHeader},
@@ -22,6 +22,8 @@ use crate::{
     models::storage_block::{StorageL1Batch, StorageL1BatchHeader, StorageMiniblockHeader},
     StorageProcessor,
 };
+
+use bigdecimal::Zero;
 
 #[derive(Debug)]
 pub struct BlocksDal<'a, 'c> {
@@ -2203,6 +2205,39 @@ impl BlocksDal<'_, '_> {
             .map(|address| address != Address::default()))
     }
 
+    pub async fn is_miniblock_price_migrated_to_u256(
+        &mut self,
+        number: MiniblockNumber,
+    ) -> sqlx::Result<Option<bool>> {
+        if let Some(row) = sqlx::query!(
+            r#"
+                SELECT
+                    l1_gas_price_u256,
+                    l2_fair_gas_price_u256,
+                    fair_pubdata_price_u256
+                FROM
+                    miniblocks
+                WHERE
+                    number =$1
+            "#,
+            number.0 as i32
+        )
+        .fetch_optional(self.storage.conn())
+        .await?
+        {
+            let is_migrated = all(
+                [
+                    row.l1_gas_price_u256,
+                    row.l2_fair_gas_price_u256,
+                    row.fair_pubdata_price_u256,
+                ],
+                |gas_price| !(gas_price.is_zero()),
+            );
+            return Ok(Some(is_migrated));
+        }
+        return Ok(None);
+    }
+
     /// Copies `fee_account_address` for pending miniblocks (ones without an associated L1 batch)
     /// from the last L1 batch. Returns the number of affected rows.
     pub async fn copy_fee_account_address_for_pending_miniblocks(&mut self) -> sqlx::Result<u64> {
@@ -2270,6 +2305,27 @@ impl BlocksDal<'_, '_> {
         .execute(self.storage.conn())
         .await?;
 
+        Ok(execution_result.rows_affected())
+    }
+
+    pub async fn copy_gas_prices_for_miniblocks(
+        &mut self,
+        numbers: ops::RangeInclusive<MiniblockNumber>,
+    ) -> sqlx::Result<u64> {
+        let execution_result = sqlx::query!(
+            r#"
+            UPDATE miniblocks
+            SET
+                l1_gas_price_u256 = l1_gas_price,
+                l2_fair_gas_price_u256 = l2_fair_gas_price,
+                fair_pubdata_price_u256 = fair_pubdata_price
+            WHERE miniblocks.number BETWEEN $1 AND $2
+            "#,
+            numbers.start().0 as i64,
+            numbers.end().0 as i64
+        )
+        .execute(self.storage.conn())
+        .await?;
         Ok(execution_result.rows_affected())
     }
 
