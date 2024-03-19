@@ -5,7 +5,7 @@ use ethers::{
     abi::Hash,
     providers::{Http, Provider},
 };
-use zksync_types::U64;
+use zksync_types::{l2, U64};
 use zksync_web3_rs::zks_provider::ZKSProvider;
 
 use crate::helpers::{self, BatchData, L1TxData, TxType};
@@ -126,6 +126,62 @@ pub async fn run(accounts_count: usize, txs_per_account: usize, txs_kind: helper
 
     let l2_txs_hashes =
         helpers::send_transactions(txs_kind, erc20_address, accounts, txs_per_account).await;
+
+    let data = ScenarioData::collect(
+        l2_txs_hashes,
+        l1_provider,
+        l2_provider,
+        main_wallet.get_era_provider().unwrap(),
+    )
+    .await;
+
+    for (_batch_number, batch_data) in data.0.iter() {
+        println!("{batch_data}");
+    }
+}
+
+pub async fn basic() {
+    println!(
+        "{}",
+        format!("Running basic scenario\n").bright_red().bold()
+    );
+
+    let l1_provider = helpers::l1_provider();
+    let l2_provider = helpers::l2_provider();
+    let main_wallet = Arc::new(helpers::zks_wallet(&l1_provider, &l2_provider).await);
+
+    let deploy_receipt = helpers::deploy(main_wallet.clone()).await;
+    let erc20_address = deploy_receipt.contract_address.unwrap();
+    let mint_receipt = helpers::mint(main_wallet.clone(), erc20_address).await;
+    let transfer_receipt = helpers::transfer(main_wallet.clone(), erc20_address).await;
+
+    println!(
+        "{}",
+        format!(
+            "Deploy L2 tx gas used: {}",
+            deploy_receipt.gas_used.unwrap()
+        )
+        .bright_yellow()
+    );
+    println!(
+        "{}",
+        format!("Mint L2 tx gas used: {}", mint_receipt.gas_used.unwrap()).bright_yellow()
+    );
+    println!(
+        "{}",
+        format!(
+            "Transfer L2 tx gas used: {}",
+            transfer_receipt.gas_used.unwrap()
+        )
+        .bright_yellow()
+    );
+    print!("");
+
+    let l2_txs_hashes = vec![
+        deploy_receipt.transaction_hash,
+        mint_receipt.transaction_hash,
+        transfer_receipt.transaction_hash,
+    ];
 
     let data = ScenarioData::collect(
         l2_txs_hashes,
