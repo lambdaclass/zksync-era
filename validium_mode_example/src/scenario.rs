@@ -5,7 +5,7 @@ use ethers::{
     abi::Hash,
     providers::{Http, Provider},
 };
-use zksync_types::{l2, U64};
+use zksync_types::U64;
 use zksync_web3_rs::zks_provider::ZKSProvider;
 
 use crate::helpers::{self, BatchData, L1TxData, TxType};
@@ -150,13 +150,13 @@ pub async fn basic() {
     let l2_provider = helpers::l2_provider();
     let main_wallet = Arc::new(helpers::zks_wallet(&l1_provider, &l2_provider).await);
 
-    let _account =
+    let account =
         helpers::create_funded_account(&l1_provider, &l2_provider, main_wallet.clone()).await;
 
-    let deploy_receipt = helpers::deploy(main_wallet.clone()).await;
+    let deploy_receipt = helpers::deploy(account.clone()).await;
     let erc20_address = deploy_receipt.contract_address.unwrap();
-    let mint_receipt = helpers::mint(main_wallet.clone(), erc20_address).await;
-    let transfer_receipt = helpers::transfer(main_wallet.clone(), erc20_address).await;
+    let mint_receipt = helpers::mint(account.clone(), erc20_address).await;
+    let transfer_receipt = helpers::transfer(account.clone(), erc20_address).await;
 
     println!(
         "{}",
@@ -190,7 +190,7 @@ pub async fn basic() {
         l2_txs_hashes,
         l1_provider,
         l2_provider,
-        main_wallet.get_era_provider().unwrap(),
+        account.get_era_provider().unwrap(),
     )
     .await;
 
