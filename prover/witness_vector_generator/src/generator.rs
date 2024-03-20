@@ -11,15 +11,8 @@ use zksync_config::configs::FriWitnessVectorGeneratorConfig;
 use zksync_dal::{fri_prover_dal::types::GpuProverInstanceStatus, ConnectionPool};
 use zksync_object_store::ObjectStore;
 use zksync_prover_fri_types::{
-    circuit_definitions::{
-        boojum::{
-            config::{CSConfig, ProvingCSConfig},
-            dag::StCircuitResolver,
-            field::goldilocks::GoldilocksField,
-        },
-        circuit_definitions::eip4844::synthesis,
-    },
-    CircuitWrapper, ProverJob, WitnessVectorArtifacts,
+    circuit_definitions::boojum::field::goldilocks::GoldilocksField, CircuitWrapper, ProverJob,
+    WitnessVectorArtifacts,
 };
 use zksync_prover_fri_utils::{
     fetch_next_circuit, get_numeric_circuit_id, socket_utils::send_assembly,
@@ -61,10 +54,8 @@ impl WitnessVectorGenerator {
         }
     }
 
-    pub fn generate_witness_vector(
-        job: ProverJob,
-        keystore: &Keystore,
-    ) -> anyhow::Result<WitnessVectorArtifacts> {
+    pub fn generate_witness_vector(job: ProverJob) -> anyhow::Result<WitnessVectorArtifacts> {
+        let keystore = Keystore::default();
         let finalization_hints = keystore
             .load_finalization_hints(job.setup_data_key.clone())
             .context("get_finalization_hints()")?;
@@ -75,12 +66,6 @@ impl WitnessVectorGenerator {
             CircuitWrapper::Recursive(recursive_circuit) => {
                 recursive_circuit.synthesis::<GoldilocksField>(&finalization_hints)
             }
-            CircuitWrapper::Eip4844(circuit) => synthesis::<
-                _,
-                _,
-                _,
-                StCircuitResolver<GoldilocksField, <ProvingCSConfig as CSConfig>::ResolverConfig>,
-            >(circuit, &finalization_hints),
         };
         Ok(WitnessVectorArtifacts::new(cs.witness.unwrap(), job))
     }
@@ -125,9 +110,7 @@ impl JobProcessor for WitnessVectorGenerator {
         job: ProverJob,
         _started_at: Instant,
     ) -> JoinHandle<anyhow::Result<Self::JobArtifacts>> {
-        tokio::task::spawn_blocking(move || {
-            Self::generate_witness_vector(job, &Keystore::default())
-        })
+        tokio::task::spawn_blocking(move || Self::generate_witness_vector(job))
     }
 
     async fn save_result(

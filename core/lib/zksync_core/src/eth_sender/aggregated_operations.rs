@@ -1,15 +1,14 @@
 use std::ops;
 
-use zksync_l1_contract_interface::i_executor::methods::{ExecuteBatches, ProveBatches};
-use zksync_types::{
-    aggregated_operations::AggregatedActionType, commitment::L1BatchWithMetadata, L1BatchNumber,
-    ProtocolVersionId,
+use zksync_l1_contract_interface::i_executor::methods::{
+    CommitBatches, ExecuteBatches, ProveBatches,
 };
+use zksync_types::{aggregated_operations::AggregatedActionType, L1BatchNumber, ProtocolVersionId};
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum AggregatedOperation {
-    Commit(L1BatchWithMetadata, Vec<L1BatchWithMetadata>),
+    Commit(CommitBatches),
     PublishProofOnchain(ProveBatches),
     Execute(ExecuteBatches),
 }
@@ -17,7 +16,7 @@ pub enum AggregatedOperation {
 impl AggregatedOperation {
     pub fn get_action_type(&self) -> AggregatedActionType {
         match self {
-            Self::Commit(..) => AggregatedActionType::Commit,
+            Self::Commit(_) => AggregatedActionType::Commit,
             Self::PublishProofOnchain(_) => AggregatedActionType::PublishProofOnchain,
             Self::Execute(_) => AggregatedActionType::Execute,
         }
@@ -25,7 +24,7 @@ impl AggregatedOperation {
 
     pub fn l1_batch_range(&self) -> ops::RangeInclusive<L1BatchNumber> {
         let batches = match self {
-            Self::Commit(_, l1_batches) => l1_batches,
+            Self::Commit(op) => &op.l1_batches,
             Self::PublishProofOnchain(op) => &op.l1_batches,
             Self::Execute(op) => &op.l1_batches,
         };
@@ -40,7 +39,7 @@ impl AggregatedOperation {
 
     pub fn get_action_caption(&self) -> &'static str {
         match self {
-            Self::Commit(..) => "commit",
+            Self::Commit(_) => "commit",
             Self::PublishProofOnchain(_) => "proof",
             Self::Execute(_) => "execute",
         }
@@ -48,7 +47,7 @@ impl AggregatedOperation {
 
     pub fn protocol_version(&self) -> ProtocolVersionId {
         match self {
-            Self::Commit(_, l1_batches) => l1_batches[0].header.protocol_version.unwrap(),
+            Self::Commit(op) => op.l1_batches[0].header.protocol_version.unwrap(),
             Self::PublishProofOnchain(op) => op.l1_batches[0].header.protocol_version.unwrap(),
             Self::Execute(op) => op.l1_batches[0].header.protocol_version.unwrap(),
         }

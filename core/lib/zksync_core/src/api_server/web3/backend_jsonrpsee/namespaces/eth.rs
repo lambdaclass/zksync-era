@@ -50,15 +50,11 @@ impl EthNamespaceServer for EthNamespace {
     }
 
     async fn uninstall_filter(&self, idx: U256) -> RpcResult<bool> {
-        self.uninstall_filter_impl(idx)
-            .await
-            .map_err(into_jsrpc_error)
+        Ok(self.uninstall_filter_impl(idx).await)
     }
 
     async fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
-        self.new_pending_transaction_filter_impl()
-            .await
-            .map_err(into_jsrpc_error)
+        Ok(self.new_pending_transaction_filter_impl().await)
     }
 
     async fn get_logs(&self, filter: Filter) -> RpcResult<Vec<Log>> {

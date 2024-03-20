@@ -7,10 +7,8 @@ use zksync_types::{
     l2::{L2Tx, TransactionType},
     transaction_request::CallRequest,
     utils::decompose_full_nonce,
-    web3::{
-        self,
-        types::{FeeHistory, SyncInfo, SyncState},
-    },
+    web3,
+    web3::types::{FeeHistory, SyncInfo, SyncState},
     AccountTreeId, Bytes, MiniblockNumber, StorageKey, H256, L2_ETH_TOKEN_ADDRESS, U256,
 };
 use zksync_utils::u256_to_h256;
@@ -231,13 +229,13 @@ impl EthNamespace {
         const METHOD_NAME: &str = "get_filter_logs";
 
         let method_latency = API_METRICS.start_call(METHOD_NAME);
-        let installed_filters = self
+        // We clone the filter to not hold the filter lock for an extended period of time.
+        let maybe_filter = self
             .state
             .installed_filters
-            .as_ref()
-            .ok_or(Web3Error::NotImplemented)?;
-        // We clone the filter to not hold the filter lock for an extended period of time.
-        let maybe_filter = installed_filters.lock().await.get_and_update_stats(idx);
+            .lock()
+            .await
+            .get_and_update_stats(idx);
 
         let Some(TypedFilter::Events(filter, _)) = maybe_filter else {
             return Err(Web3Error::FilterNotFound);
@@ -304,7 +302,6 @@ impl EthNamespace {
         const METHOD_NAME: &str = "get_block_transaction_count";
 
         let method_latency = API_METRICS.start_block_call(METHOD_NAME, block_id);
-
         self.state.start_info.ensure_not_pruned(block_id)?;
         let tx_count = self
             .state
@@ -485,23 +482,11 @@ impl EthNamespace {
         if matches!(block_id, BlockId::Number(BlockNumber::Pending)) {
             let account_nonce_u64 = u64::try_from(account_nonce)
                 .map_err(|err| internal_error(method_name, anyhow::anyhow!(err)))?;
-            account_nonce = if let Some(account_nonce) = self
-                .state
-                .tx_sender
-                .0
-                .tx_sink
-                .lookup_pending_nonce(method_name, address, account_nonce_u64 as u32)
-                .await?
-            {
-                account_nonce.0.into()
-            } else {
-                // No nonce hint in the sink: get pending nonces from the mempool
-                connection
-                    .transactions_web3_dal()
-                    .next_nonce_by_initiator_account(address, account_nonce_u64)
-                    .await
-                    .map_err(|err| internal_error(method_name, err))?
-            };
+            account_nonce = connection
+                .transactions_web3_dal()
+                .next_nonce_by_initiator_account(address, account_nonce_u64)
+                .await
+                .map_err(|err| internal_error(method_name, err))?;
         }
 
         let block_diff = self.state.last_sealed_miniblock.diff(block_number);
@@ -528,14 +513,27 @@ impl EthNamespace {
             .await
             .map_err(|err| internal_error(METHOD_NAME, err));
 
-        if let Ok(None) = transaction {
-            transaction = self
-                .state
-                .tx_sender
-                .0
-                .tx_sink
-                .lookup_tx(METHOD_NAME, id)
-                .await;
+        if let Some(proxy) = &self.state.tx_sender.0.proxy {
+            // We're running an external node - check the proxy cache in
+            // case the transaction was proxied but not yet synced back to us
+            if let Ok(Some(tx)) = &transaction {
+                // If the transaction is already in the db, remove it from cache
+                proxy.forget_tx(tx.hash).await
+            } else {
+                if let TransactionId::Hash(hash) = id {
+                    // If the transaction is not in the db, check the cache
+                    if let Some(tx) = proxy.find_tx(hash).await {
+                        transaction = Ok(Some(tx.into()));
+                    }
+                }
+                if !matches!(transaction, Ok(Some(_))) {
+                    // If the transaction is not in the db or cache, query main node
+                    transaction = proxy
+                        .request_tx(id)
+                        .await
+                        .map_err(|err| internal_error(METHOD_NAME, err));
+                }
+            }
         }
 
         method_latency.observe();
@@ -571,11 +569,6 @@ impl EthNamespace {
         const METHOD_NAME: &str = "new_block_filter";
 
         let method_latency = API_METRICS.start_call(METHOD_NAME);
-        let installed_filters = self
-            .state
-            .installed_filters
-            .as_ref()
-            .ok_or(Web3Error::NotImplemented)?;
         let mut storage = self
             .state
             .connection_pool
@@ -591,7 +584,9 @@ impl EthNamespace {
         let next_block_number = last_block_number + 1;
         drop(storage);
 
-        let idx = installed_filters
+        let idx = self
+            .state
+            .installed_filters
             .lock()
             .await
             .add(TypedFilter::Blocks(next_block_number));
@@ -604,11 +599,6 @@ impl EthNamespace {
         const METHOD_NAME: &str = "new_filter";
 
         let method_latency = API_METRICS.start_call(METHOD_NAME);
-        let installed_filters = self
-            .state
-            .installed_filters
-            .as_ref()
-            .ok_or(Web3Error::NotImplemented)?;
         if let Some(topics) = filter.topics.as_ref() {
             if topics.len() > EVENT_TOPIC_NUMBER_LIMIT {
                 return Err(Web3Error::TooManyTopics);
@@ -617,7 +607,9 @@ impl EthNamespace {
 
         self.state.resolve_filter_block_hash(&mut filter).await?;
         let from_block = self.state.get_filter_from_block(&filter).await?;
-        let idx = installed_filters
+        let idx = self
+            .state
+            .installed_filters
             .lock()
             .await
             .add(TypedFilter::Events(filter, from_block));
@@ -626,23 +618,20 @@ impl EthNamespace {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn new_pending_transaction_filter_impl(&self) -> Result<U256, Web3Error> {
+    pub async fn new_pending_transaction_filter_impl(&self) -> U256 {
         const METHOD_NAME: &str = "new_pending_transaction_filter";
 
         let method_latency = API_METRICS.start_call(METHOD_NAME);
-        let installed_filters = self
+        let idx = self
             .state
             .installed_filters
-            .as_ref()
-            .ok_or(Web3Error::NotImplemented)?;
-        let idx = installed_filters
             .lock()
             .await
             .add(TypedFilter::PendingTransactions(
                 chrono::Utc::now().naive_utc(),
             ));
         method_latency.observe();
-        Ok(idx)
+        idx
     }
 
     #[tracing::instrument(skip(self))]
@@ -650,12 +639,9 @@ impl EthNamespace {
         const METHOD_NAME: &str = "get_filter_changes";
 
         let method_latency = API_METRICS.start_call(METHOD_NAME);
-        let installed_filters = self
+        let mut filter = self
             .state
             .installed_filters
-            .as_ref()
-            .ok_or(Web3Error::NotImplemented)?;
-        let mut filter = installed_filters
             .lock()
             .await
             .get_and_update_stats(idx)
@@ -663,12 +649,16 @@ impl EthNamespace {
 
         let result = match self.filter_changes(&mut filter).await {
             Ok(changes) => {
-                installed_filters.lock().await.update(idx, filter);
+                self.state
+                    .installed_filters
+                    .lock()
+                    .await
+                    .update(idx, filter);
                 Ok(changes)
             }
             Err(Web3Error::LogsLimitExceeded(..)) => {
                 // The filter was not being polled for a long time, so we remove it.
-                installed_filters.lock().await.remove(idx);
+                self.state.installed_filters.lock().await.remove(idx);
                 Err(Web3Error::FilterNotFound)
             }
             Err(err) => Err(err),
@@ -678,18 +668,13 @@ impl EthNamespace {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn uninstall_filter_impl(&self, idx: U256) -> Result<bool, Web3Error> {
+    pub async fn uninstall_filter_impl(&self, idx: U256) -> bool {
         const METHOD_NAME: &str = "uninstall_filter";
 
         let method_latency = API_METRICS.start_call(METHOD_NAME);
-        let installed_filters = self
-            .state
-            .installed_filters
-            .as_ref()
-            .ok_or(Web3Error::NotImplemented)?;
-        let removed = installed_filters.lock().await.remove(idx);
+        let removed = self.state.installed_filters.lock().await.remove(idx);
         method_latency.observe();
-        Ok(removed)
+        removed
     }
 
     #[tracing::instrument(skip(self))]

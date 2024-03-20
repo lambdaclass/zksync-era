@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::fmt;
 
 use zksync_config::configs::api::HealthCheckConfig;
 use zksync_core::api_server::healthcheck::HealthCheckHandle;
-use zksync_health_check::AppHealthCheck;
 
 use crate::{
-    implementations::resources::healthcheck::AppHealthCheckResource,
+    implementations::resources::healthcheck::HealthCheckResource,
+    resource::ResourceCollection,
     service::{ServiceContext, StopReceiver},
     task::Task,
     wiring_layer::{WiringError, WiringLayer},
@@ -32,11 +32,13 @@ impl WiringLayer for HealthCheckLayer {
     }
 
     async fn wire(self: Box<Self>, mut node: ServiceContext<'_>) -> Result<(), WiringError> {
-        let AppHealthCheckResource(app_health_check) = node.get_resource_or_default().await;
+        let healthchecks = node
+            .get_resource_or_default::<ResourceCollection<HealthCheckResource>>()
+            .await;
 
         let task = HealthCheckTask {
             config: self.0,
-            app_health_check,
+            healthchecks,
         };
 
         node.add_task(Box::new(task));
@@ -44,10 +46,17 @@ impl WiringLayer for HealthCheckLayer {
     }
 }
 
-#[derive(Debug)]
 struct HealthCheckTask {
     config: HealthCheckConfig,
-    app_health_check: Arc<AppHealthCheck>,
+    healthchecks: ResourceCollection<HealthCheckResource>,
+}
+
+impl fmt::Debug for HealthCheckTask {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HealthCheckTask")
+            .field("config", &self.config)
+            .finish_non_exhaustive()
+    }
 }
 
 #[async_trait::async_trait]
@@ -57,8 +66,9 @@ impl Task for HealthCheckTask {
     }
 
     async fn run(mut self: Box<Self>, mut stop_receiver: StopReceiver) -> anyhow::Result<()> {
-        let handle =
-            HealthCheckHandle::spawn_server(self.config.bind_addr(), self.app_health_check.clone());
+        let healthchecks = self.healthchecks.resolve().await;
+
+        let handle = HealthCheckHandle::spawn_server(self.config.bind_addr(), healthchecks);
         stop_receiver.0.changed().await?;
         handle.stop().await;
 

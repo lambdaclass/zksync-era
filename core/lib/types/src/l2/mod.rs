@@ -22,8 +22,7 @@ use crate::{
 
 pub mod error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Serialize, Deserialize, TryFromPrimitive)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u32)]
 pub enum TransactionType {
     // Native ECDSA Transaction

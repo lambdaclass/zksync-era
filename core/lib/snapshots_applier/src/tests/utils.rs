@@ -13,8 +13,7 @@ use zksync_types::{
         SnapshotRecoveryStatus, SnapshotStorageLog, SnapshotStorageLogsChunk,
         SnapshotStorageLogsChunkMetadata, SnapshotStorageLogsStorageKey,
     },
-    tokens::{TokenInfo, TokenMetadata},
-    AccountTreeId, Address, Bytes, L1BatchNumber, MiniblockNumber, ProtocolVersionId, StorageKey,
+    AccountTreeId, Bytes, L1BatchNumber, MiniblockNumber, ProtocolVersionId, StorageKey,
     StorageValue, H160, H256,
 };
 use zksync_web3_decl::error::EnrichedClientResult;
@@ -25,7 +24,6 @@ use crate::SnapshotsApplierMainNodeClient;
 pub(super) struct MockMainNodeClient {
     pub fetch_l2_block_responses: HashMap<MiniblockNumber, SyncBlock>,
     pub fetch_newest_snapshot_response: Option<SnapshotHeader>,
-    pub tokens_response: Vec<TokenInfo>,
 }
 
 #[async_trait]
@@ -39,13 +37,6 @@ impl SnapshotsApplierMainNodeClient for MockMainNodeClient {
 
     async fn fetch_newest_snapshot(&self) -> EnrichedClientResult<Option<SnapshotHeader>> {
         Ok(self.fetch_newest_snapshot_response.clone())
-    }
-
-    async fn fetch_tokens(
-        &self,
-        _at_miniblock: MiniblockNumber,
-    ) -> EnrichedClientResult<Vec<TokenInfo>> {
-        Ok(self.tokens_response.clone())
     }
 }
 
@@ -153,19 +144,20 @@ fn l1_block_metadata(l1_batch_number: L1BatchNumber, root_hash: H256) -> L1Batch
     }
 }
 
-pub(super) fn random_storage_logs(
+fn random_storage_logs(
     l1_batch_number: L1BatchNumber,
-    count: u64,
+    chunk_id: u64,
+    logs_per_chunk: u64,
 ) -> Vec<SnapshotStorageLog> {
-    (0..count)
-        .map(|i| SnapshotStorageLog {
+    (0..logs_per_chunk)
+        .map(|x| SnapshotStorageLog {
             key: StorageKey::new(
                 AccountTreeId::from_fixed_bytes(H160::random().to_fixed_bytes()),
                 H256::random(),
             ),
             value: StorageValue::random(),
             l1_batch_number_of_initial_write: l1_batch_number,
-            enumeration_index: i + 1,
+            enumeration_index: x + chunk_id * logs_per_chunk,
         })
         .collect()
 }
@@ -183,33 +175,13 @@ pub(super) fn mock_recovery_status() -> SnapshotRecoveryStatus {
     }
 }
 
-pub(super) fn mock_tokens() -> Vec<TokenInfo> {
-    vec![
-        TokenInfo {
-            l1_address: Address::zero(),
-            l2_address: Address::zero(),
-            metadata: TokenMetadata {
-                name: "Ether".to_string(),
-                symbol: "ETH".to_string(),
-                decimals: 18,
-            },
-        },
-        TokenInfo {
-            l1_address: Address::random(),
-            l2_address: Address::random(),
-            metadata: TokenMetadata {
-                name: "Test".to_string(),
-                symbol: "TST".to_string(),
-                decimals: 10,
-            },
-        },
-    ]
-}
-
 pub(super) async fn prepare_clients(
     status: &SnapshotRecoveryStatus,
-    logs: &[SnapshotStorageLog],
-) -> (Arc<dyn ObjectStore>, MockMainNodeClient) {
+) -> (
+    Arc<dyn ObjectStore>,
+    MockMainNodeClient,
+    HashMap<H256, SnapshotStorageLog>,
+) {
     let object_store_factory = ObjectStoreFactory::mock();
     let object_store = object_store_factory.create_store().await;
     let mut client = MockMainNodeClient::default();
@@ -224,23 +196,26 @@ pub(super) async fn prepare_clients(
         .await
         .unwrap();
 
-    let chunk_size = logs
-        .len()
-        .div_ceil(status.storage_logs_chunks_processed.len());
-    assert!(chunk_size > 0);
-
-    for (chunk_id, chunk) in logs.chunks(chunk_size).enumerate() {
+    let mut all_snapshot_storage_logs = HashMap::<H256, SnapshotStorageLog>::new();
+    for chunk_id in 0..status.storage_logs_chunks_processed.len() as u64 {
         let chunk_storage_logs = SnapshotStorageLogsChunk {
-            storage_logs: chunk.to_vec(),
+            storage_logs: random_storage_logs(status.l1_batch_number, chunk_id, 10),
         };
         let chunk_key = SnapshotStorageLogsStorageKey {
             l1_batch_number: status.l1_batch_number,
-            chunk_id: chunk_id as u64,
+            chunk_id,
         };
         object_store
             .put(chunk_key, &chunk_storage_logs)
             .await
             .unwrap();
+
+        all_snapshot_storage_logs.extend(
+            chunk_storage_logs
+                .storage_logs
+                .into_iter()
+                .map(|log| (log.key.hashed_key(), log)),
+        );
     }
 
     let snapshot_header = SnapshotHeader {
@@ -271,5 +246,5 @@ pub(super) async fn prepare_clients(
             status.miniblock_hash,
         ),
     );
-    (object_store, client)
+    (object_store, client, all_snapshot_storage_logs)
 }

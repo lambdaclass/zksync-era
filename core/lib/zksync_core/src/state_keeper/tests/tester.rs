@@ -234,18 +234,6 @@ pub(crate) fn random_tx(tx_number: u64) -> Transaction {
     tx.into()
 }
 
-/// Creates a random protocol upgrade transaction. Provided tx number would be used as a transaction hash,
-/// so it's easier to understand which transaction caused test to fail.
-pub(crate) fn random_upgrade_tx(tx_number: u64) -> ProtocolUpgradeTx {
-    let mut tx = ProtocolUpgradeTx {
-        execute: Default::default(),
-        common_data: Default::default(),
-        received_timestamp_ms: 0,
-    };
-    tx.common_data.canonical_tx_hash = H256::from_low_u64_be(tx_number);
-    tx
-}
-
 /// Creates a `TxExecutionResult` object denoting a successful tx execution.
 pub(crate) fn successful_exec() -> TxExecutionResult {
     TxExecutionResult::Success {
@@ -397,7 +385,7 @@ pub(crate) struct TestBatchExecutorBuilder {
 }
 
 impl TestBatchExecutorBuilder {
-    pub(super) fn new(scenario: &TestScenario) -> Self {
+    fn new(scenario: &TestScenario) -> Self {
         let mut txs = VecDeque::new();
         let mut batch_txs = HashMap::new();
         let mut rollback_set = HashSet::new();
@@ -555,7 +543,7 @@ impl TestBatchExecutor {
 }
 
 #[derive(Debug)]
-pub(super) struct TestIO {
+pub(crate) struct TestIO {
     stop_sender: watch::Sender<bool>,
     batch_number: L1BatchNumber,
     timestamp: u64,
@@ -568,11 +556,10 @@ pub(super) struct TestIO {
     skipping_txs: bool,
     protocol_version: ProtocolVersionId,
     previous_batch_protocol_version: ProtocolVersionId,
-    protocol_upgrade_txs: HashMap<ProtocolVersionId, ProtocolUpgradeTx>,
 }
 
 impl TestIO {
-    pub(super) fn new(stop_sender: watch::Sender<bool>, scenario: TestScenario) -> Self {
+    fn new(stop_sender: watch::Sender<bool>, scenario: TestScenario) -> Self {
         Self {
             stop_sender,
             batch_number: L1BatchNumber(1),
@@ -584,12 +571,7 @@ impl TestIO {
             skipping_txs: false,
             protocol_version: ProtocolVersionId::latest(),
             previous_batch_protocol_version: ProtocolVersionId::latest(),
-            protocol_upgrade_txs: HashMap::default(),
         }
-    }
-
-    pub(super) fn add_upgrade_tx(&mut self, version: ProtocolVersionId, tx: ProtocolUpgradeTx) {
-        self.protocol_upgrade_txs.insert(version, tx);
     }
 
     fn pop_next_item(&mut self, request: &str) -> ScenarioItem {
@@ -643,21 +625,21 @@ impl StateKeeperIO for TestIO {
         self.miniblock_number
     }
 
-    async fn load_pending_batch(&mut self) -> anyhow::Result<Option<PendingBatchData>> {
-        Ok(self.scenario.pending_batch.take())
+    async fn load_pending_batch(&mut self) -> Option<PendingBatchData> {
+        self.scenario.pending_batch.take()
     }
 
     async fn wait_for_new_batch_params(
         &mut self,
         _max_wait: Duration,
-    ) -> anyhow::Result<Option<(SystemEnv, L1BatchEnv)>> {
+    ) -> Option<(SystemEnv, L1BatchEnv)> {
         let first_miniblock_info = L2BlockEnv {
             number: self.miniblock_number.0,
             timestamp: self.timestamp,
             prev_block_hash: H256::zero(),
             max_virtual_blocks_to_create: 1,
         };
-        Ok(Some((
+        Some((
             SystemEnv {
                 zk_porter_available: false,
                 version: self.protocol_version,
@@ -676,18 +658,18 @@ impl StateKeeperIO for TestIO {
                 enforced_base_fee: None,
                 first_l2_block: first_miniblock_info,
             },
-        )))
+        ))
     }
 
     async fn wait_for_new_miniblock_params(
         &mut self,
         _max_wait: Duration,
-    ) -> anyhow::Result<Option<MiniblockParams>> {
-        Ok(Some(MiniblockParams {
+    ) -> Option<MiniblockParams> {
+        Some(MiniblockParams {
             timestamp: self.timestamp,
             // 1 is just a constant used for tests.
             virtual_blocks: 1,
-        }))
+        })
     }
 
     async fn wait_for_next_tx(&mut self, max_wait: Duration) -> Option<Transaction> {
@@ -721,7 +703,7 @@ impl StateKeeperIO for TestIO {
         self.skipping_txs = false;
     }
 
-    async fn reject(&mut self, tx: &Transaction, error: &str) -> anyhow::Result<()> {
+    async fn reject(&mut self, tx: &Transaction, error: &str) {
         let action = self.pop_next_item("reject");
         let ScenarioItem::Reject(_, expected_tx, expected_err) = action else {
             panic!("Unexpected action: {:?}", action);
@@ -736,7 +718,6 @@ impl StateKeeperIO for TestIO {
             );
         }
         self.skipping_txs = false;
-        Ok(())
     }
 
     async fn seal_miniblock(&mut self, updates_manager: &UpdatesManager) {
@@ -779,15 +760,15 @@ impl StateKeeperIO for TestIO {
         Ok(())
     }
 
-    async fn load_previous_batch_version_id(&mut self) -> anyhow::Result<ProtocolVersionId> {
-        Ok(self.previous_batch_protocol_version)
+    async fn load_previous_batch_version_id(&mut self) -> Option<ProtocolVersionId> {
+        Some(self.previous_batch_protocol_version)
     }
 
     async fn load_upgrade_tx(
         &mut self,
-        version_id: ProtocolVersionId,
-    ) -> anyhow::Result<Option<ProtocolUpgradeTx>> {
-        Ok(self.protocol_upgrade_txs.get(&version_id).cloned())
+        _version_id: ProtocolVersionId,
+    ) -> Option<ProtocolUpgradeTx> {
+        None
     }
 }
 
