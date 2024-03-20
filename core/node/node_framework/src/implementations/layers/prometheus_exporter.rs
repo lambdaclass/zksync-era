@@ -2,7 +2,8 @@ use prometheus_exporter::PrometheusExporterConfig;
 use zksync_health_check::{HealthStatus, HealthUpdater, ReactiveHealthCheck};
 
 use crate::{
-    implementations::resources::healthcheck::AppHealthCheckResource,
+    implementations::resources::healthcheck::HealthCheckResource,
+    resource::ResourceCollection,
     service::{ServiceContext, StopReceiver},
     task::Task,
     wiring_layer::{WiringError, WiringLayer},
@@ -33,8 +34,12 @@ impl WiringLayer for PrometheusExporterLayer {
         let (prometheus_health_check, prometheus_health_updater) =
             ReactiveHealthCheck::new("prometheus_exporter");
 
-        let AppHealthCheckResource(app_health) = node.get_resource_or_default().await;
-        app_health.insert_component(prometheus_health_check);
+        let healthchecks = node
+            .get_resource_or_default::<ResourceCollection<HealthCheckResource>>()
+            .await;
+        healthchecks
+            .push(HealthCheckResource::new(prometheus_health_check))
+            .expect("Wiring stage");
 
         let task = Box::new(PrometheusExporterTask {
             config: self.0,

@@ -252,9 +252,3 @@ impl BatchFeeModelInputProvider for MockBatchFeeParamsProvider {
         self.0
     }
 }
-
-#[derive(Debug, Clone)]
-pub enum DeploymentMode {
-    Validium,
-    Rollup,
-}

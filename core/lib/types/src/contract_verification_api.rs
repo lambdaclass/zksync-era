@@ -142,8 +142,6 @@ pub struct VerificationIncomingRequest {
     pub constructor_arguments: Bytes,
     #[serde(default)]
     pub is_system: bool,
-    #[serde(default)]
-    pub force_evmla: bool,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]

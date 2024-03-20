@@ -1,4 +1,3 @@
-pub mod eth_watch;
 pub mod fee_input;
 pub mod healtcheck_server;
 pub mod metadata_calculator;

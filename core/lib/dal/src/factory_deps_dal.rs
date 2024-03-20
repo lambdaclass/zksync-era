@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use anyhow::Context as _;
 use zksync_contracts::{BaseSystemContracts, SystemContractCode};
 use zksync_types::{MiniblockNumber, H256, U256};
 use zksync_utils::{bytes_to_be_words, bytes_to_chunks};
@@ -23,7 +22,7 @@ impl FactoryDepsDal<'_, '_> {
     ) -> sqlx::Result<()> {
         let (bytecode_hashes, bytecodes): (Vec<_>, Vec<_>) = factory_deps
             .iter()
-            .map(|(hash, bytecode)| (hash.as_bytes(), bytecode.as_slice()))
+            .map(|dep| (dep.0.as_bytes(), dep.1.as_slice()))
             .unzip();
 
         // Copy from stdin can't be used here because of `ON CONFLICT`.
@@ -52,8 +51,8 @@ impl FactoryDepsDal<'_, '_> {
     }
 
     /// Returns bytecode for a factory dependency with the specified bytecode `hash`.
-    pub async fn get_factory_dep(&mut self, hash: H256) -> sqlx::Result<Option<Vec<u8>>> {
-        Ok(sqlx::query!(
+    pub async fn get_factory_dep(&mut self, hash: H256) -> Option<Vec<u8>> {
+        sqlx::query!(
             r#"
             SELECT
                 bytecode
@@ -65,20 +64,20 @@ impl FactoryDepsDal<'_, '_> {
             hash.as_bytes(),
         )
         .fetch_optional(self.storage.conn())
-        .await?
-        .map(|row| row.bytecode))
+        .await
+        .unwrap()
+        .map(|row| row.bytecode)
     }
 
     pub async fn get_base_system_contracts(
         &mut self,
         bootloader_hash: H256,
         default_aa_hash: H256,
-    ) -> anyhow::Result<BaseSystemContracts> {
+    ) -> BaseSystemContracts {
         let bootloader_bytecode = self
             .get_factory_dep(bootloader_hash)
             .await
-            .context("failed loading bootloader code")?
-            .with_context(|| format!("bootloader code with hash {bootloader_hash:?} should be present in the database"))?;
+            .expect("Bootloader code should be present in the database");
         let bootloader_code = SystemContractCode {
             code: bytes_to_be_words(bootloader_bytecode),
             hash: bootloader_hash,
@@ -87,17 +86,16 @@ impl FactoryDepsDal<'_, '_> {
         let default_aa_bytecode = self
             .get_factory_dep(default_aa_hash)
             .await
-            .context("failed loading default account code")?
-            .with_context(|| format!("default account code with hash {default_aa_hash:?} should be present in the database"))?;
+            .expect("Default account code should be present in the database");
 
         let default_aa_code = SystemContractCode {
             code: bytes_to_be_words(default_aa_bytecode),
             hash: default_aa_hash,
         };
-        Ok(BaseSystemContracts {
+        BaseSystemContracts {
             bootloader: bootloader_code,
             default_aa: default_aa_code,
-        })
+        }
     }
 
     /// Returns bytecodes for factory deps with the specified `hashes`.
@@ -157,10 +155,7 @@ impl FactoryDepsDal<'_, '_> {
     }
 
     /// Removes all factory deps with a miniblock number strictly greater than the specified `block_number`.
-    pub async fn rollback_factory_deps(
-        &mut self,
-        block_number: MiniblockNumber,
-    ) -> sqlx::Result<()> {
+    pub async fn rollback_factory_deps(&mut self, block_number: MiniblockNumber) {
         sqlx::query!(
             r#"
             DELETE FROM factory_deps
@@ -170,7 +165,7 @@ impl FactoryDepsDal<'_, '_> {
             block_number.0 as i64
         )
         .execute(self.storage.conn())
-        .await?;
-        Ok(())
+        .await
+        .unwrap();
     }
 }

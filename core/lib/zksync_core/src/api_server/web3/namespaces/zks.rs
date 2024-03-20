@@ -124,11 +124,6 @@ impl ZksNamespace {
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn get_bridgehub_contract_impl(&self) -> Option<Address> {
-        self.state.api_config.bridgehub_proxy_addr
-    }
-
-    #[tracing::instrument(skip(self))]
     pub fn get_main_contract_impl(&self) -> Address {
         self.state.api_config.diamond_proxy_addr
     }
@@ -480,14 +475,16 @@ impl ZksNamespace {
             .map_err(|err| internal_error(METHOD_NAME, err));
         drop(storage);
 
-        if let Ok(None) = tx_details {
-            tx_details = self
-                .state
-                .tx_sender
-                .0
-                .tx_sink
-                .lookup_tx_details(METHOD_NAME, hash)
-                .await;
+        if let Some(proxy) = &self.state.tx_sender.0.proxy {
+            // We're running an external node - we should query the main node directly
+            // in case the transaction was proxied but not yet synced back to us
+            if matches!(tx_details, Ok(None)) {
+                // If the transaction is not in the db, query main node for details
+                tx_details = proxy
+                    .request_tx_details(hash)
+                    .await
+                    .map_err(|err| internal_error(METHOD_NAME, err));
+            }
         }
 
         method_latency.observe();
@@ -523,11 +520,8 @@ impl ZksNamespace {
 
         let method_latency = API_METRICS.start_call(METHOD_NAME);
         let mut storage = self.access_storage(METHOD_NAME).await?;
-        let bytecode = storage
-            .factory_deps_dal()
-            .get_factory_dep(hash)
-            .await
-            .map_err(|err| internal_error(METHOD_NAME, err))?;
+        let bytecode = storage.factory_deps_dal().get_factory_dep(hash).await;
+
         method_latency.observe();
         Ok(bytecode)
     }

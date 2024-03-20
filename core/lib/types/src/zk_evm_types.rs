@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use zksync_basic_types::{Address, U256};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -10,11 +9,12 @@ pub enum FarCallOpcode {
 }
 
 /// Struct representing the VM timestamp
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[derive(Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, PartialOrd, Ord,
+)]
 pub struct Timestamp(pub u32);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct LogQuery {
     pub timestamp: Timestamp,
     pub tx_number_in_block: u16,

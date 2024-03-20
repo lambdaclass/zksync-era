@@ -4,9 +4,10 @@ use zksync_storage::RocksDB;
 
 use crate::{
     implementations::resources::{
-        healthcheck::AppHealthCheckResource, object_store::ObjectStoreResource,
+        healthcheck::HealthCheckResource, object_store::ObjectStoreResource,
         pools::MasterPoolResource,
     },
+    resource::ResourceCollection,
     service::{ServiceContext, StopReceiver},
     task::Task,
     wiring_layer::{WiringError, WiringLayer},
@@ -49,8 +50,14 @@ impl WiringLayer for MetadataCalculatorLayer {
         let metadata_calculator =
             MetadataCalculator::new(self.0, object_store.map(|os| os.0)).await?;
 
-        let AppHealthCheckResource(app_health) = context.get_resource_or_default().await;
-        app_health.insert_component(metadata_calculator.tree_health_check());
+        let healthchecks = context
+            .get_resource_or_default::<ResourceCollection<HealthCheckResource>>()
+            .await;
+        healthchecks
+            .push(HealthCheckResource::new(
+                metadata_calculator.tree_health_check(),
+            ))
+            .expect("Wiring stage");
 
         let task = Box::new(MetadataCalculatorTask {
             metadata_calculator,
