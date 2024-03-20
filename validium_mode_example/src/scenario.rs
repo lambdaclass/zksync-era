@@ -150,6 +150,9 @@ pub async fn basic() {
     let l2_provider = helpers::l2_provider();
     let main_wallet = Arc::new(helpers::zks_wallet(&l1_provider, &l2_provider).await);
 
+    let _account =
+        helpers::create_funded_account(&l1_provider, &l2_provider, main_wallet.clone()).await;
+
     let deploy_receipt = helpers::deploy(main_wallet.clone()).await;
     let erc20_address = deploy_receipt.contract_address.unwrap();
     let mint_receipt = helpers::mint(main_wallet.clone(), erc20_address).await;
