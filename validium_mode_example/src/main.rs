@@ -1,4 +1,4 @@
-use validium_mode_example::{helpers, scenario};
+use validium_mode_example::scenario;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
