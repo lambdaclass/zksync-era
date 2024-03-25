@@ -35,6 +35,8 @@ Cargo.lock
 !/etc/env/base
 !/etc/env/dev.toml
 !/etc/env/dev_validium.toml
+!/etc/env/main_demo_rollup_blobs.toml
+!/etc/env/main_demo_validium_blobs.toml
 !/etc/env/dev_validium_docker.toml
 !/etc/env/docker.toml
 !/etc/env/ext-node.toml
