@@ -11,6 +11,7 @@ use zksync_config::{
         },
         fri_prover_group::FriProverGroupConfig,
         house_keeper::HouseKeeperConfig,
+        native_token_fetcher::NativeTokenFetcherConfig,
         FriProofCompressorConfig, FriProverConfig, FriWitnessGeneratorConfig, ObservabilityConfig,
         PrometheusConfig, ProofDataHandlerConfig, WitnessGeneratorConfig,
     },
@@ -139,6 +140,7 @@ async fn main() -> anyhow::Result<()> {
             eth_watch_config: ETHWatchConfig::from_env().ok(),
             gas_adjuster_config: GasAdjusterConfig::from_env().ok(),
             object_store_config: ObjectStoreConfig::from_env().ok(),
+            native_token_fetcher_config: NativeTokenFetcherConfig::from_env().ok(),
             consensus_config: config::read_consensus_config().context("read_consensus_config()")?,
         },
     };
