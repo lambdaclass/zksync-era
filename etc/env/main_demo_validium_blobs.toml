@@ -1,6 +1,7 @@
 [chain.state_keeper]
 transaction_slots=5000
 block_commit_deadline_ms=1800000
+max_pubdata_per_batch=240000     # 2 blobs max
 
 [eth_sender.gas_adjuster]
 internal_enforced_l1_gas_price=45000000000
