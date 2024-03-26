@@ -4,7 +4,7 @@ const { token, l2BaseTokenAddress, privateKye, l1Provider, l2Provider, alice, am
 
 async function deposit() {
     const gasPrice = 100;
-    console.log("Using address: ", alice.address)
+    console.log('Using address: ', alice.address);
     console.log('Initial balances before deposit');
 
     const initialEthBalance = await alice.getBalanceL1();
@@ -20,16 +20,16 @@ async function deposit() {
         token: token,
         amount: amount,
         approveERC20: true,
-        approveBaseERC20: true,
+        approveBaseERC20: true
     });
     const depositHash = depositTx.hash;
     await depositTx.wait();
 
     const receipt = await alice._providerL1().getTransactionReceipt(depositHash);
-    console.log("The receipt: ", receipt);
+    console.log('The receipt: ', receipt);
     const fee = receipt.effectiveGasPrice.mul(receipt.gasUsed);
 
-    console.log("Deposit sucessful with tx hash: ", depositHash);
+    console.log('Deposit sucessful with tx hash: ', depositHash);
 
     console.log('\n\nFinal balances');
 
@@ -46,4 +46,6 @@ async function deposit() {
     console.log('L2 Base Token', finalL2Balance.sub(initialL2Balance).toString());
     return depositHash;
 }
-(async () => { await deposit() })();
+(async () => {
+    await deposit();
+})();
