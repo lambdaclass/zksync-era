@@ -28,6 +28,7 @@ export async function deployERC20AndWeth({
                 { "name": "DAI",  "symbol": "DAI",  "decimals": 18 },
                 { "name": "wBTC", "symbol": "wBTC", "decimals":  8, "implementation": "RevertTransferERC20" },
                 { "name": "BAT",  "symbol": "BAT",  "decimals": 18 },
+                { "name": "LBC",  "symbol": "LBC",  "decimals": 18 },
                 { "name": "GNT",  "symbol": "GNT",  "decimals": 18 },
                 { "name": "MLTT", "symbol": "MLTT", "decimals": 18 },
                 { "name": "DAIK",  "symbol": "DAIK",  "decimals": 18 },
