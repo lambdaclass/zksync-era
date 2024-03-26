@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use colored::Colorize;
 use ethers::{
     abi::Hash,
+    etherscan::account,
     providers::{Http, Provider},
 };
 use zksync_types::U64;
@@ -126,6 +127,41 @@ pub async fn run(accounts_count: usize, txs_per_account: usize, txs_kind: helper
 
     let l2_txs_hashes =
         helpers::send_transactions(txs_kind, erc20_address, accounts, txs_per_account).await;
+
+    let data = ScenarioData::collect(
+        l2_txs_hashes,
+        l1_provider,
+        l2_provider,
+        main_wallet.get_era_provider().unwrap(),
+    )
+    .await;
+
+    for (_batch_number, batch_data) in data.0.iter() {
+        println!("{batch_data}");
+    }
+}
+
+// Each account will deploy txs_per_account ERC20 contracts
+pub async fn deploy_erc20(n_accounts: usize, txs_per_account: usize) {
+    println!("{}", "Running deploy_erc20 scenario\n".bright_red().bold());
+    let l1_provider = helpers::l1_provider();
+    let l2_provider = helpers::l2_provider();
+    let main_wallet = Arc::new(helpers::zks_wallet(&l1_provider, &l2_provider).await);
+    let accounts = helpers::create_funded_accounts(
+        n_accounts,
+        &l1_provider,
+        &l2_provider,
+        main_wallet.clone(),
+    )
+    .await;
+
+    let l2_txs_hashes = helpers::send_transactions(
+        helpers::TxKind::Deploy,
+        Default::default(),
+        accounts,
+        txs_per_account,
+    )
+    .await;
 
     let data = ScenarioData::collect(
         l2_txs_hashes,
