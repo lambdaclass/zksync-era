@@ -26,7 +26,6 @@ async function deposit() {
     await depositTx.wait();
 
     const receipt = await alice._providerL1().getTransactionReceipt(depositHash);
-    console.log('The receipt: ', receipt);
     const fee = receipt.effectiveGasPrice.mul(receipt.gasUsed);
 
     console.log('Deposit sucessful with tx hash: ', depositHash);
