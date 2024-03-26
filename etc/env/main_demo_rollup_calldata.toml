@@ -1,0 +1,12 @@
+[chain.state_keeper]
+transaction_slots = 5000
+block_commit_deadline_ms = 1800000
+
+[eth_sender.gas_adjuster]
+internal_enforced_l1_gas_price = 45000000000
+
+[eth_sender.sender]
+pubdata_sending_mode = "Calldata"
+
+[_metadata]
+base = ['dev.toml']
