@@ -26,7 +26,7 @@ use zksync_web3_rs::{
     providers::{Middleware, Provider},
     signers::{LocalWallet, Signer},
     zks_provider::ZKSProvider,
-    zks_wallet::{DeployRequest, DepositRequest},
+    zks_wallet::{DeployRequest, DepositRequest, TransferRequest, WithdrawRequest},
     ZKSWallet,
 };
 
@@ -61,7 +61,7 @@ pub async fn zks_wallet(
     .unwrap()
 }
 
-pub async fn deposit(
+pub async fn deposit_eth(
     from: Arc<ZKSWallet<Provider<Http>, SigningKey>>,
     to: Arc<ZKSWallet<Provider<Http>, SigningKey>>,
 ) {
@@ -77,10 +77,12 @@ pub async fn deposit(
         .expect("Failed to perform deposit transaction");
 }
 
-pub async fn deploy(zks_wallet: Arc<ZKSWallet<Provider<Http>, SigningKey>>) -> TransactionReceipt {
+pub async fn deploy_erc20(
+    zks_wallet: Arc<ZKSWallet<Provider<Http>, SigningKey>>,
+) -> TransactionReceipt {
     // Read both files from disk:
-    let abi = Abi::load(constants::CONTRACT_ABI.as_bytes()).unwrap();
-    let contract_bin = hex::decode(constants::CONTRACT_BIN).unwrap().to_vec();
+    let abi = Abi::load(constants::ERC20_ABI.as_bytes()).unwrap();
+    let contract_bin = hex::decode(constants::ERC20_BIN).unwrap().to_vec();
 
     // DeployRequest sets the parameters for the constructor call and the deployment transaction.
     let request = DeployRequest::with(
@@ -106,7 +108,7 @@ pub async fn deploy(zks_wallet: Arc<ZKSWallet<Provider<Http>, SigningKey>>) -> T
     l2_deploy_tx_receipt
 }
 
-pub async fn mint(
+pub async fn mint_erc20(
     zks_wallet: Arc<ZKSWallet<Provider<Http>, SigningKey>>,
     erc20_address: H160,
 ) -> TransactionReceipt {
@@ -134,7 +136,24 @@ pub async fn mint(
         .unwrap()
 }
 
-pub async fn transfer(
+pub async fn transfer_eth(
+    from: Arc<ZKSWallet<Provider<Http>, SigningKey>>,
+    to: Arc<ZKSWallet<Provider<Http>, SigningKey>>,
+) {
+    println!(
+        "{}",
+        format!("Transfer eth in {:?}", to.l2_address()).bright_yellow()
+    );
+    let amount = parse_units("11", "ether").unwrap();
+    let mut request = TransferRequest::new(amount.into());
+    request.to = to.l2_address();
+
+    from.transfer(&request, None)
+        .await
+        .expect("Failed to perform transfer transaction");
+}
+
+pub async fn transfer_erc20(
     zks_wallet: Arc<ZKSWallet<Provider<Http>, SigningKey>>,
     erc20_address: H160,
 ) -> TransactionReceipt {
@@ -186,6 +205,23 @@ pub async fn wait_for_l2_tx_details(tx_hash: H256) -> TransactionDetails {
 
         sleep(Duration::from_secs(1)).await;
     }
+}
+
+pub async fn withdraw_eth(
+    from: Arc<ZKSWallet<Provider<Http>, SigningKey>>,
+    to: Arc<ZKSWallet<Provider<Http>, SigningKey>>,
+) {
+    println!(
+        "{}",
+        format!("Withdrawing in {:?}", to.l2_address()).bright_yellow()
+    );
+    let amount = parse_units("11", "ether").unwrap();
+    let mut request = WithdrawRequest::new(amount.into());
+    request.to = to.l2_address();
+
+    from.withdraw(&request)
+        .await
+        .expect("Failed to perform withdraw transaction");
 }
 
 pub async fn wait_for_tx_receipt(client: Arc<Provider<Http>>, tx_hash: H256) -> TransactionReceipt {
@@ -240,7 +276,7 @@ pub async fn create_funded_account(
     main_wallet: Arc<ZKSWallet<Provider<Http>, SigningKey>>,
 ) -> Arc<ZKSWallet<Provider<Http>, SigningKey>> {
     let to = create_account(l1_provider, l2_provider).await;
-    let _ = deposit(main_wallet, to.clone()).await;
+    let _ = deposit_eth(main_wallet, to.clone()).await;
     to
 }
 
@@ -256,7 +292,7 @@ pub async fn create_funded_accounts(
         let from = main_wallet.clone();
         let to = create_account(l1_provider, l2_provider).await;
         accounts.push(to.clone());
-        let _ = deposit(from, to).await;
+        let _ = deposit_eth(from, to).await;
     }
     accounts
 }

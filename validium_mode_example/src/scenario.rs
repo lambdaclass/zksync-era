@@ -119,7 +119,7 @@ pub async fn run(accounts_count: usize, txs_per_account: usize, txs_kind: helper
 
     // In case that the txs_type is not Deploy we need the contract deployed.
     println!("{}", "Initial deploy".bright_yellow());
-    let erc20_address = helpers::deploy(main_wallet.clone())
+    let erc20_address = helpers::deploy_erc20(main_wallet.clone())
         .await
         .contract_address
         .unwrap();
@@ -153,10 +153,10 @@ pub async fn basic() {
     let account =
         helpers::create_funded_account(&l1_provider, &l2_provider, main_wallet.clone()).await;
 
-    let deploy_receipt = helpers::deploy(account.clone()).await;
+    let deploy_receipt = helpers::deploy_erc20(account.clone()).await;
     let erc20_address = deploy_receipt.contract_address.unwrap();
-    let mint_receipt = helpers::mint(account.clone(), erc20_address).await;
-    let transfer_receipt = helpers::transfer(account.clone(), erc20_address).await;
+    let mint_receipt = helpers::mint_erc20(account.clone(), erc20_address).await;
+    let transfer_receipt = helpers::transfer_erc20(account.clone(), erc20_address).await;
 
     println!(
         "{}",
