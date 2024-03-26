@@ -23,7 +23,7 @@ In this example we're going to run some transactions.
 Once the server is running, run this command in other terminal:
 
 ```sh
-cargo run --release --bin zksync_full_stack
+cargo run --release --bin validium_mode_example
 ```
 
 This test does the following:

@@ -30,9 +30,9 @@ impl TxKind {
             .bright_yellow()
         );
         match self {
-            TxKind::Deploy => super::deploy(zks_wallet).await,
-            TxKind::Mint => super::mint(zks_wallet, erc20_address).await,
-            TxKind::Transfer => super::transfer(zks_wallet, erc20_address).await,
+            TxKind::Deploy => super::deploy_erc20(zks_wallet).await,
+            TxKind::Mint => super::mint_erc20(zks_wallet, erc20_address).await,
+            TxKind::Transfer => super::transfer_erc20(zks_wallet, erc20_address).await,
         }
     }
 }
