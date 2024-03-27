@@ -123,7 +123,7 @@ pub async fn mint_erc20(
             Some(
                 [
                     "CD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826".into(),
-                    "100000".into(),
+                    "10000000000".into(),
                 ]
                 .into(),
             ),
@@ -169,7 +169,7 @@ pub async fn transfer_erc20(
                 [
                     "CD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826".into(),
                     "bBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB".into(),
-                    "1000".into(),
+                    "100".into(),
                 ]
                 .into(),
             ),
