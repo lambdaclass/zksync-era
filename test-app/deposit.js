@@ -8,13 +8,15 @@ async function deposit() {
     console.log('Initial balances before deposit');
 
     const initialEthBalance = await alice.getBalanceL1();
-    console.log('L1 Ethereum', initialEthBalance.toString());
+    console.log('L1 Ethereum', ethers.utils.formatEther(initialEthBalance));
 
     const initialL1Balance = await alice.getBalanceL1(token);
-    console.log('L1 Base Token', initialL1Balance.toString());
+    console.log('L1 Base Token', ethers.utils.formatEther(initialL1Balance));
 
     const initialL2Balance = await alice.getBalance();
-    console.log('L2 Base Token', initialL2Balance.toString());
+    console.log('L2 Base Token', ethers.utils.formatEther(initialL2Balance));
+
+    console.log("Starting deposit of amount: ", ethers.utils.formatUnits(amount, 18));
 
     const depositTx = await alice.deposit({
         token: token,
@@ -33,16 +35,13 @@ async function deposit() {
     console.log('\n\nFinal balances');
 
     const finalEthBalance = await alice.getBalanceL1();
-    console.log('L1 Ethereum', finalEthBalance.toString());
-    console.log('balance diff', initialEthBalance.sub(finalEthBalance).toString());
+    console.log('L1 Ethereum', ethers.utils.formatEther(finalEthBalance));
 
     const finalL1Balance = await alice.getBalanceL1(token);
-    console.log('L1 Base Token', finalL1Balance.toString());
-    console.log('balance diff', initialL1Balance.sub(finalL1Balance).toString());
+    console.log('L1 Base Token', ethers.utils.formatEther(finalL1Balance));
 
     const finalL2Balance = await alice.getBalance();
-    console.log('finalL2Balance', finalL2Balance.toString());
-    console.log('L2 Base Token', finalL2Balance.sub(initialL2Balance).toString());
+    console.log('L2 Base Token', ethers.utils.formatEther(finalL2Balance));
     return depositHash;
 }
 (async () => {

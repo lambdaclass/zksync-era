@@ -6,41 +6,35 @@ async function withdraw() {
     console.log('Initial balances before withdraw');
 
     const initialEthBalance = await alice.getBalanceL1();
-    console.log('L1 Ethereum', initialEthBalance.toString());
+    console.log('L1 Ethereum', ethers.utils.formatEther(initialEthBalance));
 
     const initialL1Balance = await alice.getBalanceL1(token);
-    console.log('L1 Base Token', initialL1Balance.toString());
+    console.log('L1 Base Token', ethers.utils.formatUnits(initialL1Balance, 18));
 
     const initialL2Balance = await alice.getBalance();
-    console.log('L2 Base Token', initialL2Balance.toString());
+    console.log('L2 Base Token', ethers.utils.formatEther(initialL2Balance));
 
-    console.log('Starting withdraw for amount:', amount);
+    console.log('Starting withdraw for amount:', ethers.utils.formatUnits(amount, 18));
+
     const withdrawalPromise = alice.withdraw({ token: l2BaseTokenAddress, amount });
     const withdrawalTx = await withdrawalPromise;
     const withdrawalHash = withdrawalTx.hash;
     await withdrawalTx.waitFinalize();
     const withdrawHash = withdrawalTx.hash;
     console.log('Withdraw sucessful with tx hash', withdrawalHash);
-
     const finalEthBalance = await alice.getBalanceL1();
-    console.log('L1 Ethereum', finalEthBalance.toString());
-    console.log('balance diff', initialEthBalance.sub(finalEthBalance).toString());
-
     const finalL1Balance = await alice.getBalanceL1(token);
-    console.log('L1 Base Token', finalL1Balance.toString());
-    console.log('balance diff', initialL1Balance.sub(finalL1Balance).toString());
-
-    const finalL2Balance = await alice.getBalance();
-    console.log('finalL2Balance', finalL2Balance.toString());
-    console.log('L2 Base Token', finalL2Balance.sub(initialL2Balance).toString());
     return withdrawHash;
 }
 async function finishWithdraw(withdrawalHash) {
     const finalizeWithdrawResult = await alice.finalizeWithdrawal(withdrawalHash);
     await finalizeWithdrawResult.wait();
     const newBalanceL1 = await alice.getBalanceL1(token);
-    console.log('Finished withdraw');
-    console.log('Final balance on L1: ', newBalanceL1.toString(), 'LBC');
+    console.log('Withdraw finalized');
+    console.log('New balances:')
+    console.log('Final balance on L1:', ethers.utils.formatUnits(newBalanceL1, 18), 'BAT');
+    const finalL2Balance = await alice.getBalance();
+    console.log('Final balance on L2:', ethers.utils.formatEther(finalL2Balance));
 }
 
 (async () => {
