@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
         with:
           submodules: "recursive"
+          fetch-depth: 0
 
       - name: Setup environment
         run: |
@@ -70,6 +71,7 @@ jobs:
       - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
         with:
           submodules: "recursive"
+          fetch-depth: 0
 
       - name: Setup environment
         run: |
@@ -118,14 +120,14 @@ jobs:
           ci_run sccache --show-stats
           ci_run cat /tmp/sccache_log.txt
   integration:
-    name: Integration (consensus=${{ matrix.consensus }}, deployment_mode=${{ matrix.mode }})
+    name: Integration (consensus=${{ matrix.consensus }}, deployment_mode=${{ matrix.deployment_mode }})
     strategy:
       # In matrix jobs, fail-fast is true by default.
       # To be consistent with the rest of the workflow we disable it explicitly.
       fail-fast: false
       matrix:
         consensus: [false, true]
-        mode: ["Rollup", "Validium"]
+        deployment_mode: ["Rollup", "Validium"]
     env:
       SERVER_COMPONENTS: "api,tree,eth,state_keeper,housekeeper,basic_witness_input_producer,commitment_generator${{ matrix.consensus && ',consensus' || '' }}"
 
@@ -134,6 +136,7 @@ jobs:
       - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
         with:
           submodules: "recursive"
+          fetch-depth: 0
 
       - name: Setup environment
         run: |
@@ -186,9 +189,9 @@ jobs:
           ci_run git config --global --add safe.directory /usr/src/zksync/contracts/system-contracts
           ci_run git config --global --add safe.directory /usr/src/zksync/contracts
           ci_run zk
-          if [[ "${{ matrix.mode }}" == "Rollup" ]]; then
+          if [[ "${{ matrix.deployment_mode }}" == "Rollup" ]]; then
             ci_run zk init
-          elif [[ "${{ matrix.mode }}" == "Validium" ]]; then
+          elif [[ "${{ matrix.deployment_mode }}" == "Validium" ]]; then
             ci_run zk env dev_validium_docker
             ci_run zk config compile dev_validium_docker
             ci_run zk init --validium-mode
@@ -213,11 +216,11 @@ jobs:
         # An empty topmost environment helps avoid a mess when redefining env vars shared between both envs
         # (e.g., DATABASE_URL).
         run: |
-          if [[ "${{ matrix.mode }}" == "Validium" ]]; then
+          if [[ "${{ matrix.deployment_mode }}" == "Validium" ]]; then
             ci_run zk config compile ext-node-validium
             ci_run zk config compile ext-node-validium-docker
           fi
-          ENABLE_CONSENSUS=${{ matrix.consensus }} PASSED_ENV_VARS=ENABLE_CONSENSUS ci_run yarn snapshot-recovery-test snapshot-recovery-test
+          ENABLE_CONSENSUS=${{ matrix.consensus }} DEPLOYMENT_MODE=${{ matrix.deployment_mode }} PASSED_ENV_VARS="ENABLE_CONSENSUS,DEPLOYMENT_MODE" ci_run yarn snapshot-recovery-test snapshot-recovery-test
 
       - name: Fee projection tests
         run: ci_run zk test i fees
@@ -226,7 +229,7 @@ jobs:
         run: |
           ci_run pkill zksync_server || true
           ci_run sleep 2
-          ENABLE_CONSENSUS=${{ matrix.consensus }} PASSED_ENV_VARS=ENABLE_CONSENSUS ci_run zk test i revert
+          ENABLE_CONSENSUS=${{ matrix.consensus }} DEPLOYMENT_MODE=${{ matrix.deployment_mode }} PASSED_ENV_VARS="ENABLE_CONSENSUS,DEPLOYMENT_MODE" ci_run zk test i revert
 
         # This test should be the last one as soon as it
         # finished bootloader will be different
@@ -266,12 +269,12 @@ jobs:
           ci_run cat /tmp/sccache_log.txt
 
   external-node:
-    name: External node (consensus=${{ matrix.consensus }}, deployment_mode=${{ matrix.mode }})
+    name: External node (consensus=${{ matrix.consensus }}, deployment_mode=${{ matrix.deployment_mode }})
     strategy:
       fail-fast: false
       matrix:
         consensus: [false, true]
-        mode: ["Rollup", "Validium"]
+        deployment_mode: ["Rollup", "Validium"]
     runs-on: [matterlabs-ci-runner]
 
     env:
@@ -283,6 +286,7 @@ jobs:
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
         with:
           submodules: "recursive"
+          fetch-depth: 0
 
       - name: Setup environment
         run: |
@@ -304,9 +308,9 @@ jobs:
           ci_run git config --global --add safe.directory /usr/src/zksync/contracts/system-contracts
           ci_run git config --global --add safe.directory /usr/src/zksync/contracts
           ci_run zk
-          if [[ "${{ matrix.mode }}" == "Rollup" ]]; then
+          if [[ "${{ matrix.deployment_mode }}" == "Rollup" ]]; then
             ci_run zk init
-          elif [[ "${{ matrix.mode }}" == "Validium" ]]; then
+          elif [[ "${{ matrix.deployment_mode }}" == "Validium" ]]; then
             ci_run zk env dev_validium_docker
             ci_run zk config compile dev_validium_docker
             ci_run zk init --validium-mode
@@ -320,11 +324,10 @@ jobs:
 
       - name: Run external node
         run: |
-          if [[ "${{ matrix.mode }}" == "Rollup" ]]; then
+          if [[ "${{ matrix.deployment_mode }}" == "Rollup" ]]; then
             ci_run zk env ext-node-docker
-          elif [[ "${{ matrix.mode }}" == "Validium" ]]; then
+          elif [[ "${{ matrix.deployment_mode }}" == "Validium" ]]; then
             ci_run zk env ext-node-validium-docker
-            ci_run zk config compile ext-node-validium-docker
           fi
           ci_run zk db setup
           ci_run zk external-node $EXT_NODE_FLAGS &>>ext-node.log &
@@ -335,37 +338,23 @@ jobs:
 
       - name: Run revert test
         run: |
-          ci_run zk env
-          if [[ "${{ matrix.mode }}" == "Rollup" ]]; then
-            ci_run zk env docker
-          elif [[ "${{ matrix.mode }}" == "Validium" ]]; then
-            ci_run zk env dev_validium_docker
-            ci_run zk config compile dev_validium_docker
-          fi
-          ci_run pkill zksync_server || true
-          ci_run sleep 2
-          ci_run zk env
-          ENABLE_CONSENSUS=${{ matrix.consensus }} PASSED_ENV_VARS=ENABLE_CONSENSUS ci_run zk test i revert
-          # Check that the rollback was performed on the EN
-          ci_run sleep 20
-          ci_run grep -q 'Rollback successfully completed' ext-node.log
-          # Restart the EN
-          ci_run zk server --components=$SERVER_COMPONENTS &>>server.log &
-          ci_run sleep 30
-          if [[ "${{ matrix.mode }}" == "Rollup" ]]; then
+          ENABLE_CONSENSUS=${{ matrix.consensus }} DEPLOYMENT_MODE=${{ matrix.deployment_mode }} PASSED_ENV_VARS="ENABLE_CONSENSUS,DEPLOYMENT_MODE" ci_run zk test i revert-en
+          # test terminates the nodes, so we restart them.
+          if [[ "${{ matrix.deployment_mode }}" == "Rollup" ]]; then
+            ZKSYNC_ENV=docker ci_run zk server --components=$SERVER_COMPONENTS &>>server.log &
             ZKSYNC_ENV=ext-node-docker ci_run zk external-node $EXT_NODE_FLAGS &>>ext-node.log &
-          elif [[ "${{ matrix.mode }}" == "Validium" ]]; then
+          elif [[ "${{ matrix.deployment_mode }}" == "Validium" ]]; then
+            ZKSYNC_ENV=dev_validium_docker ci_run zk server --components=$SERVER_COMPONENTS &>>server.log &
             ZKSYNC_ENV=ext-node-validium-docker ci_run zk external-node $EXT_NODE_FLAGS &>>ext-node.log &
           fi
           ci_run sleep 30
 
       - name: Run upgrade test
         run: |
-          if [[ "${{ matrix.mode }}" == "Rollup" ]]; then
+          if [[ "${{ matrix.deployment_mode }}" == "Rollup" ]]; then
             ci_run zk env docker
-          elif [[ "${{ matrix.mode }}" == "Validium" ]]; then
+          elif [[ "${{ matrix.deployment_mode }}" == "Validium" ]]; then
             ci_run zk env dev_validium_docker
-            ci_run zk config compile dev_validium_docker
           fi
           CHECK_EN_URL="http://0.0.0.0:3060" ci_run zk test i upgrade
 

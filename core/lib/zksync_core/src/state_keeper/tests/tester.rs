@@ -17,8 +17,7 @@ use tokio::sync::{mpsc, watch};
 use zksync_contracts::BaseSystemContracts;
 use zksync_types::{
     block::MiniblockExecutionData, fee_model::BatchFeeInput, protocol_upgrade::ProtocolUpgradeTx,
-    witness_block_state::WitnessBlockState, Address, L1BatchNumber, L2ChainId, MiniblockNumber,
-    ProtocolVersionId, Transaction, H256,
+    Address, L1BatchNumber, L2ChainId, MiniblockNumber, ProtocolVersionId, Transaction, H256,
 };
 
 use crate::{
@@ -26,7 +25,7 @@ use crate::{
         batch_executor::{BatchExecutor, BatchExecutorHandle, Command, TxExecutionResult},
         io::{IoCursor, L1BatchParams, MiniblockParams, PendingBatchData, StateKeeperIO},
         seal_criteria::{IoSealCriteria, SequencerSealer},
-        tests::{default_l1_batch_env, default_vm_block_result, BASE_SYSTEM_CONTRACTS},
+        tests::{default_l1_batch_env, default_vm_batch_result, BASE_SYSTEM_CONTRACTS},
         types::ExecutionMetricsForCriteria,
         updates::UpdatesManager,
         OutputHandler, StateKeeperOutputHandler, ZkSyncStateKeeper,
@@ -528,7 +527,7 @@ impl TestBatchExecutor {
                 }
                 Command::FinishBatch(resp) => {
                     // Blanket result, it doesn't really matter.
-                    resp.send((default_vm_block_result(), None)).unwrap();
+                    resp.send(default_vm_batch_result()).unwrap();
                     return;
                 }
             }
@@ -569,11 +568,7 @@ impl StateKeeperOutputHandler for TestPersistence {
         Ok(())
     }
 
-    async fn handle_l1_batch(
-        &mut self,
-        _witness_block_state: Option<&WitnessBlockState>,
-        updates_manager: &UpdatesManager,
-    ) -> anyhow::Result<()> {
+    async fn handle_l1_batch(&mut self, updates_manager: &UpdatesManager) -> anyhow::Result<()> {
         let action = self.pop_next_item("seal_l1_batch");
         let ScenarioItem::BatchSeal(_, check_fn) = action else {
             anyhow::bail!("Unexpected action: {:?}", action);
@@ -600,7 +595,7 @@ pub(super) struct TestIO {
     /// requests until some other action happens.
     skipping_txs: bool,
     protocol_version: ProtocolVersionId,
-    previous_batch_protocol_version: ProtocolVersionId, // FIXME: not updated
+    previous_batch_protocol_version: ProtocolVersionId,
     protocol_upgrade_txs: HashMap<ProtocolVersionId, ProtocolUpgradeTx>,
 }
 
@@ -862,7 +857,7 @@ impl BatchExecutor for MockBatchExecutor {
                     Command::RollbackLastTx(_) => panic!("unexpected rollback"),
                     Command::FinishBatch(resp) => {
                         // Blanket result, it doesn't really matter.
-                        resp.send((default_vm_block_result(), None)).unwrap();
+                        resp.send(default_vm_batch_result()).unwrap();
                         return;
                     }
                 }

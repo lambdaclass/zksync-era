@@ -1,10 +1,14 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
+use anyhow::Context;
 use async_trait::async_trait;
 use serde::Serialize;
+use tokio::sync::watch;
 use zksync_concurrency::{ctx, sync};
+use zksync_dal::{ConnectionPool, Core, CoreDal};
 use zksync_health_check::{CheckHealth, Health, HealthStatus};
-use zksync_types::{witness_block_state::WitnessBlockState, MiniblockNumber};
+use zksync_types::MiniblockNumber;
+use zksync_web3_decl::{jsonrpsee::http_client::HttpClient, namespaces::EthNamespaceClient};
 
 use crate::{
     metrics::EN_METRICS,
@@ -73,6 +77,41 @@ impl SyncState {
     pub(crate) fn is_synced(&self) -> bool {
         self.0.borrow().is_synced().0
     }
+
+    pub async fn run_updater(
+        self,
+        connection_pool: ConnectionPool<Core>,
+        main_node_client: HttpClient,
+        mut stop_receiver: watch::Receiver<bool>,
+    ) -> anyhow::Result<()> {
+        const UPDATE_INTERVAL: Duration = Duration::from_secs(10);
+
+        while !*stop_receiver.borrow_and_update() {
+            let local_block = connection_pool
+                .connection()
+                .await
+                .context("Failed to get a connection from the pool in sync state updater")?
+                .blocks_dal()
+                .get_sealed_miniblock_number()
+                .await
+                .context("Failed to get the miniblock number from DB")?;
+
+            let main_node_block = main_node_client
+                .get_block_number()
+                .await
+                .context("Failed to request last miniblock number from main node")?;
+
+            if let Some(local_block) = local_block {
+                self.set_local_block(local_block);
+                self.set_main_node_block(main_node_block.as_u32().into());
+            }
+
+            tokio::time::timeout(UPDATE_INTERVAL, stop_receiver.changed())
+                .await
+                .ok();
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -89,11 +128,7 @@ impl StateKeeperOutputHandler for SyncState {
         Ok(())
     }
 
-    async fn handle_l1_batch(
-        &mut self,
-        _witness_block_state: Option<&WitnessBlockState>,
-        updates_manager: &UpdatesManager,
-    ) -> anyhow::Result<()> {
+    async fn handle_l1_batch(&mut self, updates_manager: &UpdatesManager) -> anyhow::Result<()> {
         let sealed_block_number = updates_manager.miniblock.number;
         self.set_local_block(sealed_block_number);
         Ok(())
