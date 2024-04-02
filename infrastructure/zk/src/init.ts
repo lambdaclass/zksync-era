@@ -154,9 +154,6 @@ export async function validiumSubmoduleCheckout() {
     await utils.exec('cd contracts && git checkout origin/feat_validium_mode');
 }
 
-export async function validiumSubmoduleCheckout() {
-    await utils.exec(`cd contracts && git checkout origin/feat_validium_mode`);
-}
 
 // clone dockprom and zksync-era dashboards
 export async function setupObservability() {
