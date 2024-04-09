@@ -753,3 +753,13 @@ impl RandomConfig for configs::ObservabilityConfig {
         }
     }
 }
+
+impl RandomConfig for configs::BaseTokenFetcherConfig {
+    fn sample(g: &mut Gen<impl Rng>) -> Self {
+        Self {
+            poll_interval: g.gen(),
+            host: g.gen(),
+            token_address: g.gen(),
+        }
+    }
+}

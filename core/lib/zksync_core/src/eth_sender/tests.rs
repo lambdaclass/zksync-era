@@ -24,6 +24,7 @@ use zksync_types::{
 };
 
 use crate::{
+    base_token_fetcher::NoOpConversionRateFetcher,
     eth_sender::{
         aggregated_operations::AggregatedOperation, eth_tx_manager::L1BlockNumbers, Aggregator,
         ETHSenderError, EthTxAggregator, EthTxManager,
@@ -103,6 +104,9 @@ impl EthSenderTester {
         gateway.advance_block_number(Self::WAIT_CONFIRMATIONS);
         let gateway = Arc::new(gateway);
 
+        let oracle = NoOpConversionRateFetcher::new();
+        let oracle = Arc::new(oracle);
+
         let gas_adjuster = Arc::new(
             GasAdjuster::new(
                 gateway.clone(),
@@ -113,6 +117,7 @@ impl EthSenderTester {
                     ..eth_sender_config.gas_adjuster
                 },
                 PubdataSendingMode::Calldata,
+                oracle,
             )
             .await
             .unwrap(),

@@ -23,6 +23,7 @@ use zksync_types::{
 };
 
 use crate::{
+    base_token_fetcher::NoOpConversionRateFetcher,
     fee_model::MainNodeFeeInputProvider,
     genesis::create_genesis_l1_batch,
     l1_gas_price::GasAdjuster,
@@ -65,10 +66,14 @@ impl Tester {
             max_blob_base_fee: None,
         };
 
+        let oracle = NoOpConversionRateFetcher::new();
+        let oracle = Arc::new(oracle);
+
         GasAdjuster::new(
             Arc::new(eth_client),
             gas_adjuster_config,
             PubdataSendingMode::Calldata,
+            oracle,
         )
         .await
         .unwrap()

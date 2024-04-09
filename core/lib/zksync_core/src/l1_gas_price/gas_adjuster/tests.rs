@@ -3,6 +3,8 @@ use std::{collections::VecDeque, sync::Arc};
 use zksync_config::{configs::eth_sender::PubdataSendingMode, GasAdjusterConfig};
 use zksync_eth_client::clients::MockEthereum;
 
+use crate::base_token_fetcher::NoOpConversionRateFetcher;
+
 use super::{GasAdjuster, GasStatisticsInner};
 
 /// Check that we compute the median correctly
@@ -45,6 +47,9 @@ async fn kept_updated() {
     );
     eth_client.advance_block_number(5);
 
+    let oracle = NoOpConversionRateFetcher::new();
+    let oracle = Arc::new(oracle);
+
     let adjuster = GasAdjuster::new(
         eth_client.clone(),
         GasAdjusterConfig {
@@ -61,6 +66,7 @@ async fn kept_updated() {
             max_blob_base_fee: None,
         },
         PubdataSendingMode::Calldata,
+        oracle,
     )
     .await
     .unwrap();

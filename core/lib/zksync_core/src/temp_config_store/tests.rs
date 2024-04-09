@@ -33,6 +33,7 @@ impl testonly::RandomConfig for TempConfigStore {
             gas_adjuster_config: g.gen(),
             object_store_config: g.gen(),
             consensus_config: g.gen(),
+            base_token_fetcher_config: g.gen(),
         }
     }
 }

@@ -10,7 +10,8 @@ use zksync_types::fee_model::FeeModelConfig;
 
 use crate::{
     implementations::resources::{
-        eth_interface::EthInterfaceResource, fee_input::FeeInputResource, conversion_rate_fetcher::ConversionRateFetcherResource
+        conversion_rate_fetcher::ConversionRateFetcherResource,
+        eth_interface::EthInterfaceResource, fee_input::FeeInputResource,
     },
     service::{ServiceContext, StopReceiver},
     task::Task,
@@ -38,8 +39,6 @@ impl SequencerFeeInputLayer {
     }
 }
 
-
-
 #[async_trait::async_trait]
 impl WiringLayer for SequencerFeeInputLayer {
     fn layer_name(&self) -> &'static str {
@@ -48,11 +47,18 @@ impl WiringLayer for SequencerFeeInputLayer {
 
     async fn wire(self: Box<Self>, mut context: ServiceContext<'_>) -> Result<(), WiringError> {
         let client = context.get_resource::<EthInterfaceResource>().await?.0;
-        let conversion_fetcher = context.get_resource::<ConversionRateFetcherResource>().await?.0;
-        let adjuster =
-            GasAdjuster::new(client, self.gas_adjuster_config, self.pubdata_sending_mode, conversion_fetcher)
-                .await
-                .context("GasAdjuster::new()")?;
+        let conversion_fetcher = context
+            .get_resource::<ConversionRateFetcherResource>()
+            .await?
+            .0;
+        let adjuster = GasAdjuster::new(
+            client,
+            self.gas_adjuster_config,
+            self.pubdata_sending_mode,
+            conversion_fetcher,
+        )
+        .await
+        .context("GasAdjuster::new()")?;
         let gas_adjuster = Arc::new(adjuster);
 
         let batch_fee_input_provider = Arc::new(MainNodeFeeInputProvider::new(
