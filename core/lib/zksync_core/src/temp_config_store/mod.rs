@@ -67,7 +67,6 @@ pub struct TempConfigStore {
     pub observability: Option<ObservabilityConfig>,
     pub snapshot_creator: Option<SnapshotsCreatorConfig>,
     pub base_token_fetcher_config: Option<BaseTokenFetcherConfig>,
-
 }
 
 #[derive(Debug)]
@@ -113,8 +112,7 @@ impl TempConfigStore {
             eth: self.eth_sender_config.clone(),
             snapshot_creator: self.snapshot_creator.clone(),
             observability: self.observability.clone(),
-            base_token_fetcher: self
-            .base_token_fetcher_config.clone()
+            base_token_fetcher: self.base_token_fetcher_config.clone(),
         }
     }
 

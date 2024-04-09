@@ -349,7 +349,6 @@ pub async fn initialize_components(
         Arc::new(NoOpConversionRateFetcher::new())
     };
 
-
     let mut task_futures: Vec<JoinHandle<anyhow::Result<()>>> = Vec::new();
     let (stop_sender, stop_receiver) = watch::channel(false);
 
@@ -402,7 +401,6 @@ pub async fn initialize_components(
 
     let (stop_sender, stop_receiver) = watch::channel(false);
 
-
     // Prometheus exporter and circuit breaker checker should run for every component configuration.
     let prom_config = configs
         .prometheus_config
@@ -423,7 +421,7 @@ pub async fn initialize_components(
 
     task_futures.extend(vec![
         prometheus_task,
-        tokio::spawn(circuit_breaker_checker.run(cb_sender, stop_receiver.clone())),
+        tokio::spawn(circuit_breaker_checker.run(stop_receiver.clone())),
     ]);
 
     if components.contains(&Component::WsApi)
