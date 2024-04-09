@@ -6,10 +6,10 @@ use zksync_eth_client::clients::MockEthereum;
 
 use super::{GasAdjuster, GasStatisticsInner, PubdataPricing};
 use crate::{
+    base_token_fetcher::NoOpConversionRateFetcher,
     l1_gas_price::{RollupPubdataPricing, ValidiumPubdataPricing},
     utils::testonly::DeploymentMode,
 };
-use crate::base_token_fetcher::NoOpConversionRateFetcher;
 
 /// Check that we compute the median correctly
 #[test]
