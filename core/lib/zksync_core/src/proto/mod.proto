@@ -2,28 +2,6 @@ syntax = "proto3";
 
 package zksync.core;
 
-import "zksync/config/alerts.proto";
-import "zksync/config/api.proto";
-import "zksync/config/chain.proto";
-import "zksync/config/contracts.proto";
-import "zksync/config/contract_verifier.proto";
-import "zksync/config/database.proto";
-import "zksync/config/eth_client.proto";
-import "zksync/config/eth_sender.proto";
-import "zksync/config/eth_watch.proto";
-import "zksync/config/fri_proof_compressor.proto";
-import "zksync/config/fri_prover_gateway.proto";
-import "zksync/config/fri_prover_group.proto";
-import "zksync/config/fri_prover.proto";
-import "zksync/config/fri_witness_generator.proto";
-import "zksync/config/fri_witness_vector_generator.proto";
-import "zksync/config/house_keeper.proto";
-import "zksync/config/object_store.proto";
-import "zksync/config/observability.proto";
-import "zksync/config/proof_data_handler.proto";
-import "zksync/config/snapshots_creator.proto";
-import "zksync/config/utils.proto";
-import "zksync/config/witness_generator.proto";
 import "zksync/core/consensus.proto";
 import "zksync/config/base_token_fetcher.proto";
 

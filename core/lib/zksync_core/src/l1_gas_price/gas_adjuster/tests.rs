@@ -1,9 +1,14 @@
 use std::{collections::VecDeque, sync::Arc};
 
+use test_casing::test_casing;
 use zksync_config::{configs::eth_sender::PubdataSendingMode, GasAdjusterConfig};
 use zksync_eth_client::clients::MockEthereum;
 
-use super::{GasAdjuster, GasStatisticsInner};
+use super::{GasAdjuster, GasStatisticsInner, PubdataPricing};
+use crate::{
+    l1_gas_price::{RollupPubdataPricing, ValidiumPubdataPricing},
+    utils::testonly::DeploymentMode,
+};
 use crate::base_token_fetcher::NoOpConversionRateFetcher;
 
 /// Check that we compute the median correctly
@@ -28,8 +33,9 @@ fn samples_queue() {
 }
 
 /// Check that we properly fetch base fees as block are mined
+#[test_casing(2, [DeploymentMode::Rollup, DeploymentMode::Validium])]
 #[tokio::test]
-async fn kept_updated() {
+async fn kept_updated(deployment_mode: DeploymentMode) {
     let eth_client = Arc::new(
         MockEthereum::default()
             .with_fee_history(vec![0, 4, 6, 8, 7, 5, 5, 8, 10, 9])
@@ -49,6 +55,11 @@ async fn kept_updated() {
     let oracle = NoOpConversionRateFetcher::new();
     let oracle = Arc::new(oracle);
 
+    let pubdata_pricing: Arc<dyn PubdataPricing> = match deployment_mode {
+        DeploymentMode::Validium => Arc::new(ValidiumPubdataPricing {}),
+        DeploymentMode::Rollup => Arc::new(RollupPubdataPricing {}),
+    };
+
     let adjuster = GasAdjuster::new(
         eth_client.clone(),
         GasAdjusterConfig {
@@ -66,6 +77,7 @@ async fn kept_updated() {
         },
         PubdataSendingMode::Calldata,
         oracle,
+        pubdata_pricing,
     )
     .await
     .unwrap();
