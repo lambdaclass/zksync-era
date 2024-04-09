@@ -3,9 +3,8 @@ use std::{collections::VecDeque, sync::Arc};
 use zksync_config::{configs::eth_sender::PubdataSendingMode, GasAdjusterConfig};
 use zksync_eth_client::clients::MockEthereum;
 
-use crate::base_token_fetcher::NoOpConversionRateFetcher;
-
 use super::{GasAdjuster, GasStatisticsInner};
+use crate::base_token_fetcher::NoOpConversionRateFetcher;
 
 /// Check that we compute the median correctly
 #[test]
