@@ -2316,18 +2316,21 @@ fn test_basic_create_vectors() {
             vec![
                 // push32
                 hex::decode("7F").unwrap(),
-                hex::decode("6080604052348015600e575f80fd5b50603e80601a5f395ff3fe60806040525f").unwrap(),
+                hex::decode("6080604052348015600e575f80fd5b50603e80601a5f395ff3fe60806040525f")
+                    .unwrap(),
                 // push0
                 hex::decode("5F").unwrap(),
                 // push32
                 hex::decode("7F").unwrap(),
-                hex::decode("80fdfea264697066735822122070e77c564e632657f44e4b3cb2d5d4f74255fc").unwrap(),
+                hex::decode("80fdfea264697066735822122070e77c564e632657f44e4b3cb2d5d4f74255fc")
+                    .unwrap(),
                 // push1 32
                 hex::decode("60").unwrap(),
                 hex::decode("20").unwrap(),
                 // push32
                 hex::decode("7F").unwrap(),
-                hex::decode("64ca5fae813eb74275609e61e364736f6c634300081900330000000000000000").unwrap(),
+                hex::decode("64ca5fae813eb74275609e61e364736f6c634300081900330000000000000000")
+                    .unwrap(),
                 // push1 64
                 hex::decode("60").unwrap(),
                 hex::decode("40").unwrap(),
@@ -2350,6 +2353,64 @@ fn test_basic_create_vectors() {
         ),
         0.into()
     );
+}
+
+#[test]
+fn test_basic_call_vectors() {
+    // Testing with:
+    // function decimals() external pure override returns (uint8) {
+    //    return 18;
+    // }
+    // from L2EthToken.sol
+
+    let evm_output = test_evm_vector(
+        vec![
+            // push4 funcsel
+            hex::decode("63").unwrap(),
+            hex::decode("313ce567").unwrap(), // func selector
+            // push0
+            hex::decode("5F").unwrap(),
+            // mstore
+            hex::decode("52").unwrap(),
+            // mem[0] = funcsel
+            // push1 retSize
+            hex::decode("60").unwrap(),
+            hex::decode("20").unwrap(),
+            // push1 retOff
+            hex::decode("60").unwrap(),
+            hex::decode("20").unwrap(),
+            // push1 argSize 4bytes
+            hex::decode("60").unwrap(),
+            hex::decode("04").unwrap(),
+            // push1 argOff
+            hex::decode("60").unwrap(),
+            hex::decode("1C").unwrap(),
+            // push0 value
+            hex::decode("5F").unwrap(),
+            // push32 token_contract
+            hex::decode("7F").unwrap(),
+            hex::decode("000000000000000000000000000000000000000000000000000000000000800A")
+                .unwrap(),
+            // push4 gas
+            hex::decode("63").unwrap(),
+            hex::decode("FFFFFFFF").unwrap(),
+            // call
+            hex::decode("F1").unwrap(),
+            // push1 memOffset
+            hex::decode("60").unwrap(),
+            hex::decode("20").unwrap(),
+            // mload
+            hex::decode("51").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // sstore
+            hex::decode("55").unwrap(),
+        ]
+        .into_iter()
+        .concat(),
+    );
+    println!("{:?}", evm_output);
+    assert_eq!(evm_output, 18u32.into());
 }
 
 fn assert_deployed_hash<H: HistoryMode>(
