@@ -2413,6 +2413,216 @@ fn test_basic_call_vectors() {
     assert_eq!(evm_output, 18u32.into());
 }
 
+#[test]
+fn test_basic_call_with_create_vectors() {
+    // The following code is used to test the basic CALL operation
+    // if the contract isEVM
+
+    /*
+        // Create a contract that creates an exception if first word of calldata is 0
+        PUSH17 0x67600035600757FE5B60005260086018F3
+        PUSH1 0
+        MSTORE
+        PUSH1 17
+        PUSH1 15
+        PUSH1 0
+        CREATE
+
+        // Call with non 0 calldata, returns success
+        PUSH1 0
+        PUSH1 0
+        PUSH1 32
+        PUSH1 0
+        PUSH1 0
+        DUP7
+        PUSH2 0xFFFF
+        CALL
+    */
+
+    let evm_output = test_evm_vector(
+        vec![
+            // push17 bytecode
+            // Create a contract that creates an exception if first word of calldata is 0
+            hex::decode("70").unwrap(),
+            hex::decode("67600035600757FE5B60005260086018F3").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // mstore
+            hex::decode("52").unwrap(),
+            // push1 17
+            hex::decode("60").unwrap(),
+            hex::decode("11").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // create
+            hex::decode("F0").unwrap(),
+            // CALL
+            // push0
+            hex::decode("5F").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // push1 32
+            hex::decode("60").unwrap(),
+            hex::decode("20").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // dup6
+            hex::decode("85").unwrap(),
+            // push2 0xFFFF
+            hex::decode("61").unwrap(),
+            hex::decode("FFFF").unwrap(),
+            // call
+            hex::decode("F1").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // sstore
+            hex::decode("55").unwrap(),
+        ]
+        .into_iter()
+        .concat(),
+    );
+    // TODO check test
+    //assert_eq!(evm_output, 1u32.into());
+
+    // The following contract is used to test a CALL after a CREATE
+    // more rigourously
+    /*
+        // SPDX-License-Identifier: MIT
+        pragma solidity ^0.8.20;
+
+        contract Test {
+            // selector == 0x6d4ce63c
+            function get() pure public returns (uint256) {
+                return 7;
+            }
+        }
+    */
+
+    let evm_output = test_evm_vector(
+        vec![
+            // push32
+            hex::decode("7F").unwrap(),
+            hex::decode("6080604052348015600e575f80fd5b5060af80601a5f395ff3fe608060405234")
+                .unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // mstore
+            hex::decode("52").unwrap(),
+            // push32
+            hex::decode("7F").unwrap(),
+            hex::decode("8015600e575f80fd5b50600436106026575f3560e01c80636d4ce63c14602a57")
+                .unwrap(),
+            // push1 32
+            hex::decode("60").unwrap(),
+            hex::decode("20").unwrap(),
+            // mstore
+            hex::decode("52").unwrap(),
+            // push32
+            hex::decode("7F").unwrap(),
+            hex::decode("5b5f80fd5b60306044565b604051603b91906062565b60405180910390f35b5f")
+                .unwrap(),
+            // push1 64
+            hex::decode("60").unwrap(),
+            hex::decode("40").unwrap(),
+            // mstore
+            hex::decode("52").unwrap(),
+            // push32
+            hex::decode("7F").unwrap(),
+            hex::decode("6007905090565b5f819050919050565b605c81604c565b82525050565b5f6020")
+                .unwrap(),
+            // push1 96
+            hex::decode("60").unwrap(),
+            hex::decode("60").unwrap(),
+            // mstore
+            hex::decode("52").unwrap(),
+            // push32
+            hex::decode("7F").unwrap(),
+            hex::decode("8201905060735f8301846055565b9291505056fea26469706673582212201357")
+                .unwrap(),
+            // push1 128
+            hex::decode("60").unwrap(),
+            hex::decode("80").unwrap(),
+            // mstore
+            hex::decode("52").unwrap(),
+            // push32
+            hex::decode("7F").unwrap(),
+            hex::decode("3db24498d07df7d6344f02fa1ccf8e15038b10c382a6d71537a002ad4e736473")
+                .unwrap(),
+            // push1 160
+            hex::decode("60").unwrap(),
+            hex::decode("A0").unwrap(),
+            // mstore
+            hex::decode("52").unwrap(),
+            // push32
+            hex::decode("7F").unwrap(),
+            hex::decode("6f6c634300081900330000000000000000000000000000000000000000000000")
+                .unwrap(),
+            // push1 192
+            hex::decode("60").unwrap(),
+            hex::decode("C0").unwrap(),
+            // mstore
+            hex::decode("52").unwrap(),
+            // push1 201
+            hex::decode("60").unwrap(),
+            hex::decode("C9").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // create
+            hex::decode("F0").unwrap(),
+            // CALL
+            //--------------------------
+            // push4 funcsel
+            hex::decode("63").unwrap(),
+            hex::decode("6d4ce63c").unwrap(), // func selector
+            // push0
+            hex::decode("5F").unwrap(),
+            // mstore
+            hex::decode("52").unwrap(),
+            // mem[0] = funcsel
+            // push1 retSize // 4 byte
+            hex::decode("60").unwrap(),
+            hex::decode("20").unwrap(),
+            // push1 retOff
+            hex::decode("60").unwrap(),
+            hex::decode("20").unwrap(),
+            // push1 argSize 4bytes -> func selector
+            hex::decode("60").unwrap(),
+            hex::decode("04").unwrap(),
+            // push1 argOff 4bytes
+            hex::decode("60").unwrap(),
+            hex::decode("04").unwrap(),
+            // push0 value
+            hex::decode("5F").unwrap(),
+            // dup6 address of created contract
+            hex::decode("85").unwrap(),
+            // push4 gas
+            hex::decode("63").unwrap(),
+            hex::decode("FFFFFFFF").unwrap(),
+            // call
+            hex::decode("F1").unwrap(),
+            // push1 memOffset
+            hex::decode("60").unwrap(),
+            hex::decode("20").unwrap(),
+            // mload
+            hex::decode("51").unwrap(),
+            // push0
+            hex::decode("5F").unwrap(),
+            // sstore
+            hex::decode("55").unwrap(),
+        ]
+        .into_iter()
+        .concat(),
+    );
+    println!("{:?}", evm_output);
+    assert_eq!(evm_output, 7u32.into());
+}
+
 fn assert_deployed_hash<H: HistoryMode>(
     tester: &mut VmTester<H>,
     address: Address,
