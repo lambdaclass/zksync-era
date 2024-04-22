@@ -89,5 +89,4 @@ hyperchain-*.yml
 /etc/hyperchains/prover-keys
 /etc/hyperchains/artifacts
 
-# Da manager related
-da_manager_example/da_manager_venv
+
