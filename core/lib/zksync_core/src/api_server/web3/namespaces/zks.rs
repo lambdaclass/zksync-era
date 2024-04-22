@@ -557,6 +557,8 @@ impl ZksNamespace {
             .unwrap()
             .map(|l1_batch_with_metadata| l1_batch_with_metadata.construct_pubdata().into());
 
+        tracing::info!("Pubdata: {:?}", pubdata);
+
         // method_latency.observe();
         Ok(pubdata)
     }

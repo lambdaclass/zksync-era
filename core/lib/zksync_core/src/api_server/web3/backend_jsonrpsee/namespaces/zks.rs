@@ -169,6 +169,10 @@ impl ZksNamespaceServer for ZksNamespace {
     }
 
     async fn get_batch_pubdata(&self, l1_batch_number: L1BatchNumber) -> RpcResult<Option<Bytes>> {
+        tracing::info!(
+            "Called get_batch_pubdata endpoint with batch number: {:?}",
+            l1_batch_number
+        );
         self.get_batch_pubdata_impl(l1_batch_number)
             .await
             .map_err(|err| self.current_method().map_err(err))

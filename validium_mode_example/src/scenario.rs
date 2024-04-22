@@ -5,7 +5,7 @@ use ethers::{
     abi::Hash,
     providers::{Http, Provider},
 };
-use zksync_types::U64;
+use zksync_types::{web3::transports::batch, U64};
 use zksync_web3_rs::zks_provider::ZKSProvider;
 
 use crate::helpers::{self, BatchData, L1TxData, TxType};
@@ -38,6 +38,8 @@ impl ScenarioData {
                 .unwrap()
                 .unwrap();
 
+            println!("Batch number: {}", batch_number.as_u64());
+
             let batch_details = {
                 while signer_middleware
                     .get_l1_batch_details(batch_number.as_u64())
@@ -51,6 +53,7 @@ impl ScenarioData {
                     .await
                     .unwrap()
             };
+            print!("Batch details: {:?}", batch_details);
 
             batches_data
                 .entry(batch_number)
@@ -135,8 +138,8 @@ pub async fn run(accounts_count: usize, txs_per_account: usize, txs_kind: helper
     )
     .await;
 
-    for (_batch_number, batch_data) in data.0.iter() {
-        println!("{batch_data}");
+    for (batch_number, batch_data) in data.0.iter() {
+        println!("{batch_number}, {batch_data}");
     }
 }
 
