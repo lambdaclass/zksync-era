@@ -151,7 +151,7 @@ export async function submoduleUpdate() {
 }
 
 export async function validiumSubmoduleCheckout() {
-    await utils.exec('cd contracts && git checkout origin/feat_validium_mode');
+    await utils.exec('cd contracts && git checkout d9b01ea45ba19656ad955e7936ff349305f15bcf');
 }
 
 
