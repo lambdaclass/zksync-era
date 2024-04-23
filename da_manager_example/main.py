@@ -23,8 +23,8 @@ def main():
         starting_batch_id = len(stored_pubdata.keys()) + 1
         print(f"Starting from batch #{starting_batch_id}")
         while True:
-            l1_batch_pubdata: list = get_batch_pubdata(L2_URL, starting_batch_id)
-            if len(l1_batch_pubdata) == 0:
+            l1_batch_pubdata: str = get_batch_pubdata(L2_URL, starting_batch_id)
+            if l1_batch_pubdata == "0x":
                 print(f"Failed to get batch #{starting_batch_id} pubdata")
                 print("Retrying in 60 seconds")
                 time.sleep(60)

@@ -29,7 +29,7 @@ use zksync_web3_decl::{
 
 use crate::api_server::{
     tree::TreeApiError,
-    web3::{backend_jsonrpsee::MethodTracer, metrics::API_METRICS, RpcState},
+    web3::{backend_jsonrpsee::MethodTracer, RpcState},
 };
 
 #[derive(Debug)]
@@ -545,8 +545,6 @@ impl ZksNamespace {
         &self,
         l1_batch_number: L1BatchNumber,
     ) -> Result<Option<Bytes>, Web3Error> {
-        const METHOD_NAME: &str = "get_batch_pubdata";
-
         // let method_latency = API_METRICS.start_call(METHOD_NAME);
         self.state.start_info.ensure_not_pruned(l1_batch_number)?;
         let mut storage = self.connection().await?;
@@ -558,7 +556,10 @@ impl ZksNamespace {
             .map(|l1_batch_with_metadata| l1_batch_with_metadata.construct_pubdata().into());
 
         tracing::info!("Pubdata: {:?}", pubdata);
-
+        if pubdata == None {
+            tracing::warn!("Pubdata is not found for batch number: {}", l1_batch_number);
+            return Ok(Some(Bytes::default()));
+        }
         // method_latency.observe();
         Ok(pubdata)
     }

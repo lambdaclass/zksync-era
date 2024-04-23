@@ -5,7 +5,7 @@ use ethers::{
     abi::Hash,
     providers::{Http, Provider},
 };
-use zksync_types::{web3::transports::batch, U64};
+use zksync_types::U64;
 use zksync_web3_rs::zks_provider::ZKSProvider;
 
 use crate::helpers::{self, BatchData, L1TxData, TxType};
