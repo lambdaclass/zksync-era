@@ -3,7 +3,7 @@ import json
 import time
 
 L2_URL = 'http://localhost:3050'
-DB_PATH = 'da_manager_example/data/pubdata_storage.json'
+DB_PATH = '/Users/toni-calvin/lambda/zksync-era/da_manager_example/data/pubdata_storage.json'
 
 def get_batch_pubdata(url, batch_number):
     headers = {"Content-Type": "application/json"}
