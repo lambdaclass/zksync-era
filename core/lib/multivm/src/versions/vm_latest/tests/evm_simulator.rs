@@ -23,7 +23,7 @@ use zksync_types::{
     get_known_code_key,
     utils::{deployed_address_evm_create, deployed_address_evm_create2},
     web3::signing::keccak256,
-    AccountTreeId, Address, Execute, StorageKey, H256, U256,
+    AccountTreeId, Address, Execute, K256PrivateKey, StorageKey, H256, U256,
 };
 use zksync_utils::{
     address_to_h256, bytecode::hash_bytecode, bytes_to_be_words, h256_to_u256, u256_to_h256,
@@ -104,7 +104,8 @@ fn test_evm_vector(mut bytecode: Vec<u8>) -> U256 {
 
     // private_key: 0x9e0eee403c6b5963458646fa1b7b3f3c4784138558f9036b0db3435501f2ec6d
     // address: 0x2140b400689a5dd09c34815958d10affd467f66c
-    let rich_account: Account = Account::new(H256::from_str(TEST_RICH_PK).unwrap());
+    let rich_account: Account =
+        Account::new(K256PrivateKey::from_bytes(H256::from_str(TEST_RICH_PK).unwrap()).unwrap());
 
     let mut vm = VmTesterBuilder::new(HistoryEnabled)
         .with_storage(storage)
