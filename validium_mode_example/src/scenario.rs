@@ -265,11 +265,17 @@ pub async fn basic() {
     let l1_provider = helpers::l1_provider();
     let l2_provider = helpers::l2_provider();
     let main_wallet = Arc::new(helpers::zks_wallet(&l1_provider, &l2_provider).await);
-
-    let account =
-        helpers::create_funded_account(&l1_provider, &l2_provider, main_wallet.clone()).await;
-
+    let balance = main_wallet.era_balance().await.unwrap().to_string();
+    println!("Balance = {}", format!("{}", balance).bright_red().bold());
+    let account = main_wallet.clone();
+    println!(
+        "Balance account funded = {}",
+        format!("{}", account.era_balance().await.unwrap().to_string())
+            .bright_red()
+            .bold()
+    );
     let deploy_receipt = helpers::deploy_erc20(account.clone()).await;
+    let second_deploy_receipt = helpers::deploy_erc20(account.clone()).await;
     let erc20_address = deploy_receipt.contract_address.unwrap();
     let mint_receipt = helpers::mint_erc20(account.clone(), erc20_address).await;
     let transfer_receipt = helpers::transfer_erc20(account.clone(), erc20_address).await;
@@ -279,6 +285,14 @@ pub async fn basic() {
         format!(
             "Deploy L2 tx gas used: {}",
             deploy_receipt.gas_used.unwrap()
+        )
+        .bright_yellow()
+    );
+    println!(
+        "{}",
+        format!(
+            "Second deploy L2 tx gas used: {}",
+            second_deploy_receipt.gas_used.unwrap()
         )
         .bright_yellow()
     );
