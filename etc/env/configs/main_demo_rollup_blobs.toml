@@ -1,0 +1,15 @@
+__imports__ = [ "base", "l1-inits/.init.env", "l2-inits/main_demo_rollup_blobs.init.env" ]
+
+[chain.state_keeper]
+transaction_slots=5000
+block_commit_deadline_ms=1800000
+max_pubdata_per_batch=240000
+
+[eth_sender.gas_adjuster]
+internal_enforced_l1_gas_price=45000000000
+
+[eth_sender.sender]
+pubdata_sending_mode="Blobs"
+
+[_metadata]
+base = ["dev.toml"]
