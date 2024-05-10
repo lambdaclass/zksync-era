@@ -34,7 +34,8 @@ enum ProverCommand {
     #[command(subcommand)]
     Status(commands::StatusCommand),
     Requeue(requeue::Args),
-    Restart(restart::Args),
+    #[command(subcommand)]
+    Restart(commands::RestartCommand),
 }
 
 pub async fn start() -> anyhow::Result<()> {
@@ -45,7 +46,7 @@ pub async fn start() -> anyhow::Result<()> {
         ProverCommand::Delete(args) => delete::run(args).await?,
         ProverCommand::Status(cmd) => cmd.run(config).await?,
         ProverCommand::Requeue(args) => requeue::run(args, config).await?,
-        ProverCommand::Restart(args) => restart::run(args).await?,
+        ProverCommand::Restart(cmd) => cmd.run().await?,
         ProverCommand::DebugProof(args) => debug_proof::run(args).await?,
     };
 
