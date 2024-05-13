@@ -102,5 +102,6 @@ hyperchain-*.yml
 # Prover keys that should not be commited
 prover/vk_setup_data_generator_server_fri/data/setup_*
 
-# Virtual environment for DA Manager
+# DA Manager
 da_manager_example/venv
+da_manager_example/data
