@@ -57,6 +57,7 @@ Cargo.lock
 !/etc/env/ext-node-docker.toml
 !/etc/env/ext-node-validium.toml
 !/etc/env/*.yaml
+!/etc/env/*.env
 !/etc/env/ext-node-validium-docker.toml
 /etc/tokens/localhost.json
 /etc/zksolc-bin/*
@@ -100,3 +101,6 @@ hyperchain-*.yml
 
 # Prover keys that should not be commited
 prover/vk_setup_data_generator_server_fri/data/setup_*
+
+# Virtual environment for DA Manager
+da_manager_example/venv
