@@ -563,4 +563,24 @@ impl ZksNamespace {
             err.into()
         })
     }
+
+    #[tracing::instrument(skip(self))]
+    pub async fn get_batch_pubdata_impl(
+        &self,
+        l1_batch_number: L1BatchNumber,
+    ) -> Result<Vec<u8>, Web3Error> {
+        let mut storage = self.state.acquire_connection().await?;
+        self.state
+            .start_info
+            .ensure_not_pruned(l1_batch_number, &mut storage)
+            .await?;
+        let pubdata = storage
+            .blocks_dal()
+            .get_batch_pubdata(l1_batch_number)
+            .await
+            .map_err(|_err| Web3Error::PubdataNotFound)?
+            .unwrap_or_default();
+
+        Ok(pubdata)
+    }
 }

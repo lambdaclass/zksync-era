@@ -130,4 +130,7 @@ pub trait ZksNamespace {
         &self,
         tx_bytes: Bytes,
     ) -> RpcResult<TransactionDetailedResult>;
+
+    #[method(name = "getBatchPubdata")]
+    async fn get_batch_pubdata(&self, l1_batch_number: L1BatchNumber) -> RpcResult<Vec<u8>>;
 }

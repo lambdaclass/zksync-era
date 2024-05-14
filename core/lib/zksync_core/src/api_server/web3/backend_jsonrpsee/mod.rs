@@ -44,6 +44,7 @@ impl MethodTracer {
             | Web3Error::SerializationError(_)
             | Web3Error::ProxyError(_) => 3,
             Web3Error::TreeApiUnavailable => 6,
+            Web3Error::PubdataNotFound => 7,
         };
         let message = match err {
             // Do not expose internal error details to the client.

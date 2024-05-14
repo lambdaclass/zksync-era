@@ -17,7 +17,7 @@ use zksync_types::{
     block::{BlockGasCount, L1BatchHeader, L1BatchTreeData, L2BlockHeader, StorageOracleInfo},
     circuit::CircuitStatistic,
     commitment::{L1BatchCommitmentArtifacts, L1BatchWithMetadata},
-    Address, L1BatchNumber, L2BlockNumber, ProtocolVersionId, H256, U256,
+    utils, Address, L1BatchNumber, L2BlockNumber, ProtocolVersionId, H256, U256,
 };
 
 use crate::{
@@ -2229,6 +2229,21 @@ impl BlocksDal<'_, '_> {
         self.delete_initial_writes_inner(None).await?;
         self.delete_logs_inner().await?;
         Ok(())
+    }
+
+    pub async fn get_batch_pubdata(
+        &mut self,
+        l1_batch_number: L1BatchNumber,
+    ) -> anyhow::Result<Option<Vec<u8>>> {
+        let Some(l1_batch_with_metadata) = self
+            .get_l1_batch_metadata(l1_batch_number)
+            .await
+            .context("L1 batch pubdata not found: get_l1_batch_metadata()")?
+        else {
+            return Ok(None);
+        };
+
+        Ok(Some(utils::construct_pubdata(&l1_batch_with_metadata)))
     }
 }
 

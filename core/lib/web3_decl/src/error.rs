@@ -44,6 +44,8 @@ pub enum Web3Error {
 
     #[error("Tree API is not available")]
     TreeApiUnavailable,
+    #[error("Pubdata not found for given batch id")]
+    PubdataNotFound,
     #[error("Internal error")]
     InternalError(#[from] anyhow::Error),
 }
