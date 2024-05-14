@@ -92,7 +92,7 @@ describe('ERC20 contract checks', () => {
     });
 
     test('Incorrect transfer should revert', async () => {
-        const value = etherUtils.parseEther('1000000.0');
+        const value = etherUtils.parseEther('1000000000000000000000.0');
 
         // Since gas estimation is expected to fail, we request gas limit for similar non-failing tx.
         const gasLimit = await aliceErc20.estimateGas.transfer(bob.address, 1);

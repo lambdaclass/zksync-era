@@ -114,7 +114,7 @@ describe('base ERC20 contract checks', () => {
     });
 
     test('Incorrect transfer should revert', async () => {
-        const amount = etherUtils.parseEther('1000000.0');
+        const amount = etherUtils.parseEther('10000000000000000.0');
 
         const initialAliceBalance = await alice.getBalance();
         const initialBobBalance = await bob.getBalance();

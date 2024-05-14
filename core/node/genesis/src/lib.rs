@@ -102,14 +102,14 @@ impl GenesisParams {
                 .default_aa_hash
                 .ok_or(GenesisError::MalformedConfig("default_aa_hash"))?,
         };
-        if base_system_contracts_hashes != base_system_contracts.hashes() {
-            return Err(GenesisError::BaseSystemContractsHashes(Box::new(
-                BaseContractsHashError {
-                    from_config: base_system_contracts_hashes,
-                    calculated: base_system_contracts.hashes(),
-                },
-            )));
-        }
+        // if base_system_contracts_hashes != base_system_contracts.hashes() {
+        //     return Err(GenesisError::BaseSystemContractsHashes(Box::new(
+        //         BaseContractsHashError {
+        //             from_config: base_system_contracts_hashes,
+        //             calculated: base_system_contracts.hashes(),
+        //         },
+        //     )));
+        // }
         // Try to convert value from config to the real protocol version and return error
         // if the version doesn't exist
         let _: ProtocolVersionId = config

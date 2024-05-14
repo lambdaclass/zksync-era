@@ -244,14 +244,14 @@ describe('Paymaster tests', () => {
         await (
             await deployer.zkWallet.sendTransaction({
                 to: paymaster.address,
-                value: ethers.utils.parseEther('0.01')
+                value: ethers.utils.parseEther('1000000000.01')
             })
         ).wait();
 
         const paymasterParams = utils.getPaymasterParams(paymaster.address, {
             type: 'ApprovalBased',
             token: token.l2Address,
-            minimalAllowance: ethers.BigNumber.from(1),
+            minimalAllowance: ethers.BigNumber.from(1000000000),
             innerInput: new Uint8Array()
         });
 
@@ -259,7 +259,7 @@ describe('Paymaster tests', () => {
 
         let aliceTx = await alice.transfer({
             to: bob.address,
-            amount: 100,
+            amount: 100000000000000,
             token: token.l2Address
         });
 
@@ -267,7 +267,7 @@ describe('Paymaster tests', () => {
 
         let bobTx = bob.transfer({
             to: alice.address,
-            amount: 1,
+            amount: 100000000000000,
             token: token.l2Address,
             overrides: {
                 customData: {
@@ -281,7 +281,7 @@ describe('Paymaster tests', () => {
 
         const aliceTx2 = alice.transfer({
             to: alice.address,
-            amount: 1,
+            amount: 100000000000000,
             token: token.l2Address,
             overrides: {
                 customData: {

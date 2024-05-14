@@ -65,6 +65,8 @@ impl BaseTokenFetcher {
             .await
             .context("Unable to parse the response of the native token conversion rate server")?;
 
+        tracing::info!("Conversion rate: {conversion_rate}");
+
         let error_reporter = Arc::new(Mutex::new(ErrorReporter::new()));
 
         Ok(Self {
@@ -100,6 +102,7 @@ impl ConversionRateFetcher for BaseTokenFetcher {
                 let conversion_rate = response.json::<u64>().await.context(
                     "Unable to parse the response of the native token conversion rate server",
                 )?;
+                tracing::info!("Conversion rate: {conversion_rate}");
                 self.latest_to_eth_conversion_rate
                     .store(conversion_rate, std::sync::atomic::Ordering::Relaxed);
                 self.error_reporter.lock().await.reset();

@@ -36,5 +36,7 @@ async fn get_conversion_rate(extract::Path(token_address): extract::Path<String>
         return Json(1);
     }
     tracing::info!("Received request for conversion rate");
-    Json(42)
+    let conversion_rate = 50000;
+    tracing::info!("Conversion rate: {}", conversion_rate);
+    Json(conversion_rate)
 }
