@@ -15,7 +15,7 @@ zksync_dal.workspace = true
 zksync_protobuf_config.workspace = true
 vlog.workspace = true
 metrics.workspace = true
-
+num = "0.4.3"
 tokio = { workspace = true, features = ["time"] }
 anyhow.workspace = true
 async-trait.workspace = true

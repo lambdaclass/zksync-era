@@ -6,10 +6,10 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use num::{rational::Ratio, BigInt};
 use tokio::sync::watch;
 use zksync_base_token_fetcher::ConversionRateFetcher;
 use zksync_config::{configs::eth_sender::PubdataSendingMode, GasAdjusterConfig};
-use zksync_dal::BigDecimal;
 use zksync_eth_client::{Error, EthInterface};
 use zksync_types::{commitment::L1BatchCommitmentMode, L1_GAS_PER_PUBDATA_BYTE, U256, U64};
 
@@ -181,18 +181,10 @@ impl GasAdjuster {
         let conversion_rate = self
             .base_token_fetcher
             .conversion_rate()
-            .unwrap_or(BigDecimal::from(1));
-        let bound_gas_price = BigDecimal::from(self.bound_gas_price(calculated_price));
+            .unwrap_or(Ratio::from(BigInt::from(1)));
+        let bound_gas_price = Ratio::from(BigInt::from(self.bound_gas_price(calculated_price)));
 
-        U256::from_dec_str(
-            &match (conversion_rate * bound_gas_price).round(0) {
-                zero if zero == BigDecimal::from(0) => BigDecimal::from(1),
-                val => val,
-            }
-            .to_string(),
-        )
-        .unwrap()
-        .as_u64()
+        u64::from_str_radix(&(conversion_rate * bound_gas_price).floor().to_string(), 10).unwrap()
     }
 
     pub(crate) fn estimate_effective_pubdata_price(&self) -> u64 {

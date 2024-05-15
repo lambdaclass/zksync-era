@@ -20,6 +20,7 @@ zksync_web3_decl = { workspace = true, features = ["client"] }
 zksync_base_token_fetcher.workspace = true
 
 tokio = { workspace = true, features = ["time"] }
+num = "0.4.0"
 anyhow.workspace = true
 async-trait.workspace = true
 tracing.workspace = true

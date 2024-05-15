@@ -5,9 +5,9 @@ use axum::{
     routing::get,
     Router,
 };
+use num::{rational::Ratio, BigInt};
 use tokio::sync::watch;
 use zksync_config::configs::base_token_fetcher::BaseTokenFetcherConfig;
-use zksync_dal::BigDecimal;
 
 pub(crate) async fn run_server(
     mut stop_receiver: watch::Receiver<bool>,
@@ -40,8 +40,10 @@ async fn get_conversion_rate(extract::Path(token_address): extract::Path<String>
     if token_address == "0x0000000000000000000000000000000000000000"
         || token_address == "0x0000000000000000000000000000000000000001"
     {
-        return Json(BigDecimal::from(1).to_string());
+        return Json(Ratio::<BigInt>::from_str("1").unwrap().to_string());
     }
+
     tracing::info!("Received request for conversion rate");
-    Json(BigDecimal::from_str("42.5").unwrap().to_string())
+    let conv_rate: Ratio<BigInt> = Ratio::from_str("42/5").unwrap();
+    Json(conv_rate.to_string())
 }

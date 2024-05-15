@@ -74,6 +74,7 @@ itertools.workspace = true
 ctrlc.workspace = true
 rand.workspace = true
 
+num = "0.4.3"
 tokio = { workspace = true, features = ["time"] }
 futures = { workspace = true, features = ["compat"] }
 pin-project-lite.workspace = true

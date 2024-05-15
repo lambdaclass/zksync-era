@@ -8,9 +8,9 @@ use std::{
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use hex::ToHex;
+use num::{rational::Ratio, BigInt};
 use tokio::{sync::Mutex, time::sleep};
 use zksync_config::configs::BaseTokenFetcherConfig;
-use zksync_dal::BigDecimal;
 
 const MAX_CONVERSION_RATE_FETCH_RETRIES: u8 = 10;
 
@@ -18,7 +18,7 @@ const MAX_CONVERSION_RATE_FETCH_RETRIES: u8 = 10;
 /// determine gas prices, as they partially depend on L1 gas prices, denominated in `eth`.
 #[async_trait]
 pub trait ConversionRateFetcher: 'static + std::fmt::Debug + Send + Sync {
-    fn conversion_rate(&self) -> anyhow::Result<BigDecimal>;
+    fn conversion_rate(&self) -> anyhow::Result<Ratio<BigInt>>;
     async fn update(&self) -> anyhow::Result<()>;
 }
 
@@ -37,8 +37,8 @@ impl NoOpConversionRateFetcher {
 
 #[async_trait]
 impl ConversionRateFetcher for NoOpConversionRateFetcher {
-    fn conversion_rate(&self) -> anyhow::Result<BigDecimal> {
-        Ok(BigDecimal::from(1))
+    fn conversion_rate(&self) -> anyhow::Result<Ratio<BigInt>> {
+        Ok(Ratio::new(BigInt::from(1), BigInt::from(1)))
     }
 
     async fn update(&self) -> anyhow::Result<()> {
@@ -51,7 +51,7 @@ impl ConversionRateFetcher for NoOpConversionRateFetcher {
 #[derive(Debug)]
 pub struct BaseTokenFetcher {
     pub config: BaseTokenFetcherConfig,
-    pub latest_to_eth_conversion_rate: Arc<StdMutex<BigDecimal>>,
+    pub latest_to_eth_conversion_rate: Arc<StdMutex<Ratio<BigInt>>>,
     http_client: reqwest::Client,
     error_reporter: Arc<Mutex<ErrorReporter>>,
 }
@@ -71,7 +71,7 @@ impl BaseTokenFetcher {
             .json::<String>()
             .await
             .context("Unable to parse the response of the native token conversion rate server")?;
-        let conversion_rate = BigDecimal::from_str(&conversion_rate_str)
+        let conversion_rate = Ratio::from_str(&conversion_rate_str)
             .context("Unable to parse the response of the native token conversion rate server")?;
 
         let error_reporter = Arc::new(Mutex::new(ErrorReporter::new()));
@@ -114,7 +114,7 @@ impl BaseTokenFetcher {
 
         let conversion_rate = conversion_rate_str
             .ok_or_else(|| anyhow::anyhow!("Failed to fetch the native token conversion rate"))?;
-        let conversion_rate = BigDecimal::from_str(&conversion_rate)
+        let conversion_rate = Ratio::from_str(&conversion_rate)
             .context("Unable to parse the response of the native token conversion rate server")?;
         let error_reporter = Arc::new(Mutex::new(ErrorReporter::new()));
         Ok(Self {
@@ -128,7 +128,7 @@ impl BaseTokenFetcher {
 
 #[async_trait]
 impl ConversionRateFetcher for BaseTokenFetcher {
-    fn conversion_rate(&self) -> anyhow::Result<BigDecimal> {
+    fn conversion_rate(&self) -> anyhow::Result<Ratio<BigInt>> {
         let lock = match self.latest_to_eth_conversion_rate.lock() {
             Ok(lock) => lock,
             Err(err) => {
@@ -162,7 +162,7 @@ impl ConversionRateFetcher for BaseTokenFetcher {
                 )?;
                 match self.latest_to_eth_conversion_rate.lock() {
                     Ok(mut lock) => {
-                        *lock = BigDecimal::from_str(&conversion_rate_str).context(
+                        *lock = Ratio::from_str(&conversion_rate_str).context(
                             "Unable to parse the response of the native token conversion rate server",
                         )?;
                     }
