@@ -10,7 +10,6 @@ def get_batch_pubdata(url, batch_number):
     headers = {"Content-Type": "application/json"}
     data = {"jsonrpc": "2.0", "id": 1, "method": "zks_getBatchPubdata", "params": [batch_number]}
     response = requests.post(url, headers=headers, data=json.dumps(data))
-    print(f"response = {response}")
     return response.json()["result"]
 
 def store_batch_pubdata(pubdata_storage, stored_pubdata, pubdata, batch_number):
@@ -31,7 +30,7 @@ def main():
         print(f"Starting from batch #{starting_batch_id}")
         while True:
             l1_batch_pubdata: list = get_batch_pubdata(L2_URL, starting_batch_id)
-            if len(l1_batch_pubdata) == 0:
+            if len(l1_batch_pubdata) <= 2:
                 if num_retries >= RETRIES: break
                 print(f"Failed to get batch #{starting_batch_id} pubdata")
                 print("Retrying in 60 seconds")
