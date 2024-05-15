@@ -41,7 +41,7 @@ impl<S, H: HistoryMode> DynTracer<S, SimpleMemory<H>> for CallTracer {
 
         let value = data.src1_value.value;
 
-        const DEBUG_SLOT: u32 = 64 * 32;
+        const DEBUG_SLOT: u32 = 32 * 32;
 
         let debug_magic = U256::from_dec_str(
             "33509158800074003487174289148292687789659295220513886355337449724907776218753",
