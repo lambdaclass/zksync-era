@@ -2242,7 +2242,7 @@ impl BlocksDal<'_, '_> {
         else {
             return Ok(None);
         };
-
+        tracing::warn!("Before constructing pubdata {:?}", &l1_batch_with_metadata);
         Ok(Some(utils::construct_pubdata(&l1_batch_with_metadata)))
     }
 }

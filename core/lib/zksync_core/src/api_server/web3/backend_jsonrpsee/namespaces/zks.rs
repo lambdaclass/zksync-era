@@ -184,7 +184,7 @@ impl ZksNamespaceServer for ZksNamespace {
             .map_err(|err| self.current_method().map_err(err))
     }
 
-    async fn get_batch_pubdata(&self, l1_batch_number: L1BatchNumber) -> RpcResult<Vec<u8>> {
+    async fn get_batch_pubdata(&self, l1_batch_number: L1BatchNumber) -> RpcResult<Option<Bytes>> {
         self.get_batch_pubdata_impl(l1_batch_number)
             .await
             .map_err(|err| self.current_method().map_err(err))

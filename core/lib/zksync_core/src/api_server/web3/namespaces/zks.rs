@@ -568,7 +568,7 @@ impl ZksNamespace {
     pub async fn get_batch_pubdata_impl(
         &self,
         l1_batch_number: L1BatchNumber,
-    ) -> Result<Vec<u8>, Web3Error> {
+    ) -> Result<Option<Bytes>, Web3Error> {
         let mut storage = self.state.acquire_connection().await?;
         self.state
             .start_info
@@ -576,11 +576,15 @@ impl ZksNamespace {
             .await?;
         let pubdata = storage
             .blocks_dal()
-            .get_batch_pubdata(l1_batch_number)
+            .get_l1_batch_metadata(l1_batch_number)
             .await
-            .map_err(|_err| Web3Error::PubdataNotFound)?
-            .unwrap_or_default();
-
+            .unwrap()
+            .map(|l1_batch_with_metadata| l1_batch_with_metadata.construct_pubdata().into());
+        if pubdata.is_none() {
+            tracing::warn!("Pubdata is not found for batch number: {}", l1_batch_number);
+            return Ok(Some(Bytes::default()));
+        }
+        tracing::info!("Got pubdata from batch #{:?}", l1_batch_number);
         Ok(pubdata)
     }
 }
