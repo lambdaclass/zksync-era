@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use colored::Colorize;
 use ethers::{
     abi::Hash,
-    providers::{Http, Middleware, Provider},
+    providers::{Http, Provider},
 };
 use zksync_types::U64;
 use zksync_web3_rs::zks_provider::ZKSProvider;
@@ -267,6 +267,7 @@ pub async fn basic() {
     let main_wallet = Arc::new(helpers::zks_wallet(&l1_provider, &l2_provider).await);
     let balance = main_wallet.era_balance().await.unwrap().to_string();
     println!("Balance = {}", format!("{}", balance).bright_red().bold());
+    let account = main_wallet.clone();
     let deploy_receipt = helpers::deploy_erc20(account.clone()).await;
     let second_deploy_receipt = helpers::deploy_erc20(account.clone()).await;
     let erc20_address = deploy_receipt.contract_address.unwrap();
