@@ -1,6 +1,13 @@
-use axum::{extract, extract::Json, routing::get, Router};
+use std::str::FromStr;
+
+use axum::{
+    extract::{self, Json},
+    routing::get,
+    Router,
+};
 use tokio::sync::watch;
 use zksync_config::configs::base_token_fetcher::BaseTokenFetcherConfig;
+use zksync_dal::BigDecimal;
 
 pub(crate) async fn run_server(
     mut stop_receiver: watch::Receiver<bool>,
@@ -29,12 +36,12 @@ pub(crate) async fn run_server(
 }
 
 // basic handler that responds with a static string
-async fn get_conversion_rate(extract::Path(token_address): extract::Path<String>) -> Json<u64> {
+async fn get_conversion_rate(extract::Path(token_address): extract::Path<String>) -> Json<String> {
     if token_address == "0x0000000000000000000000000000000000000000"
         || token_address == "0x0000000000000000000000000000000000000001"
     {
-        return Json(1);
+        return Json(BigDecimal::from(1).to_string());
     }
     tracing::info!("Received request for conversion rate");
-    Json(42)
+    Json(BigDecimal::from_str("42.5").unwrap().to_string())
 }
