@@ -38,7 +38,7 @@ impl ScenarioData {
                 .unwrap()
                 .unwrap();
 
-            println!("Batch number: {}", batch_number.as_u64());
+            // println!("Batch number: {}", batch_number.as_u64());
 
             let batch_details = {
                 while signer_middleware
@@ -53,7 +53,7 @@ impl ScenarioData {
                     .await
                     .unwrap()
             };
-            print!("Batch details: {:?}", batch_details);
+            // print!("Batch details: {:?}", batch_details);
 
             batches_data
                 .entry(batch_number)
@@ -267,13 +267,6 @@ pub async fn basic() {
     let main_wallet = Arc::new(helpers::zks_wallet(&l1_provider, &l2_provider).await);
     let balance = main_wallet.era_balance().await.unwrap().to_string();
     println!("Balance = {}", format!("{}", balance).bright_red().bold());
-    let account = main_wallet.clone();
-    println!(
-        "Balance account funded = {}",
-        format!("{}", account.era_balance().await.unwrap().to_string())
-            .bright_red()
-            .bold()
-    );
     let deploy_receipt = helpers::deploy_erc20(account.clone()).await;
     let second_deploy_receipt = helpers::deploy_erc20(account.clone()).await;
     let erc20_address = deploy_receipt.contract_address.unwrap();
