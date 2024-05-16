@@ -1,4 +1,5 @@
 use clap::Subcommand;
+use crate::cli::ProverCLIConfig;
 
 pub(crate) mod batch;
 pub(crate) mod job;
@@ -10,10 +11,10 @@ pub enum RestartCommand {
 }
 
 impl RestartCommand {
-    pub(crate) async fn run(self) -> anyhow::Result<()> {
+    pub(crate) async fn run(self, config: ProverCLIConfig) -> anyhow::Result<()> {
         match self {
-            RestartCommand::Batch(args) => batch::run(args).await,
-            RestartCommand::Job(args) => job::run(args).await,
+            RestartCommand::Batch(args) => batch::run(args, config).await,
+            RestartCommand::Job(args) => job::run(args, config).await,
         }
     }
 }

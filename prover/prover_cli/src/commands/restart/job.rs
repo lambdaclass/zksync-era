@@ -1,18 +1,17 @@
-use anyhow::Context;
 use clap::Args as ClapArgs;
 use prover_dal::{Connection, ConnectionPool, Prover, ProverDal};
-use zksync_config::PostgresConfig;
-use zksync_env_config::FromEnv;
+
+use crate::cli::ProverCLIConfig;
 
 #[derive(ClapArgs)]
 pub struct Args {
     id: u32,
 }
 
-pub async fn run(args: Args) -> anyhow::Result<()> {
-    let config = PostgresConfig::from_env()?;
+pub async fn run(args: Args, config: ProverCLIConfig) -> anyhow::Result<()> {
     let connection_pool =
-        ConnectionPool::<Prover>::singleton(config.master_url().context("master_url()")?)
+        //FIXME master_url?
+        ConnectionPool::<Prover>::singleton(config.db_url)
             .build()
             .await?;
     let mut conn = connection_pool.connection().await?;

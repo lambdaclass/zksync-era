@@ -46,7 +46,7 @@ pub async fn start() -> anyhow::Result<()> {
         ProverCommand::Delete(args) => delete::run(args).await?,
         ProverCommand::Status(cmd) => cmd.run(config).await?,
         ProverCommand::Requeue(args) => requeue::run(args, config).await?,
-        ProverCommand::Restart(cmd) => cmd.run().await?,
+        ProverCommand::Restart(cmd) => cmd.run(config).await?,
         ProverCommand::DebugProof(args) => debug_proof::run(args).await?,
     };
 
