@@ -80,7 +80,7 @@ export async function revertReason(txHash: string, web3url?: string) {
 }
 
 export async function exitProof(...args: string[]) {
-    await utils.spawn(`cargo run --example generate_exit_proof --release -- ${args.join(' ')}`);
+    await utils.spawn(`cargo run --example generate_exit_proof -- ${args.join(' ')}`);
 }
 
 export async function catLogs(exitCode?: number) {
@@ -111,12 +111,12 @@ export async function testAccounts() {
 
 export async function loadtest(...args: string[]) {
     console.log(args);
-    await utils.spawn(`cargo run --release --bin loadnext -- ${args.join(' ')}`);
+    await utils.spawn(`cargo run --bin loadnext -- ${args.join(' ')}`);
 }
 
 export async function genesisConfigGenerator(...args: string[]) {
     console.log(args);
-    await utils.spawn(`cargo run --release --bin genesis_generator -- ${args.join(' ')}`);
+    await utils.spawn(`cargo run --bin genesis_generator -- ${args.join(' ')}`);
 }
 
 export async function readVariable(address: string, contractName: string, variableName: string, file?: string) {
@@ -132,14 +132,14 @@ export async function readVariable(address: string, contractName: string, variab
 
 export async function cross_en_checker() {
     let logLevel = 'RUST_LOG=cross_external_nodes_checker=debug';
-    let suffix = 'cargo run --release --bin cross_external_nodes_checker';
+    let suffix = 'cargo run --bin cross_external_nodes_checker';
     await utils.spawn(`${logLevel} ${suffix}`);
 }
 
 export async function snapshots_creator() {
     process.chdir(`${process.env.ZKSYNC_HOME}`);
     let logLevel = 'RUST_LOG=snapshots_creator=debug';
-    await utils.spawn(`${logLevel} cargo run --bin snapshots_creator --release`);
+    await utils.spawn(`${logLevel} cargo run --bin snapshots_creator`);
 }
 
 export const command = new Command('run').description('run miscellaneous applications');

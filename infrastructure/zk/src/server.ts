@@ -21,7 +21,7 @@ export async function server(rebuildTree: boolean, uring: boolean, components?: 
     if (components) {
         options += ` --components=${components}`;
     }
-    await utils.spawn(`cargo run --bin zksync_server --release ${options}`);
+    await utils.spawn(`cargo run --bin zksync_server ${options}`);
 }
 
 export async function externalNode(reinit: boolean = false, args: string[]) {
@@ -41,7 +41,7 @@ export async function externalNode(reinit: boolean = false, args: string[]) {
         clean(path.dirname(process.env.EN_MERKLE_TREE_PATH!));
     }
 
-    await utils.spawn(`cargo run --release --bin zksync_external_node -- ${args.join(' ')}`);
+    await utils.spawn(`cargo run --bin zksync_external_node -- ${args.join(' ')}`);
 }
 
 async function create_genesis(cmd: string) {
@@ -65,7 +65,7 @@ async function create_genesis(cmd: string) {
 export async function genesisFromSources() {
     // Note that that all the chains have the same chainId at genesis. It will be changed
     // via an upgrade transaction during the registration of the chain.
-    await create_genesis('cargo run --bin zksync_server --release -- --genesis');
+    await create_genesis('cargo run --bin zksync_server -- --genesis');
 }
 
 export async function genesisFromBinary() {
