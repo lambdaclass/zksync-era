@@ -7,10 +7,10 @@ use std::{
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use bigdecimal::BigDecimal;
 use hex::ToHex;
 use tokio::{sync::Mutex, time::sleep};
 use zksync_config::configs::BaseTokenFetcherConfig;
-use zksync_dal::BigDecimal;
 
 const MAX_CONVERSION_RATE_FETCH_RETRIES: u8 = 10;
 

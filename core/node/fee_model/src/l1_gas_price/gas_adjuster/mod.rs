@@ -219,7 +219,22 @@ impl GasAdjuster {
                     * BLOB_GAS_PER_BYTE as f64
                     * self.config.internal_pubdata_pricing_multiplier;
 
-                self.bound_blob_base_fee(calculated_price)
+                let conversion_rate = self
+                    .base_token_fetcher
+                    .conversion_rate()
+                    .unwrap_or(BigDecimal::from(1));
+                let bound_blob_base_fee =
+                    BigDecimal::from(self.bound_blob_base_fee(calculated_price));
+
+                U256::from_dec_str(
+                    &match (conversion_rate * bound_blob_base_fee).round(0) {
+                        zero if zero == BigDecimal::from(0) => BigDecimal::from(1),
+                        val => val,
+                    }
+                    .to_string(),
+                )
+                .unwrap()
+                .as_u64()
             }
             PubdataSendingMode::Calldata => {
                 self.estimate_effective_gas_price() * self.pubdata_byte_gas()
