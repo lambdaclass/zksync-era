@@ -103,12 +103,17 @@ impl CircuitIdRoundTuple {
 
 /// Represents the sequential number of the proof aggregation round.
 /// Mostly used to be stored in `aggregation_round` column  in `prover_jobs` table
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, strum::AsRefStr)]
 pub enum AggregationRound {
+    #[strum(serialize = "basic_circuits", to_string = "basic witness generation")]
     BasicCircuits = 0,
+    #[strum(serialize = "leaf_aggregation", to_string = "leaf aggregation")]
     LeafAggregation = 1,
+    #[strum(serialize = "node_aggregation", to_string = "node aggregation")]
     NodeAggregation = 2,
+    #[strum(serialize = "recurion_tip", to_string = "recursion tip")]
     RecursionTip = 3,
+    #[strum(serialize = "scheduler", to_string = "scheduler")]
     Scheduler = 4,
 }
 

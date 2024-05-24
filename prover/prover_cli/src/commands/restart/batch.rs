@@ -100,15 +100,6 @@ async fn restart_from_prover_jobs_in_aggregation_round(
         .delete_witness_generator_data_for_batch(batch_number, next_round)
         .await
         .map_err(|e| anyhow::Error::from(e).context(format!("failed to restart prover jobs in {aggregation_round:?} round")))?;
-    /*
-        AggregationRound::BasicCircuits => {
-                .context("failed to restart prover jobs in basic witness generation round")?;
-        AggregationRound::LeafAggregation => {
-                .context("failed to restart prover jobs in leaf aggregation round")?;
-        AggregationRound::NodeAggregation => {
-                .context("failed to restart prover jobs in node aggregation round")?;
-    };
-    */
     Ok(())
 }
 
