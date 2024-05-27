@@ -8,6 +8,9 @@
 
 import { TestMaster } from '../src/index';
 import { deployContract, getEVMArtifact, getEVMContractFactory, getTestContract } from '../src/helpers';
+import { Contract } from '@ethersproject/contracts'
+import UniswapV3Factory from './UniswapV3Factory.json'
+import UniswapV3Pool from './UniswapV3Pool.json'
 
 import * as ethers from 'ethers';
 import * as zksync from 'zksync-web3';
@@ -68,6 +71,48 @@ describe('EVM equivalence contract', () => {
         ).connect(alice);
     });
 
+    describe("uniswapv3", () => {
+        test("uniswapv3 test", async () => {
+            let v3coreFactory = new Contract("0x111C3E89Ce80e62EE88318C2804920D4c96f92bb", UniswapV3Factory.abi, alice.provider).connect(alice)
+
+            const erc20Factory = getEVMContractFactory(alice, artifacts.erc20);
+            let evmToken1 = await erc20Factory.deploy({ gasLimit });
+            await evmToken1.deployTransaction.wait();
+            let evmToken2 = await erc20Factory.deploy();
+            await evmToken2.deployTransaction.wait();
+
+            let poolReceipt = await (await v3coreFactory.createPool(evmToken1.address, evmToken2.address, 3000)).wait()
+
+            const UniswapPoolFactory = new zksync.ContractFactory(
+                UniswapV3Pool.abi,
+                UniswapV3Pool.bytecode,
+                alice
+            );
+            console.log(poolReceipt)
+            for (let log of poolReceipt.logs) {
+                console.log(log.topics)
+            }
+            let NEW_POOL_TOPIC = "0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118"
+            let UniswapPool = UniswapPoolFactory.attach(
+                ethers.utils.defaultAbiCoder.decode(
+                    ['address', 'uint256'],
+                    poolReceipt.logs.find((log: any) => log.topics[0] === NEW_POOL_TOPIC).data
+                )[0]
+            );
+            const token1IsFirst =  evmToken1.address < evmToken2.address;
+            if (!token1IsFirst) {
+                [evmToken1, evmToken2] = [evmToken2, evmToken1];
+            }
+            await (await evmToken1.transfer(UniswapPool.address, 100000)).wait();
+            await (await evmToken2.transfer(UniswapPool.address, 100000)).wait();
+
+            console.log('Uniswap Pool native create gas: ' + poolReceipt.gasUsed);
+
+            const nativeMintReceipt = await (await UniswapPool.mint(alice.address,1,1,10000,"0x")).wait();
+
+        })
+    })
+    /*
     describe('Gas consumption', () => {
         test("Should compare gas against counter fallback contract's call", async () => {
             const gasCallerContract = await deploygasCallerContract(alice, artifacts.gasCaller);
@@ -527,6 +572,7 @@ describe('EVM equivalence contract', () => {
     //         // dumpOpcodeLogs(receipt.transactionHash, alice.provider);
     //     });
     // });
+    */
 
     afterAll(async () => {
         await testMaster.deinitialize();

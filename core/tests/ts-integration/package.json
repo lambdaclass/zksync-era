@@ -20,6 +20,7 @@
     "@types/jest": "^29.0.3",
     "@types/node": "^18.19.15",
     "@types/node-fetch": "^2.5.7",
+    "@uniswap/v3-core": "/Users/gianlucabelinche/Desktop/era-uniswap-v3-core",
     "chalk": "^4.0.0",
     "ethereumjs-abi": "^0.6.8",
     "ethers": "~5.7.0",
