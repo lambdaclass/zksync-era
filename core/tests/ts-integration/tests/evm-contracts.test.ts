@@ -11,6 +11,8 @@ import { deployContract, getEVMArtifact, getEVMContractFactory, getTestContract 
 import { Contract } from '@ethersproject/contracts';
 import UniswapV3Factory from './UniswapV3Factory.json';
 import UniswapV3Pool from './UniswapV3Pool.json';
+import NonfungiblePositionManager from './NonfungiblePositionManager.json';
+
 
 import * as ethers from 'ethers';
 import * as zksync from 'zksync-web3';
@@ -79,27 +81,92 @@ describe('EVM equivalence contract', () => {
                 alice.provider
             ).connect(alice);
 
+            const nonfungiblePositionManager = new Contract(
+                "0x60Aa68f9D0D736B9a0a716d04323Ba3b22602840",
+                NonfungiblePositionManager.abi,
+                alice.provider
+            ).connect(alice)            
+
             const erc20Factory = getEVMContractFactory(alice, artifacts.erc20);
             let evmToken1 = await erc20Factory.deploy({ gasLimit });
             await evmToken1.deployTransaction.wait();
             let evmToken2 = await erc20Factory.deploy();
             await evmToken2.deployTransaction.wait();
+            const token1IsFirst = evmToken1.address < evmToken2.address;
+            if (!token1IsFirst) {
+                [evmToken1, evmToken2] = [evmToken2, evmToken1];
+            }
 
-            let poolReceipt = await (await v3coreFactory.createPool(evmToken1.address, evmToken2.address, 3000)).wait();
+            const bn = require('bignumber.js')
+            bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
 
-            const UniswapPoolFactory = new zksync.ContractFactory(UniswapV3Pool.abi, UniswapV3Pool.bytecode, alice);
+            let price = ethers.BigNumber.from(
+                new bn("1")
+                .div("1")
+                .sqrt()
+                .multipliedBy(new bn(2).pow(96))
+                .integerValue(3)
+                .toString()
+            )
+
+            let poolDeployReceipt = await (await nonfungiblePositionManager.createAndInitializePoolIfNecessary(
+                evmToken1.address,
+                evmToken2.address,
+                100,
+                price,
+                { gasLimit: gasLimit }
+            )).wait()
+
+            const poolAddress = await v3coreFactory.getPool(
+                evmToken1.address,
+                evmToken2.address,
+                100,
+            )
+            
+            let UniswapPool = new Contract(
+                poolAddress,
+                UniswapV3Pool.abi,
+                alice.provider
+            ).connect(alice);
+
+            await (await evmToken1.transfer(UniswapPool.address, 100000)).wait();
+            await (await evmToken2.transfer(UniswapPool.address, 100000)).wait();
+
+
+            console.log('Uniswap Pool create gas: ' + poolDeployReceipt.gasUsed);
+
+            let token = await UniswapPool.token0();
+            console.log(token)
+            
+
+
+
+            //const mintReceipt = await (await UniswapPool.mint(alice.address, -100000, 100000, 1000, '0x')).wait();
+
+            //console.log('Uniswap Pool mint gas: ' + mintReceipt.gasUsed);
+
+            await (await evmToken1.transfer(UniswapPool.address, 10000)).wait();
+            await (await evmToken1.transfer(UniswapPool.address, 10000)).wait();
+            const swapReceipt = await (await UniswapPool.swap(alice.address,true,5000,0,'0x')).wait();
+
+            /*let poolReceipt = await (await v3coreFactory.createPool(evmToken1.address, evmToken2.address, 100)).wait();
             console.log(poolReceipt);
             for (let log of poolReceipt.logs) {
                 console.log(log.topics);
             }
             let NEW_POOL_TOPIC = '0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118';
-            let UniswapPool = UniswapPoolFactory.attach(
+            let UniswapPool = new Contract(
                 ethers.utils.defaultAbiCoder.decode(
                     ['address', 'uint256'],
                     poolReceipt.logs.find((log: any) => log.topics[0] === NEW_POOL_TOPIC).data
-                )[0]
-            );
-            const token1IsFirst = evmToken1.address < evmToken2.address;
+                )[0],
+                UniswapV3Pool.abi,
+                alice.provider
+            ).connect(alice);
+            await (await UniswapPool.callStatic.token0()).wait();*/
+
+
+            /*const token1IsFirst = evmToken1.address < evmToken2.address;
             if (!token1IsFirst) {
                 [evmToken1, evmToken2] = [evmToken2, evmToken1];
             }
@@ -108,7 +175,7 @@ describe('EVM equivalence contract', () => {
 
             console.log('Uniswap Pool native create gas: ' + poolReceipt.gasUsed);
 
-            const nativeMintReceipt = await (await UniswapPool.mint(alice.address, 1, 1, 10000, '0x')).wait();
+            const nativeMintReceipt = await (await UniswapPool.mint(alice.address, 1, 1, 10000, '0x')).wait();*/
         });
     });
     /*
