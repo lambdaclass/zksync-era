@@ -13,7 +13,6 @@ import UniswapV3Factory from './UniswapV3Factory.json';
 import UniswapV3Pool from './UniswapV3Pool.json';
 import NonfungiblePositionManager from './NonfungiblePositionManager.json';
 
-
 import * as ethers from 'ethers';
 import * as zksync from 'zksync-web3';
 
@@ -82,10 +81,10 @@ describe('EVM equivalence contract', () => {
             ).connect(alice);
 
             const nonfungiblePositionManager = new Contract(
-                "0x60Aa68f9D0D736B9a0a716d04323Ba3b22602840",
+                '0x60Aa68f9D0D736B9a0a716d04323Ba3b22602840',
                 NonfungiblePositionManager.abi,
                 alice.provider
-            ).connect(alice)            
+            ).connect(alice);
 
             const erc20Factory = getEVMContractFactory(alice, artifacts.erc20);
             let evmToken1 = await erc20Factory.deploy({ gasLimit });
@@ -97,49 +96,34 @@ describe('EVM equivalence contract', () => {
                 [evmToken1, evmToken2] = [evmToken2, evmToken1];
             }
 
-            const bn = require('bignumber.js')
-            bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
+            const bn = require('bignumber.js');
+            bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 });
 
             let price = ethers.BigNumber.from(
-                new bn("1")
-                .div("1")
-                .sqrt()
-                .multipliedBy(new bn(2).pow(96))
-                .integerValue(3)
-                .toString()
-            )
+                new bn('1').div('1').sqrt().multipliedBy(new bn(2).pow(96)).integerValue(3).toString()
+            );
 
-            let poolDeployReceipt = await (await nonfungiblePositionManager.createAndInitializePoolIfNecessary(
-                evmToken1.address,
-                evmToken2.address,
-                100,
-                price,
-                { gasLimit: gasLimit }
-            )).wait()
+            let poolDeployReceipt = await (
+                await nonfungiblePositionManager.createAndInitializePoolIfNecessary(
+                    evmToken1.address,
+                    evmToken2.address,
+                    100,
+                    price,
+                    { gasLimit: gasLimit }
+                )
+            ).wait();
 
-            const poolAddress = await v3coreFactory.getPool(
-                evmToken1.address,
-                evmToken2.address,
-                100,
-            )
-            
-            let UniswapPool = new Contract(
-                poolAddress,
-                UniswapV3Pool.abi,
-                alice.provider
-            ).connect(alice);
+            const poolAddress = await v3coreFactory.getPool(evmToken1.address, evmToken2.address, 100);
+
+            let UniswapPool = new Contract(poolAddress, UniswapV3Pool.abi, alice.provider).connect(alice);
 
             await (await evmToken1.transfer(UniswapPool.address, 100000)).wait();
             await (await evmToken2.transfer(UniswapPool.address, 100000)).wait();
 
-
             console.log('Uniswap Pool create gas: ' + poolDeployReceipt.gasUsed);
 
             let token = await UniswapPool.token0();
-            console.log(token)
-            
-
-
+            console.log(token);
 
             //const mintReceipt = await (await UniswapPool.mint(alice.address, -100000, 100000, 1000, '0x')).wait();
 
@@ -147,7 +131,7 @@ describe('EVM equivalence contract', () => {
 
             await (await evmToken1.transfer(UniswapPool.address, 10000)).wait();
             await (await evmToken1.transfer(UniswapPool.address, 10000)).wait();
-            const swapReceipt = await (await UniswapPool.swap(alice.address,true,5000,0,'0x')).wait();
+            const swapReceipt = await (await UniswapPool.swap(alice.address, true, 5000, 0, '0x')).wait();
 
             /*let poolReceipt = await (await v3coreFactory.createPool(evmToken1.address, evmToken2.address, 100)).wait();
             console.log(poolReceipt);
@@ -164,7 +148,6 @@ describe('EVM equivalence contract', () => {
                 alice.provider
             ).connect(alice);
             await (await UniswapPool.callStatic.token0()).wait();*/
-
 
             /*const token1IsFirst = evmToken1.address < evmToken2.address;
             if (!token1IsFirst) {
