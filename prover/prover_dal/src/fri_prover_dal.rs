@@ -1,5 +1,6 @@
 #![doc = include_str!("../doc/FriProverDal.md")]
 use std::{collections::HashMap, convert::TryFrom, str::FromStr, time::Duration};
+use sqlx::Connection as SqlConn;
 
 use zksync_basic_types::{
     basic_fri_types::{AggregationRound, CircuitIdRoundTuple, JobIdentifiers},
@@ -794,6 +795,69 @@ impl FriProverDal<'_, '_> {
         .await
     }
 
+    pub async fn delete_data_for_circuit_from_round(
+        &mut self,
+        l1_batch_number: L1BatchNumber,
+        aggregation_round: AggregationRound,
+        circuit_id: u8,
+    ) -> sqlx::Result<()> {
+        let mut tx = self.storage.conn().begin().await?;
+        let round = aggregation_round as i16;
+
+        // NOTE: the where clause includes two cases:
+        // 1. When the round is before the recursion tip, we need to filter by circuit;
+        // 2. When it is after or during recursion tip, then we have to remove the whole
+        // data for the batch.
+        // The use of `BETWEEN` is valid because it's specified to return an empty set if
+        // the lower bound is greather than the upper bound. Both are inclusive bounds.
+        sqlx::query!(
+            r#"
+            DELETE FROM
+                prover_jobs_fri
+            WHERE
+                l1_batch_number = $1
+                AND (
+                    (circuit_id = $2 AND aggregation_round BETWEEN $3 AND $4)
+                    OR
+                    (aggregation_round BETWEEN $5 AND $6)
+                )
+            "#,
+            i64::from(l1_batch_number.0),
+            circuit_id as i16,
+            round,
+            AggregationRound::NodeAggregation as i16,
+            round.max(AggregationRound::RecursionTip as i16),
+            AggregationRound::Scheduler as i16,
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        // Same query but for archived jobs.
+        sqlx::query!(
+            r#"
+            DELETE FROM
+                prover_jobs_fri_archive
+            WHERE
+                l1_batch_number = $1
+                AND (
+                    (circuit_id = $2 AND aggregation_round BETWEEN $3 AND $4)
+                    OR
+                    (aggregation_round BETWEEN $5 AND $6)
+                )
+            "#,
+            i64::from(l1_batch_number.0),
+            circuit_id as i16,
+            round,
+            AggregationRound::NodeAggregation as i16,
+            round.max(AggregationRound::RecursionTip as i16),
+            AggregationRound::Scheduler as i16,
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await
+    }
+
     pub async fn delete_prover_jobs_fri_archive(
         &mut self,
     ) -> sqlx::Result<sqlx::postgres::PgQueryResult> {
@@ -809,6 +873,34 @@ impl FriProverDal<'_, '_> {
     pub async fn delete(&mut self) -> sqlx::Result<sqlx::postgres::PgQueryResult> {
         self.delete_prover_jobs_fri().await?;
         self.delete_prover_jobs_fri_archive().await
+    }
+
+    /// Returns (l1_batch_number, circuit_id), which is later used
+    /// to identify jobs that depend on the generated data.
+    /// NOTE: the aggregation round is used mostly for validation.
+    pub async fn restart_prover_job_fri(
+        &mut self,
+        aggregation_round: AggregationRound,
+        id: u32,
+    ) -> sqlx::Result<(L1BatchNumber, u8)> {
+        sqlx::query!(
+            r#"
+            UPDATE
+                prover_jobs_fri
+            SET
+                status = 'queued',
+                updated_at = NOW()
+            WHERE
+                id = $1 AND aggregation_round = $2
+            RETURNING
+                l1_batch_number, circuit_id
+            "#,
+            id as i64,
+            aggregation_round as i16,
+        )
+        .fetch_one(self.storage.conn())
+        .await
+        .map(|row| ((row.l1_batch_number as u32).into(), row.circuit_id as u8))
     }
 
     pub async fn requeue_stuck_jobs_for_batch(

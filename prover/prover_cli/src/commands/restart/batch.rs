@@ -83,7 +83,7 @@ pub(crate) async fn run(args: Args, config: ProverCLIConfig) -> anyhow::Result<(
     Ok(())
 }
 
-async fn restart_from_prover_jobs_in_aggregation_round(
+pub(crate) async fn restart_from_prover_jobs_in_aggregation_round(
     aggregation_round: AggregationRound,
     batch_number: L1BatchNumber,
     conn: &mut Connection<'_, Prover>,
@@ -103,7 +103,7 @@ async fn restart_from_prover_jobs_in_aggregation_round(
     Ok(())
 }
 
-async fn restart_compressor(
+pub(crate) async fn restart_compressor(
     _batch_number: L1BatchNumber,
     _conn: &mut Connection<'_, Prover>,
 ) -> anyhow::Result<()> {
@@ -162,7 +162,7 @@ async fn restart_from_aggregation_round_inner(
     Ok(())
 }
 
-async fn restart_from_aggregation_round(
+pub(crate) async fn restart_from_aggregation_round(
     aggregation_round: AggregationRound,
     batch_number: L1BatchNumber,
     conn: &mut Connection<'_, Prover>,
