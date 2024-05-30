@@ -31,7 +31,7 @@ use crate::{
 pub(crate) type InMemoryStorageView = StorageView<InMemoryStorage>;
 
 pub(crate) struct VmTester<H: HistoryMode> {
-    pub(crate) vm: Vm<InMemoryStorageView, H>,
+    pub vm: Vm<InMemoryStorageView, H>,
     pub(crate) storage: StoragePtr<InMemoryStorageView>,
     pub(crate) fee_account: Address,
     pub(crate) deployer: Option<Account>,

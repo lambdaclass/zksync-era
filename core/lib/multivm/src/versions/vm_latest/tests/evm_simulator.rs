@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env,
     error::Error,
     fs::{File, OpenOptions},
@@ -15,7 +16,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use zk_evm_1_4_1::sha2::{self};
 use zk_evm_1_5_0::zkevm_opcode_defs::{BlobSha256Format, VersionedHashLen32};
-use zksync_contracts::{load_contract, read_bytecode, read_evm_bytecode};
+use zksync_contracts::{load_contract, read_bytecode, read_evm_bytecode, BaseSystemContracts};
 use zksync_state::{InMemoryStorage, StorageView};
 use zksync_system_constants::CONTRACT_DEPLOYER_ADDRESS;
 use zksync_types::{
@@ -26,7 +27,9 @@ use zksync_types::{
     AccountTreeId, Address, Execute, StorageKey, H256, U256,
 };
 use zksync_utils::{
-    address_to_h256, bytecode::hash_bytecode, bytes_to_be_words, h256_to_u256, u256_to_h256,
+    address_to_h256,
+    bytecode::{self, hash_bytecode},
+    bytes_to_be_words, h256_to_u256, u256_to_h256,
 };
 
 use super::tester::VmTester;
@@ -44,14 +47,18 @@ use crate::{
         },
         tracers::evm_debug_tracer::EvmDebugTracer,
         utils::{fee::get_batch_base_fee, hash_evm_bytecode},
-        HistoryEnabled, ToTracerPointer, TracerDispatcher, TracerPointer,
+        HistoryDisabled, HistoryEnabled, ToTracerPointer, TracerDispatcher, TracerPointer,
     },
     vm_m5::storage::Storage,
     HistoryMode,
 };
 const CONTRACT_ADDRESS: &str = "0xde03a0B5963f75f1C8485B355fF6D30f3093BDE7";
 
-fn insert_evm_contract(storage: &mut InMemoryStorage, mut bytecode: Vec<u8>) -> Address {
+fn insert_evm_contract(
+    storage: &mut InMemoryStorage,
+    mut bytecode: Vec<u8>,
+    address_to_use: Option<Address>,
+) -> Address {
     // To avoid problems with correct encoding for these tests, we just pad the bytecode to be divisible by 32.
     while bytecode.len() % 32 != 0 {
         bytecode.push(0);
@@ -78,20 +85,20 @@ fn insert_evm_contract(storage: &mut InMemoryStorage, mut bytecode: Vec<u8>) -> 
     assert!(BlobSha256Format::is_valid(&blob_hash.0));
 
     // Just some address in user space
-    let test_address = Address::from_str(CONTRACT_ADDRESS).unwrap();
+    let address_to_use =
+        address_to_use.unwrap_or_else(|| Address::from_str(CONTRACT_ADDRESS).unwrap());
 
-    let evm_code_hash_key = get_evm_code_hash_key(&test_address);
+    let evm_code_hash_key = get_evm_code_hash_key(&address_to_use);
 
-    storage.set_value(get_code_key(&test_address), blob_hash);
+    storage.set_value(get_code_key(&address_to_use), blob_hash);
     storage.set_value(get_known_code_key(&blob_hash), u256_to_h256(U256::one()));
 
     storage.set_value(evm_code_hash_key, evm_hash);
 
     storage.store_factory_dep(blob_hash, padded_bytecode);
-
     // Marking bytecode as known
 
-    test_address
+    address_to_use
 }
 
 const TEST_RICH_PK: &str = "0x9e0eee403c6b5963458646fa1b7b3f3c4784138558f9036b0db3435501f2ec6d";
@@ -100,7 +107,7 @@ const TEST_RICH_ADDRESS: &str = "0x2140b400689a5dd09c34815958d10affd467f66c";
 fn test_evm_vector(mut bytecode: Vec<u8>) -> U256 {
     let mut storage = InMemoryStorage::with_system_contracts(hash_bytecode);
 
-    let test_address = insert_evm_contract(&mut storage, bytecode.clone());
+    let test_address = insert_evm_contract(&mut storage, bytecode.clone(), None);
 
     // private_key: 0x9e0eee403c6b5963458646fa1b7b3f3c4784138558f9036b0db3435501f2ec6d
     // address: 0x2140b400689a5dd09c34815958d10affd467f66c
@@ -151,7 +158,7 @@ fn test_evm_vector(mut bytecode: Vec<u8>) -> U256 {
 fn test_evm_logs(mut bytecode: Vec<u8>) -> crate::vm_latest::VmExecutionLogs {
     let mut storage = InMemoryStorage::with_system_contracts(hash_bytecode);
 
-    let test_address = insert_evm_contract(&mut storage, bytecode.clone());
+    let test_address = insert_evm_contract(&mut storage, bytecode.clone(), None);
 
     let mut vm = VmTesterBuilder::new(HistoryEnabled)
         .with_storage(storage)
@@ -5016,7 +5023,7 @@ fn perform_zkevm_benchmark() -> ZkEVMBenchmarkResult {
 fn perform_benchmark(bytecode: Vec<u8>) -> EVMOpcodeBenchmarkResult {
     let mut storage = InMemoryStorage::with_system_contracts(hash_bytecode);
 
-    let test_address = insert_evm_contract(&mut storage, bytecode.clone());
+    let test_address = insert_evm_contract(&mut storage, bytecode.clone(), None);
 
     let mut vm = VmTesterBuilder::new(HistoryEnabled)
         .with_storage(storage)
@@ -5405,4 +5412,122 @@ fn test_evm_benchmark() {
     benchmark_basic(&filename);
     benchmark_basic2(&filename);
     benchmark_basic_3(&filename);
+}
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
+struct GethContractState {
+    balance: String,
+    code: String,
+    nonce: String,
+}
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
+struct GethTestTx {
+    data: Vec<String>,
+    gasLimit: Vec<String>,
+    nonce: String,
+    secretKey: String,
+    sender: String,
+    to: String,
+    value: Vec<String>,
+}
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
+struct GethTestContract {
+    pre: HashMap<String, GethContractState>,
+    transaction: GethTestTx,
+}
+
+#[test]
+fn test_yul_interpreter_add_simple() {
+    let mut storage = InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
+    let add_json = r#"
+    {
+          "pre" : {
+                "0x0000000000000000000000000000000000001000" : {
+                    "balance" : "0x0ba1a9ce0ba1a9ce",
+                    "code" : "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0160005500",
+                    "nonce" : "0x00",
+                    "storage" : {
+                    }
+                },
+                "0x0000000000000000000000000000000000001001" : {
+                    "balance" : "0x0ba1a9ce0ba1a9ce",
+                    "code" : "0x60047fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0160005500",
+                    "nonce" : "0x00",
+                    "storage" : {
+                    }
+                },
+                "0x0000000000000000000000000000000000001002" : {
+                    "balance" : "0x0ba1a9ce0ba1a9ce",
+                    "code" : "0x60017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0160005500",
+                    "nonce" : "0x00",
+                    "storage" : {
+                    }
+                },
+                "0x0000000000000000000000000000000000001003" : {
+                    "balance" : "0x0ba1a9ce0ba1a9ce",
+                    "code" : "0x600060000160005500",
+                    "nonce" : "0x00",
+                    "storage" : {
+                    }
+                },
+                "0x0000000000000000000000000000000000001004" : {
+                    "balance" : "0x0ba1a9ce0ba1a9ce",
+                    "code" : "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60010160005500",
+                    "nonce" : "0x00",
+                    "storage" : {
+                    }
+                },
+                "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                    "balance" : "0x0ba1a9ce0ba1a9ce",
+                    "code" : "0x",
+                    "nonce" : "0x00",
+                    "storage" : {
+                    }
+                },
+                "0xcccccccccccccccccccccccccccccccccccccccc" : {
+                    "balance" : "0x0ba1a9ce0ba1a9ce",
+                    "code" : "0x600060006000600060006004356110000162fffffff100",
+                    "nonce" : "0x00",
+                    "storage" : {
+                    }
+                }
+            },
+            "transaction" : {
+                "data" : [
+                    "0x693c61390000000000000000000000000000000000000000000000000000000000000000",
+                    "0x693c61390000000000000000000000000000000000000000000000000000000000000001",
+                    "0x693c61390000000000000000000000000000000000000000000000000000000000000002",
+                    "0x693c61390000000000000000000000000000000000000000000000000000000000000003",
+                    "0x693c61390000000000000000000000000000000000000000000000000000000000000004"
+                ],
+                "gasLimit" : [
+                    "0x04c4b400"
+                ],
+                "gasPrice" : "0x0a",
+                "nonce" : "0x00",
+                "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+                "to" : "0xcccccccccccccccccccccccccccccccccccccccc",
+                "value" : [
+                    "0x01"
+                ]
+            }
+    }"#;
+    let add_test_json: GethTestContract =
+        serde_json::from_str::<GethTestContract>(&add_json).unwrap();
+    let tx = add_test_json.transaction.clone();
+    let contracts = add_test_json
+        .pre
+        .into_iter()
+        .for_each(|(address, bytecode)| {
+            insert_evm_contract(
+                &mut storage,
+                bytecode.code.as_bytes().to_vec(),
+                Some(Address::from_str(&address).unwrap()),
+            );
+        });
+    let mut vm = VmTesterBuilder::new(HistoryDisabled)
+        .with_storage(storage)
+        .with_base_system_smart_contracts(BaseSystemContracts::load_from_disk())
+        .build();
+    vm.vm.push_transaction(tx);
 }
