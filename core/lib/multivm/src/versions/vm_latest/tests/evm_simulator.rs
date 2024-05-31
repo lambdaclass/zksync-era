@@ -5558,7 +5558,7 @@ fn test_yul_interpreter_add_simple() {
     let tracer_ptr = debug_tracer.into_tracer_pointer();
 
     let tx_result: crate::vm_latest::VmExecutionResultAndLogs =
-        vm.vm.inspect(tracer_ptr.into(), VmExecutionMode::Batch);
+        vm.vm.inspect(tracer_ptr.into(), VmExecutionMode::OneTx);
 
     dbg!(tx_result.result);
 }
