@@ -24,7 +24,8 @@ use zksync_types::{
     get_known_code_key,
     utils::{deployed_address_evm_create, deployed_address_evm_create2},
     web3::signing::keccak256,
-    AccountTreeId, Address, Execute, StorageKey, H256, U256,
+    AccountTreeId, Address, Execute, ExecuteTransactionCommon, L1TxCommonData, StorageKey, H160,
+    H256, U256,
 };
 use zksync_utils::{
     address_to_h256,
@@ -5437,7 +5438,6 @@ struct GethTestContract {
 
 #[test]
 fn test_yul_interpreter_add_simple() {
-    let mut storage = InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
     let add_json = r#"
     {
           "pre" : {
@@ -5514,20 +5514,47 @@ fn test_yul_interpreter_add_simple() {
     }"#;
     let add_test_json: GethTestContract =
         serde_json::from_str::<GethTestContract>(&add_json).unwrap();
-    let tx = add_test_json.transaction.clone();
+    let json_tx = add_test_json.transaction.clone();
+    let mut storage = InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
     let contracts = add_test_json
         .pre
         .into_iter()
-        .for_each(|(address, bytecode)| {
+        .map(|(address, bytecode)| {
+            let address = Address::from_str(&address).unwrap();
             insert_evm_contract(
                 &mut storage,
                 bytecode.code.as_bytes().to_vec(),
-                Some(Address::from_str(&address).unwrap()),
+                Some(address),
             );
-        });
+            return address;
+        })
+        .collect_vec();
+    let json_tx_data = json_tx.data.clone();
+    let calldata = json_tx_data.first().unwrap();
     let mut vm = VmTesterBuilder::new(HistoryDisabled)
         .with_storage(storage)
+        .with_random_rich_accounts(1)
         .with_base_system_smart_contracts(BaseSystemContracts::load_from_disk())
         .build();
+
+    let account = &mut vm.rich_accounts[0];
+
+    let tx = account.get_l2_tx_for_execute(
+        Execute {
+            contract_address: Some(*contracts.first().unwrap()),
+            calldata: calldata.clone().into_bytes(),
+            value: U256::zero(),
+            factory_deps: None,
+        },
+        None,
+    );
+
     vm.vm.push_transaction(tx);
+
+    let debug_tracer = EvmDebugTracer::new();
+    let tracer_ptr = debug_tracer.into_tracer_pointer();
+
+    let tx_result: crate::vm_latest::VmExecutionResultAndLogs =
+        vm.vm.inspect(tracer_ptr.into(), VmExecutionMode::Batch);
+    dbg!(tx_result);
 }

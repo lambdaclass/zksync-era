@@ -267,7 +267,7 @@ pub(crate) fn default_l1_batch(number: L1BatchNumber) -> L1BatchEnv {
     }
 }
 
-pub(crate) fn make_account_rich(storage: StoragePtr<InMemoryStorageView>, account: &Account) {
+pub fn make_account_rich(storage: StoragePtr<InMemoryStorageView>, account: &Account) {
     let key = storage_key_for_eth_balance(&account.address);
     storage
         .as_ref()
