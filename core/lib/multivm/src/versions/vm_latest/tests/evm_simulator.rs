@@ -5530,7 +5530,10 @@ fn test_yul_interpreter_add_simple() {
         })
         .collect_vec();
     let json_tx_data = json_tx.data.clone();
-    let calldata = json_tx_data.first().unwrap();
+    let calldata = json_tx_data
+        .into_iter()
+        .flat_map(|call_data| call_data.into_bytes())
+        .collect_vec();
     let mut vm = VmTesterBuilder::new(HistoryDisabled)
         .with_storage(storage)
         .with_random_rich_accounts(1)
@@ -5542,13 +5545,13 @@ fn test_yul_interpreter_add_simple() {
     let tx = account.get_l2_tx_for_execute(
         Execute {
             contract_address: Some(*contracts.first().unwrap()),
-            calldata: calldata.clone().into_bytes(),
+            calldata,
             value: U256::zero(),
             factory_deps: None,
         },
         None,
     );
-
+    let tx_hash = tx.hash();
     vm.vm.push_transaction(tx);
 
     let debug_tracer = EvmDebugTracer::new();
@@ -5556,5 +5559,6 @@ fn test_yul_interpreter_add_simple() {
 
     let tx_result: crate::vm_latest::VmExecutionResultAndLogs =
         vm.vm.inspect(tracer_ptr.into(), VmExecutionMode::Batch);
-    dbg!(tx_result);
+
+    dbg!(tx_result.result);
 }
