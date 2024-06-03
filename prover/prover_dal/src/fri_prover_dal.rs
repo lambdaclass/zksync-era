@@ -1,4 +1,5 @@
 #![doc = include_str!("../doc/FriProverDal.md")]
+use anyhow;
 use std::{collections::HashMap, convert::TryFrom, str::FromStr, time::Duration};
 use sqlx::Connection as SqlConn;
 
@@ -877,30 +878,140 @@ impl FriProverDal<'_, '_> {
 
     /// Returns (l1_batch_number, circuit_id), which is later used
     /// to identify jobs that depend on the generated data.
-    /// NOTE: the aggregation round is used mostly for validation.
-    pub async fn restart_prover_job_fri(
+    pub async fn restart_prover_job_fri_and_dependent_jobs(
         &mut self,
         aggregation_round: AggregationRound,
         id: u32,
-    ) -> sqlx::Result<(L1BatchNumber, u8)> {
-        sqlx::query!(
+    ) -> anyhow::Result<()> {
+        let mut tx = self.storage.conn().begin().await?;
+
+        let (real_id, batch_number, circuit_id) = sqlx::query!(
             r#"
-            UPDATE
-                prover_jobs_fri
-            SET
-                status = 'queued',
-                updated_at = NOW()
+            SELECT id, l1_batch_number, circuit_id
+            FROM prover_jobs_fri
             WHERE
-                id = $1 AND aggregation_round = $2
-            RETURNING
-                l1_batch_number, circuit_id
+                (aggregation_round < 3 AND aggregation_round = $2 AND id = $1)
+            OR
+                (aggregation_round >= 3 AND aggregation_round = $2 AND l1_batch_number = $1)
             "#,
             id as i64,
             aggregation_round as i16,
         )
-        .fetch_one(self.storage.conn())
+        .fetch_one(&mut *tx)
         .await
-        .map(|row| ((row.l1_batch_number as u32).into(), row.circuit_id as u8))
+        .map(|r| (r.id as u32, r.l1_batch_number as u64, r.circuit_id as u8))?;
+
+        let in_progress_count = sqlx::query!(
+            r#"
+            SELECT COUNT(*)
+            FROM prover_jobs_fri
+            WHERE status IN ('in_progress', 'in_gpu_proof')
+            AND (
+                id = $1
+                OR (
+                    aggregation_round > $2 AND l1_batch_number = $3
+                    AND (
+                        circuit_id = $4 OR aggregation_round >= 3
+                    )
+                )
+            )
+            "#,
+            real_id as i64,
+            aggregation_round as i16,
+            batch_number as i64,
+            circuit_id as i16,
+        )
+        .fetch_one(&mut *tx)
+        .await?
+        .count
+        .unwrap_or_default();
+
+        if in_progress_count != 0 {
+            anyhow::bail(format!("{in_progress_count} affected tasks in progress, retry later"))?;
+        }
+
+        sqlx::query!(
+            r#"
+            UPDATE prover_jobs_fri
+            SET status = 'queued'
+            WHERE id = $1
+            OR (
+                aggregation_round > $2 AND l1_batch_number = $3
+                AND (
+                    circuit_id = $4 OR aggregation_round >= 3
+                )
+            )
+            "#,
+            real_id as i64,
+            aggregation_round as i16,
+            batch_number as i64,
+            circuit_id as i16,
+        )
+        .execute(&mut *tx)
+        .await?;
+        
+        // TODO: check for in-progress witness jobs
+        for i in (aggregation_round as u8 + 1)..5 {
+            match AggregationRound::from(i) {
+                AggregationRound::BasicCircuits => unreachable!(),
+                AggregationRound::LeafAggregation => {
+                    sqlx::query!(
+                        r#"
+                        UPDATE leaf_aggregation_witness_jobs_fri
+                        SET status = 'queued'
+                        WHERE l1_batch_number = $1 AND circuit_id = $2
+                        "#,
+                        batch_number as i64,
+                        circuit_id as i16,
+                    )
+                    .execute(&mut *tx)
+                    .await?;
+                },
+                AggregationRound::NodeAggregation => {
+                    sqlx::query!(
+                        r#"
+                        UPDATE node_aggregation_witness_jobs_fri
+                        SET status = 'queued'
+                        WHERE l1_batch_number = $1 AND circuit_id = $2
+                        "#,
+                        batch_number as i64,
+                        circuit_id as i16,
+                    )
+                    .execute(&mut *tx)
+                    .await?;
+                },
+                AggregationRound::RecursionTip => {
+                    sqlx::query!(
+                        r#"
+                        UPDATE recursion_tip_witness_jobs_fri
+                        SET status = 'queued'
+                        WHERE l1_batch_number = $1
+                        "#,
+                        batch_number as i64,
+                    )
+                    .execute(&mut *tx)
+                    .await?;
+                },
+                AggregationRound::Scheduler => {
+                    sqlx::query!(
+                        r#"
+                        UPDATE scheduler_witness_jobs_fri
+                        SET status = 'queued'
+                        WHERE l1_batch_number = $1
+                        "#,
+                        batch_number as i64,
+                    )
+                    .execute(&mut *tx)
+                    .await?;
+                },
+            }
+        }
+
+        // TODO: compressor
+
+        tx.commit().await?;
+
+        Ok(())
     }
 
     pub async fn requeue_stuck_jobs_for_batch(
