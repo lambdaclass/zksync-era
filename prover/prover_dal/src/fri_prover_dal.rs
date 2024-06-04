@@ -883,6 +883,11 @@ impl FriProverDal<'_, '_> {
         aggregation_round: AggregationRound,
         id: u32,
     ) -> anyhow::Result<()> {
+        // TODO: how do I reset __DATA__ so queued jobs don't just pick the old one
+        // while we're reprocessing?
+        // Should check how it is posted now.
+
+        // tx will be rolled back on `drop` unless explicitly commited.
         let mut tx = self.storage.conn().begin().await?;
 
         let (real_id, batch_number, circuit_id) = sqlx::query!(
@@ -901,7 +906,7 @@ impl FriProverDal<'_, '_> {
         .await
         .map(|r| (r.id as u32, r.l1_batch_number as u64, r.circuit_id as u8))?;
 
-        let in_progress_count = sqlx::query!(
+        let mut in_progress_count = sqlx::query!(
             r#"
             SELECT COUNT(*)
             FROM prover_jobs_fri
@@ -920,6 +925,83 @@ impl FriProverDal<'_, '_> {
             aggregation_round as i16,
             batch_number as i64,
             circuit_id as i16,
+        )
+        .fetch_one(&mut *tx)
+        .await?
+        .count
+        .unwrap_or_default();
+
+        for i in (aggregation_round as u8 + 1)..5 {
+            in_progress_count += match AggregationRound::from(i) {
+                AggregationRound::BasicCircuits => unreachable!(),
+                AggregationRound::LeafAggregation => {
+                    sqlx::query!(
+                        r#"
+                        SELECT COUNT(*)
+                        FROM leaf_aggregation_witness_jobs_fri
+                        WHERE status = 'in_progress' AND l1_batch_number = $1 AND circuit_id = $2
+                        "#,
+                        batch_number as i64,
+                        circuit_id as i16,
+                    )
+                    .fetch_one(&mut *tx)
+                    .await?
+                    .count
+                    .unwrap_or_default()
+                },
+                AggregationRound::NodeAggregation => {
+                    sqlx::query!(
+                        r#"
+                        SELECT COUNT(*)
+                        FROM node_aggregation_witness_jobs_fri
+                        WHERE status = 'in_progress' AND l1_batch_number = $1 AND circuit_id = $2
+                        "#,
+                        batch_number as i64,
+                        circuit_id as i16,
+                    )
+                    .fetch_one(&mut *tx)
+                    .await?
+                    .count
+                    .unwrap_or_default()
+                },
+                AggregationRound::RecursionTip => {
+                    sqlx::query!(
+                        r#"
+                        SELECT COUNT(*)
+                        FROM recursion_tip_witness_jobs_fri
+                        WHERE status = 'in_progress' AND l1_batch_number = $1
+                        "#,
+                        batch_number as i64,
+                    )
+                    .fetch_one(&mut *tx)
+                    .await?
+                    .count
+                    .unwrap_or_default()
+                },
+                AggregationRound::Scheduler => {
+                    sqlx::query!(
+                        r#"
+                        SELECT COUNT(*)
+                        FROM scheduler_witness_jobs_fri
+                        WHERE status = 'in_progress' AND l1_batch_number = $1
+                        "#,
+                        batch_number as i64,
+                    )
+                    .fetch_one(&mut *tx)
+                    .await?
+                    .count
+                    .unwrap_or_default()
+                },
+            };
+        }
+
+        in_progress_count += sqlx::query!(
+            r#"
+            SELECT COUNT(*)
+            FROM proof_compression_jobs_fri
+            WHERE status = 'in_progress' AND l1_batch_number = $1
+            "#,
+            batch_number as i64,
         )
         .fetch_one(&mut *tx)
         .await?
@@ -958,7 +1040,7 @@ impl FriProverDal<'_, '_> {
                     sqlx::query!(
                         r#"
                         UPDATE leaf_aggregation_witness_jobs_fri
-                        SET status = 'queued'
+                        SET status = 'waiting_for_proof'
                         WHERE l1_batch_number = $1 AND circuit_id = $2
                         "#,
                         batch_number as i64,
@@ -971,7 +1053,7 @@ impl FriProverDal<'_, '_> {
                     sqlx::query!(
                         r#"
                         UPDATE node_aggregation_witness_jobs_fri
-                        SET status = 'queued'
+                        SET status = 'waiting_for_proof'
                         WHERE l1_batch_number = $1 AND circuit_id = $2
                         "#,
                         batch_number as i64,
@@ -984,7 +1066,7 @@ impl FriProverDal<'_, '_> {
                     sqlx::query!(
                         r#"
                         UPDATE recursion_tip_witness_jobs_fri
-                        SET status = 'queued'
+                        SET status = 'waiting_for_proof'
                         WHERE l1_batch_number = $1
                         "#,
                         batch_number as i64,
@@ -996,7 +1078,7 @@ impl FriProverDal<'_, '_> {
                     sqlx::query!(
                         r#"
                         UPDATE scheduler_witness_jobs_fri
-                        SET status = 'queued'
+                        SET status = 'waiting_for_proof'
                         WHERE l1_batch_number = $1
                         "#,
                         batch_number as i64,
@@ -1007,8 +1089,17 @@ impl FriProverDal<'_, '_> {
             }
         }
 
-        // TODO: compressor
-
+        sqlx::query!(
+            r#"
+            UPDATE proof_compression_jobs_fri
+            SET status = 'queued'
+            WHERE l1_batch_number = $1
+            "#,
+            batch_number as i64,
+        )
+        .execute(&mut *tx)
+        .await?;
+        
         tx.commit().await?;
 
         Ok(())
