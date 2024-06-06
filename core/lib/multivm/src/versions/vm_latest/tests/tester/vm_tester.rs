@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Deref};
 
 use zksync_contracts::BaseSystemContracts;
 use zksync_state::{InMemoryStorage, StoragePtr, StorageView, WriteStorage};
@@ -102,6 +102,10 @@ impl<H: HistoryMode> VmTester<H> {
         }
 
         self.vm = vm;
+    }
+    pub fn print_storage(&self) {
+        let cloned = self.clone();
+        dbg!(&cloned.storage.borrow().modified_storage_keys());
     }
 }
 

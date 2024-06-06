@@ -80,7 +80,15 @@ impl StorageLog {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    serde::Deserialize,
+    serde::Serialize
+)]
 pub enum StorageLogQueryType {
     Read,
     InitialWrite,
@@ -88,7 +96,15 @@ pub enum StorageLogQueryType {
 }
 
 /// Log query, which handle initial and repeated writes to the storage
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    serde::Deserialize,
+    serde::Serialize
+)]
 pub struct StorageLogQuery {
     pub log_query: LogQuery,
     pub log_type: StorageLogQueryType,

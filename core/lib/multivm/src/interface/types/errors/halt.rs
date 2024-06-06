@@ -5,7 +5,7 @@ use super::VmRevertReason;
 /// Structure for non-contract errors from the Virtual Machine (EVM).
 
 /// Differentiates VM-specific issues from contract-related errors.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum Halt {
     // Can only be returned in `VerifyAndExecute`
     ValidationFailed(VmRevertReason),

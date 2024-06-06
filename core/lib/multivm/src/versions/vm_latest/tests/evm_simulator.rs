@@ -5,6 +5,7 @@ use std::{
     fs::{File, OpenOptions},
     io::{prelude::*, Seek, SeekFrom},
     ops::{Div, Sub},
+    path::PathBuf,
     str::FromStr,
 };
 
@@ -20,6 +21,7 @@ use zksync_contracts::{load_contract, read_bytecode, read_evm_bytecode, BaseSyst
 use zksync_state::{InMemoryStorage, StorageView};
 use zksync_system_constants::CONTRACT_DEPLOYER_ADDRESS;
 use zksync_types::{
+    fee_model::L1PeggedBatchFeeModelInput,
     get_address_mapping_key, get_code_key, get_deployer_key, get_evm_code_hash_key,
     get_known_code_key,
     utils::{deployed_address_evm_create, deployed_address_evm_create2},
@@ -48,7 +50,8 @@ use crate::{
         },
         tracers::evm_debug_tracer::EvmDebugTracer,
         utils::{fee::get_batch_base_fee, hash_evm_bytecode},
-        HistoryDisabled, HistoryEnabled, ToTracerPointer, TracerDispatcher, TracerPointer,
+        HistoryDisabled, HistoryEnabled, L1BatchEnv, ToTracerPointer, TracerDispatcher,
+        TracerPointer, VmExecutionResultAndLogs,
     },
     vm_m5::storage::Storage,
     HistoryMode,
@@ -5414,13 +5417,13 @@ fn test_evm_benchmark() {
     benchmark_basic2(&filename);
     benchmark_basic_3(&filename);
 }
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 struct GethContractState {
     balance: String,
     code: String,
     nonce: String,
 }
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 struct GethTestTx {
     data: Vec<String>,
     gasLimit: Vec<String>,
@@ -5430,135 +5433,297 @@ struct GethTestTx {
     to: String,
     value: Vec<String>,
 }
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
-struct GethTestContract {
+
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+struct GethTestEnv {
+    currentBaseFee: Option<String>,
+    currentCoinbase: String,
+    currentDifficulty: String,
+    currentExcessBlobGas: Option<String>,
+    currentGasLimit: String,
+    currentNumber: String,
+    currentRandom: Option<String>,
+    currentTimestamp: String,
+}
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+struct GethTestData {
     pre: HashMap<String, GethContractState>,
     transaction: GethTestTx,
+    env: GethTestEnv,
 }
+type GethTest = HashMap<String, GethTestData>;
 
 #[test]
-fn test_yul_interpreter_add_simple() {
-    let add_json = r#"
-    {
-          "pre" : {
-                "0x0000000000000000000000000000000000001000" : {
-                    "balance" : "0x0ba1a9ce0ba1a9ce",
-                    "code" : "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0160005500",
-                    "nonce" : "0x00",
-                    "storage" : {
-                    }
-                },
-                "0x0000000000000000000000000000000000001001" : {
-                    "balance" : "0x0ba1a9ce0ba1a9ce",
-                    "code" : "0x60047fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0160005500",
-                    "nonce" : "0x00",
-                    "storage" : {
-                    }
-                },
-                "0x0000000000000000000000000000000000001002" : {
-                    "balance" : "0x0ba1a9ce0ba1a9ce",
-                    "code" : "0x60017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0160005500",
-                    "nonce" : "0x00",
-                    "storage" : {
-                    }
-                },
-                "0x0000000000000000000000000000000000001003" : {
-                    "balance" : "0x0ba1a9ce0ba1a9ce",
-                    "code" : "0x600060000160005500",
-                    "nonce" : "0x00",
-                    "storage" : {
-                    }
-                },
-                "0x0000000000000000000000000000000000001004" : {
-                    "balance" : "0x0ba1a9ce0ba1a9ce",
-                    "code" : "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60010160005500",
-                    "nonce" : "0x00",
-                    "storage" : {
-                    }
-                },
-                "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
-                    "balance" : "0x0ba1a9ce0ba1a9ce",
-                    "code" : "0x",
-                    "nonce" : "0x00",
-                    "storage" : {
-                    }
-                },
-                "0xcccccccccccccccccccccccccccccccccccccccc" : {
-                    "balance" : "0x0ba1a9ce0ba1a9ce",
-                    "code" : "0x600060006000600060006004356110000162fffffff100",
-                    "nonce" : "0x00",
-                    "storage" : {
-                    }
-                }
-            },
-            "transaction" : {
-                "data" : [
-                    "0x693c61390000000000000000000000000000000000000000000000000000000000000000",
-                    "0x693c61390000000000000000000000000000000000000000000000000000000000000001",
-                    "0x693c61390000000000000000000000000000000000000000000000000000000000000002",
-                    "0x693c61390000000000000000000000000000000000000000000000000000000000000003",
-                    "0x693c61390000000000000000000000000000000000000000000000000000000000000004"
-                ],
-                "gasLimit" : [
-                    "0x04c4b400"
-                ],
-                "gasPrice" : "0x0a",
-                "nonce" : "0x00",
-                "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-                "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
-                "to" : "0xcccccccccccccccccccccccccccccccccccccccc",
-                "value" : [
-                    "0x01"
-                ]
-            }
-    }"#;
-    let add_test_json: GethTestContract =
-        serde_json::from_str::<GethTestContract>(&add_json).unwrap();
-    let json_tx = add_test_json.transaction.clone();
-    let mut storage = InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
-    let contracts = add_test_json
-        .pre
+pub fn test_general_state() {
+    let curr_folder = std::path::Path::new("/Users/fran/Programming/zksync/zksync-era/core/lib/multivm/src/versions/vm_latest/tests/tests/GeneralStateTests/VMTests/vmArithmeticTest");
+
+    let test = std::fs::read_dir(curr_folder)
+        .expect("Folder Missing -- Did you start the submodule?")
         .into_iter()
-        .map(|(address, bytecode)| {
-            let address = Address::from_str(&address).unwrap();
-            insert_evm_contract(
-                &mut storage,
-                bytecode.code.as_bytes().to_vec(),
-                Some(address),
-            );
-            return address;
+        .map(|entry| entry.unwrap().path())
+        .map(|path| {
+            std::fs::read_to_string(path.clone())
+                .expect(&format!("Could not read path: {}", path.display()))
+        })
+        .map(|json| serde_json::from_str::<GethTest>(&json).unwrap())
+        .flat_map(|test| {
+            test.into_iter()
+                .map(|(test_name, test_data)| (test_name, test_data))
+                .collect_vec()
         })
         .collect_vec();
-    let json_tx_data = json_tx.data.clone();
-    let calldata = json_tx_data
-        .into_iter()
-        .flat_map(|call_data| call_data.into_bytes())
-        .collect_vec();
-    let mut vm = VmTesterBuilder::new(HistoryDisabled)
-        .with_storage(storage)
-        .with_random_rich_accounts(1)
-        .with_base_system_smart_contracts(BaseSystemContracts::load_from_disk())
-        .build();
 
-    let account = &mut vm.rich_accounts[0];
-
-    let tx = account.get_l2_tx_for_execute(
-        Execute {
-            contract_address: Some(*contracts.first().unwrap()),
-            calldata,
-            value: U256::zero(),
-            factory_deps: None,
+    for (
+        test_name,
+        GethTestData {
+            pre,
+            transaction,
+            env,
         },
-        None,
-    );
-    let tx_hash = tx.hash();
-    vm.vm.push_transaction(tx);
+    ) in test
+    {
+        println!("Running test: {}", test_name);
+        let mut storage =
+            InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
 
-    let debug_tracer = EvmDebugTracer::new();
-    let tracer_ptr = debug_tracer.into_tracer_pointer();
+        let contracts_for_test = pre
+            .iter()
+            .map(|(address, bytecode)| {
+                let address = Address::from_str(&address).unwrap();
+                insert_evm_contract(
+                    &mut storage,
+                    bytecode.code.as_bytes().to_vec(),
+                    Some(address),
+                );
+                return address;
+            })
+            .collect_vec();
 
-    let tx_result: crate::vm_latest::VmExecutionResultAndLogs =
-        vm.vm.inspect(tracer_ptr.into(), VmExecutionMode::OneTx);
+        let calldata = transaction
+            .data
+            .into_iter()
+            .flat_map(|call_data| call_data.into_bytes())
+            .collect_vec();
 
-    dbg!(tx_result.result);
+        let mut vm = VmTesterBuilder::new(HistoryDisabled)
+            .with_storage(storage)
+            .with_random_rich_accounts(1)
+            .with_base_system_smart_contracts(BaseSystemContracts::load_from_disk())
+            .build();
+
+        let account = &mut vm.rich_accounts[0];
+
+        let tx = account.get_l2_tx_for_execute(
+            Execute {
+                contract_address: Some(*contracts_for_test.first().unwrap()),
+                calldata,
+                value: U256::zero(),
+                factory_deps: None,
+            },
+            None,
+        );
+
+        vm.vm.push_transaction(tx);
+
+        let debug_tracer = EvmDebugTracer::new();
+
+        let tracer_ptr = debug_tracer.into_tracer_pointer();
+
+        let VmExecutionResultAndLogs { result, .. } =
+            vm.vm.inspect(tracer_ptr.into(), VmExecutionMode::Batch);
+
+        assert!(!result.is_failed());
+    }
+}
+#[macro_export]
+macro_rules! generate_evm_test {
+    ($folder_path:expr, $name:tt) => {
+        #[test]
+        pub fn $name() {
+            let folder_path = format!(
+                "{}/src/versions/vm_latest/tests/tests/{}",
+                env!("CARGO_MANIFEST_DIR"),
+                $folder_path
+            );
+            let tests_folder = std::path::Path::new(&folder_path);
+            let test = std::fs::read_dir(tests_folder)
+                .expect(&format!(
+                    "Folder '{}' is missing -- Did you start the submodule?",
+                    &folder_path
+                ))
+                .into_iter()
+                .map(|entry| {
+                    let path = entry.unwrap().path();
+                    let json = std::fs::read_to_string(&path)
+                        .expect(&format!("Could not read path: {}", path.display()));
+                    serde_json::from_str::<GethTest>(&json).expect(&format!(
+                        "File: {} is not a proper geth test",
+                        path.display()
+                    ))
+                })
+                .flat_map(|test| {
+                    test.into_iter()
+                        .map(|(test_name, test_data)| (test_name, test_data))
+                        .collect_vec()
+                })
+                .collect_vec();
+
+            for (test_name, test_data) in test {
+                let GethTestData {
+                    pre,
+                    transaction,
+                    env,
+                } = test_data;
+
+                let mut storage =
+                    InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
+
+                let contracts_for_test = pre
+                    .iter()
+                    .map(|(address, bytecode)| {
+                        let address = Address::from_str(&address).unwrap();
+                        insert_evm_contract(
+                            &mut storage,
+                            bytecode.code.as_bytes().to_vec(),
+                            Some(address),
+                        );
+                        return address;
+                    })
+                    .collect_vec();
+
+                let calldata = transaction
+                    .data
+                    .into_iter()
+                    .flat_map(|call_data| call_data.into_bytes())
+                    .collect_vec();
+
+                let mut vm = VmTesterBuilder::new(HistoryDisabled)
+                    .with_storage(storage)
+                    .with_random_rich_accounts(1)
+                    .with_base_system_smart_contracts(BaseSystemContracts::load_from_disk())
+                    .build();
+
+                let account = &mut vm.rich_accounts[0];
+
+                let tx = account.get_l2_tx_for_execute(
+                    Execute {
+                        contract_address: Some(*contracts_for_test.first().unwrap()),
+                        calldata,
+                        value: U256::zero(),
+                        factory_deps: None,
+                    },
+                    None,
+                );
+
+                vm.vm.push_transaction(tx);
+
+                let debug_tracer = EvmDebugTracer::new();
+
+                let tracer_ptr = debug_tracer.into_tracer_pointer();
+
+                let VmExecutionResultAndLogs { result, .. } =
+                    vm.vm.inspect(tracer_ptr.into(), VmExecutionMode::Batch);
+
+                assert!(!result.is_failed());
+            }
+        }
+    };
+}
+#[cfg(test)]
+macro_rules! generate_evm_tests {
+    () => {
+        #[test]
+        pub fn test_show_dirs() {
+            let folder_path = format!(
+                "{}/src/versions/vm_latest/tests/tests",
+                env!("CARGO_MANIFEST_DIR")
+            );
+            for entry in walkdir::WalkDir::new(&folder_path)
+                .min_depth(1)
+                .max_depth(10)
+                .filter_entry(|entry| {
+                    entry
+                        .as_ref()
+                        .unwrap()
+                        .path()
+                        .extension()
+                        .is_some_and(|extension| extension == "json")
+                })
+            {
+                println!("{}", entry.unwrap().path().display())
+            }
+        }
+    };
+}
+#[rstest::rstest]
+fn evm_tests(
+    #[files("src/versions/vm_latest/tests/tests/GeneralStateTests/**/*.json")] file: PathBuf,
+) {
+    let file_name = &file.file_name().unwrap();
+    let test_json = std::fs::read_to_string(&file).unwrap();
+
+    let test_instance = serde_json::from_str::<GethTest>(&test_json).unwrap();
+
+    let mut storage = InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
+
+    for (
+        test_name,
+        GethTestData {
+            pre,
+            transaction,
+            env,
+        },
+    ) in test_instance
+    {
+        let mut storage =
+            InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
+
+        let contracts_for_test = pre
+            .iter()
+            .map(|(address, bytecode)| {
+                let address = Address::from_str(&address).unwrap();
+                insert_evm_contract(
+                    &mut storage,
+                    bytecode.code.as_bytes().to_vec(),
+                    Some(address),
+                );
+                return address;
+            })
+            .collect_vec();
+
+        let calldata = transaction
+            .data
+            .into_iter()
+            .flat_map(|call_data| call_data.into_bytes())
+            .collect_vec();
+
+        let mut vm = VmTesterBuilder::new(HistoryDisabled)
+            .with_storage(storage)
+            .with_random_rich_accounts(1)
+            .with_base_system_smart_contracts(BaseSystemContracts::load_from_disk())
+            .build();
+
+        let account = &mut vm.rich_accounts[0];
+
+        let tx = account.get_l2_tx_for_execute(
+            Execute {
+                contract_address: Some(*contracts_for_test.first().unwrap()),
+                calldata,
+                value: U256::zero(),
+                factory_deps: None,
+            },
+            None,
+        );
+
+        vm.vm.push_transaction(tx);
+
+        let debug_tracer = EvmDebugTracer::new();
+
+        let tracer_ptr = debug_tracer.into_tracer_pointer();
+
+        let VmExecutionResultAndLogs { result, .. } =
+            vm.vm.inspect(tracer_ptr.into(), VmExecutionMode::Batch);
+
+        assert!(!result.is_failed());
+    }
 }

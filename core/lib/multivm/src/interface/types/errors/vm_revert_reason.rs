@@ -13,7 +13,7 @@ pub enum VmRevertReasonParsingError {
 }
 
 /// Rich Revert Reasons `https://github.com/0xProject/ZEIPs/issues/32`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum VmRevertReason {
     General {
         msg: String,

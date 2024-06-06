@@ -1,0 +1,2242 @@
+{
+  "result": {
+    "Revert": {
+      "output": {
+        "Unknown": {
+          "function_selector": [],
+          "data": []
+        }
+      }
+    }
+  },
+  "logs": {
+    "storage_logs": [
+      {
+        "log_query": {
+          "timestamp": 1245,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800b",
+          "read_value": "0x10001ab7f693837463e30f3f064bb0af8dfe9a23fd083b8ea724e4737b9c6f0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 1437,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x7",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 1493,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x9",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 1553,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 1661,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x5eff886ea0ce6ca488a3d6e336d6c0f75f46d19b42c06ce5ee98e42c96d256c7",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 1721,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x7",
+          "read_value": "0x0",
+          "written_value": "0x100000000000000000000018fe3193482",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 1741,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x6",
+          "read_value": "0x0",
+          "written_value": "0xee6b280",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 3377,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800b",
+          "read_value": "0x10001ab7f693837463e30f3f064bb0af8dfe9a23fd083b8ea724e4737b9c6f0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 3625,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x7",
+          "read_value": "0x100000000000000000000018fe3193482",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 3665,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x9",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 3789,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 3925,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0xb",
+          "read_value": "0x0",
+          "written_value": "0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 3977,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x9",
+          "read_value": "0x0",
+          "written_value": "0x100000000000000000000018fe3193482",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 4001,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0xb",
+          "read_value": "0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c",
+          "written_value": "0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 4009,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0xa",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 4017,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x10d",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 4053,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x10c",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 4097,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x7",
+          "read_value": "0x100000000000000000000018fe3193482",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 4117,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x10d",
+          "read_value": "0x0",
+          "written_value": "0x1",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 4189,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x10d",
+          "read_value": "0x1",
+          "written_value": "0x100000000000000000000000000000001",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 4225,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x10c",
+          "read_value": "0x0",
+          "written_value": "0x100000000000000000000018fe3193482",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 5365,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800b",
+          "read_value": "0x10001ab7f693837463e30f3f064bb0af8dfe9a23fd083b8ea724e4737b9c6f0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 5485,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x6",
+          "read_value": "0xee6b280",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 6041,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800c",
+          "read_value": "0x10007e713466b8c25ffa29e5109d3544009a45219a517829be43482a5ee1b24",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 6561,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 7177,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 7557,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 8197,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 8349,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800b",
+          "read_value": "0x10001ab7f693837463e30f3f064bb0af8dfe9a23fd083b8ea724e4737b9c6f0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 8469,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x0",
+          "read_value": "0x10e",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 8653,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 8889,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 9325,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 9741,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 10165,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800b",
+          "read_value": "0x10001ab7f693837463e30f3f064bb0af8dfe9a23fd083b8ea724e4737b9c6f0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 10317,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0xa",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 10425,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 10541,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0xa",
+          "read_value": "0x0",
+          "written_value": "0x9d04196e75b1c2abe1cb6fd0b62f109c4fa3d73bc75885486b3c26eb458b634d",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 10637,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800b",
+          "read_value": "0x10001ab7f693837463e30f3f064bb0af8dfe9a23fd083b8ea724e4737b9c6f0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 10817,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x110",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 10837,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x10f",
+          "read_value": "0x0",
+          "written_value": "0xd48",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 11261,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800b",
+          "read_value": "0x10001ab7f693837463e30f3f064bb0af8dfe9a23fd083b8ea724e4737b9c6f0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 11449,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x1",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 11465,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x1",
+          "read_value": "0x0",
+          "written_value": "0x8001",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 11553,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800b",
+          "read_value": "0x10001ab7f693837463e30f3f064bb0af8dfe9a23fd083b8ea724e4737b9c6f0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 11725,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x2",
+          "read_value": "0x0",
+          "written_value": "0xee6b280",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 11913,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8006",
+          "read_value": "0x1000751bf5318f82d021576bbf8f3b42a224828b6bcb67adaf8e102d17cd4e7",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 12165,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 12289,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008006",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 12445,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8002",
+          "read_value": "0x1000081df25f20524a83dc78040b54bdd50e97de2381e220757f07a56a9dd8b",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 12569,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x80995fb1b3aa166f4b10522e03108728b9540c3b",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 12985,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8003",
+          "read_value": "0x10000fdb3c13d8745ec519314bd838e99b4698f2283e63b5b66e92328ec0c0b",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 13201,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 13309,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008003",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 13369,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 13513,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 13617,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008003",
+          "key": "0x7b06c062c8553d10c36993b1878977e2c7a5fedffcd3021cb1393618ebe5da7",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 14321,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x80995fb1b3aa166f4b10522e03108728b9540c3b",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 14689,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8003",
+          "read_value": "0x10000fdb3c13d8745ec519314bd838e99b4698f2283e63b5b66e92328ec0c0b",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 14865,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 14981,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008003",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 15049,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 15161,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008003",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x0",
+          "written_value": "0x1",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 15481,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800a",
+          "read_value": "0x100010161b57507793e200f83adcb0af697fea18c1c79689a59236319646d0f",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 15653,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 15765,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x8ac7230489e80000",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 16345,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x1",
+          "read_value": "0x100001112e34172b2bc31574d155893a087a1cf4b608cf9895a2201ea7bd6ee",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 16813,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8003",
+          "read_value": "0x10000fdb3c13d8745ec519314bd838e99b4698f2283e63b5b66e92328ec0c0b",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 17029,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 17137,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008003",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x1",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 17397,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800a",
+          "read_value": "0x100010161b57507793e200f83adcb0af697fea18c1c79689a59236319646d0f",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 17569,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 17681,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x31b66141c575a054316a84da9cf4aa6fe0abd373cab1bf4ac029ffc061aae0da",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 18153,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x80995fb1b3aa166f4b10522e03108728b9540c3b",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 18529,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8009",
+          "read_value": "0x1000069aedacee10be4cbb439a4c1219b18634255aa7da7f5dd1befd0b7e81c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 18805,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800a",
+          "read_value": "0x100010161b57507793e200f83adcb0af697fea18c1c79689a59236319646d0f",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 19037,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 19145,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x8ac7230489e80000",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 19201,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 19317,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x8ac7230489e80000",
+          "written_value": "0x53444835ec580000",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 19353,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 19465,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x31b66141c575a054316a84da9cf4aa6fe0abd373cab1bf4ac029ffc061aae0da",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 19477,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x31b66141c575a054316a84da9cf4aa6fe0abd373cab1bf4ac029ffc061aae0da",
+          "read_value": "0x0",
+          "written_value": "0x3782dace9d900000",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 19549,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800d",
+          "read_value": "0x10000159a3a08da3ac57cdefec0e9e30da60456bc5643134cf16d6957bcf1ac",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 19861,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8001",
+          "read_value": "0x1000007792830a31f36b1104fbbe7ebac8e387772a2cd9682514c8119370d29",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 20209,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800a",
+          "read_value": "0x100010161b57507793e200f83adcb0af697fea18c1c79689a59236319646d0f",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 20381,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 20493,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x31b66141c575a054316a84da9cf4aa6fe0abd373cab1bf4ac029ffc061aae0da",
+          "read_value": "0x3782dace9d900000",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 20633,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800a",
+          "read_value": "0x100010161b57507793e200f83adcb0af697fea18c1c79689a59236319646d0f",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 20849,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 20957,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x31b66141c575a054316a84da9cf4aa6fe0abd373cab1bf4ac029ffc061aae0da",
+          "read_value": "0x3782dace9d900000",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 21013,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 21129,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x31b66141c575a054316a84da9cf4aa6fe0abd373cab1bf4ac029ffc061aae0da",
+          "read_value": "0x3782dace9d900000",
+          "written_value": "0x6f05b59d3b20000",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 21165,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 21277,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x53444835ec580000",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 21289,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x53444835ec580000",
+          "written_value": "0x83d6c7aab6360000",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 21361,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800d",
+          "read_value": "0x10000159a3a08da3ac57cdefec0e9e30da60456bc5643134cf16d6957bcf1ac",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 23069,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8004",
+          "read_value": "0x10000dba9f1ea38ddab82e64b9d467115da13d5037eb3a1077aedd18ef45ff1",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 24537,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8002",
+          "read_value": "0x1000081df25f20524a83dc78040b54bdd50e97de2381e220757f07a56a9dd8b",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 24661,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x80995fb1b3aa166f4b10522e03108728b9540c3b",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 24837,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800b",
+          "read_value": "0x10001ab7f693837463e30f3f064bb0af8dfe9a23fd083b8ea724e4737b9c6f0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 25025,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x1",
+          "read_value": "0x8001",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 25041,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x1",
+          "read_value": "0x8001",
+          "written_value": "0x80995fb1b3aa166f4b10522e03108728b9540c3b",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 25453,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x80995fb1b3aa166f4b10522e03108728b9540c3b",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 26053,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0xcccccccccccccccccccccccccccccccccccccccc",
+          "read_value": "0x20000608ab98c85594f3eb61b822b9634b2fb5adee633a1434c7d1f486daeba",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 26257,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8013",
+          "read_value": "0x10000b1e420abfef1fe44c286b0929e764f49ff4a88159db061788424a029f5",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 26361,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008013",
+          "key": "0x2",
+          "read_value": "0x0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 26669,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8002",
+          "read_value": "0x1000081df25f20524a83dc78040b54bdd50e97de2381e220757f07a56a9dd8b",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 26793,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0xcccccccccccccccccccccccccccccccccccccccc",
+          "read_value": "0x20000608ab98c85594f3eb61b822b9634b2fb5adee633a1434c7d1f486daeba",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 26929,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8012",
+          "read_value": "0x1000027e949df1f1897e9221951b7e49cbeb2bc16297b095ccf0e2a0d25040c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 27077,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8004",
+          "read_value": "0x10000dba9f1ea38ddab82e64b9d467115da13d5037eb3a1077aedd18ef45ff1",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 27185,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008004",
+          "key": "0x20000608ab98c85594f3eb61b822b9634b2fb5adee633a1434c7d1f486daeba",
+          "read_value": "0x1",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 27729,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8013",
+          "read_value": "0x10000b1e420abfef1fe44c286b0929e764f49ff4a88159db061788424a029f5",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 27901,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8002",
+          "read_value": "0x1000081df25f20524a83dc78040b54bdd50e97de2381e220757f07a56a9dd8b",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 28025,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0xcccccccccccccccccccccccccccccccccccccccc",
+          "read_value": "0x20000608ab98c85594f3eb61b822b9634b2fb5adee633a1434c7d1f486daeba",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 28269,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 31685,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800b",
+          "read_value": "0x10001ab7f693837463e30f3f064bb0af8dfe9a23fd083b8ea724e4737b9c6f0",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 31873,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x1",
+          "read_value": "0x80995fb1b3aa166f4b10522e03108728b9540c3b",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 31889,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800b",
+          "key": "0x1",
+          "read_value": "0x80995fb1b3aa166f4b10522e03108728b9540c3b",
+          "written_value": "0x8001",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 32489,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800a",
+          "read_value": "0x100010161b57507793e200f83adcb0af697fea18c1c79689a59236319646d0f",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 32705,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 32813,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x31b66141c575a054316a84da9cf4aa6fe0abd373cab1bf4ac029ffc061aae0da",
+          "read_value": "0x6f05b59d3b20000",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 32869,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 32985,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x31b66141c575a054316a84da9cf4aa6fe0abd373cab1bf4ac029ffc061aae0da",
+          "read_value": "0x6f05b59d3b20000",
+          "written_value": "0x69601b8cf700",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 33021,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x8010",
+          "read_value": "0x100000f248e111a1b587fef850dc4585c39af2dd505bc8a0d5cc6d3fcc7ed3c",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 33133,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x83d6c7aab6360000",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      },
+      {
+        "log_query": {
+          "timestamp": 33145,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x000000000000000000000000000000000000800a",
+          "key": "0x81114f74a6e9ae00f38c2b556656b37b9b62a5c2c52e0e66aa22c19d00c9082e",
+          "read_value": "0x83d6c7aab6360000",
+          "written_value": "0x8ac6b9a46e5b0900",
+          "rw_flag": true,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "InitialWrite"
+      },
+      {
+        "log_query": {
+          "timestamp": 33217,
+          "tx_number_in_block": 0,
+          "aux_byte": 0,
+          "shard_id": 0,
+          "address": "0x0000000000000000000000000000000000008002",
+          "key": "0x800d",
+          "read_value": "0x10000159a3a08da3ac57cdefec0e9e30da60456bc5643134cf16d6957bcf1ac",
+          "written_value": "0x0",
+          "rw_flag": false,
+          "rollback": false,
+          "is_service": false
+        },
+        "log_type": "Read"
+      }
+    ],
+    "events": [
+      {
+        "location": [
+          1,
+          0
+        ],
+        "address": "0x000000000000000000000000000000000000800a",
+        "indexed_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x00000000000000000000000080995fb1b3aa166f4b10522e03108728b9540c3b",
+          "0x0000000000000000000000000000000000000000000000000000000000008001"
+        ],
+        "value": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          55,
+          130,
+          218,
+          206,
+          157,
+          144,
+          0,
+          0
+        ]
+      },
+      {
+        "location": [
+          1,
+          0
+        ],
+        "address": "0x000000000000000000000000000000000000800a",
+        "indexed_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x0000000000000000000000000000000000000000000000000000000000008001",
+          "0x00000000000000000000000080995fb1b3aa166f4b10522e03108728b9540c3b"
+        ],
+        "value": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          48,
+          146,
+          127,
+          116,
+          201,
+          222,
+          0,
+          0
+        ]
+      },
+      {
+        "location": [
+          1,
+          0
+        ],
+        "address": "0x000000000000000000000000000000000000800a",
+        "indexed_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x0000000000000000000000000000000000000000000000000000000000008001",
+          "0x00000000000000000000000080995fb1b3aa166f4b10522e03108728b9540c3b"
+        ],
+        "value": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          6,
+          239,
+          241,
+          249,
+          184,
+          37,
+          9,
+          0
+        ]
+      }
+    ],
+    "user_l2_to_l1_logs": [],
+    "system_l2_to_l1_logs": [
+      {
+        "shard_id": 0,
+        "is_service": false,
+        "tx_number_in_block": 0,
+        "sender": "0x000000000000000000000000000000000000800b",
+        "key": "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "value": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "total_log_queries_count": 170
+  },
+  "statistics": {
+    "contracts_used": 17,
+    "cycles_used": 8156,
+    "gas_used": 248575,
+    "gas_remaining": 4294718720,
+    "computational_gas_used": 248575,
+    "total_log_queries": 170,
+    "pubdata_published": 75,
+    "circuit_statistic": {
+      "main_vm": 1.4603401,
+      "ram_permutation": 0.1693316,
+      "storage_application": 1.7878788,
+      "storage_sorter": 0.003303425,
+      "code_decommitter": 1.9328647,
+      "code_decommitter_sorter": 0.0006042553,
+      "log_demuxer": 0.0023319148,
+      "events_sorter": 0.0006392431,
+      "keccak256": 0.12286689,
+      "ecrecover": 0.14285715,
+      "sha256": 0.0
+    }
+  },
+  "refunds": {
+    "gas_refunded": 1999536554,
+    "operator_suggested_refund": 1999536554
+  }
+}
