@@ -37,7 +37,10 @@ use zksync_utils::{
 
 use super::tester::VmTester;
 use crate::{
-    interface::{TxExecutionMode, VmExecutionMode, VmInterface},
+    interface::{
+        ExecutionResult::{Halt, Revert},
+        TxExecutionMode, VmExecutionMode, VmInterface,
+    },
     vm_boojum_integration::tracers::dispatcher,
     vm_latest::{
         tests::{
@@ -5454,8 +5457,13 @@ struct GethTestData {
 type GethTest = HashMap<String, GethTestData>;
 
 #[rstest::rstest]
-fn evm_tests(
-    #[files("src/versions/vm_latest/tests/tests/GeneralStateTests/**/*.json")] file: PathBuf,
+fn evm_tests_yul(
+    #[files("src/versions/vm_latest/tests/tests/GeneralStateTests/**/*.json")]
+    #[exclude("src/versions/vm_latest/tests/tests/GeneralStateTests/stPrecompiledContracts2/modexp_*.json")]
+    #[exclude("src/versions/vm_latest/tests/tests/GeneralStateTests/**/ecmul*.json")]
+    #[exclude("cancun")]
+    #[exclude("Cancun")]
+    file: PathBuf,
 ) {
     let file_name = &file.file_name().unwrap();
     let test_json = std::fs::read_to_string(&file).unwrap();
@@ -5464,6 +5472,7 @@ fn evm_tests(
 
     let mut storage = InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
 
+    let mut errs = "";
     for (
         test_name,
         GethTestData {
@@ -5495,6 +5504,10 @@ fn evm_tests(
             .flat_map(|call_data| call_data.into_bytes())
             .collect_vec();
 
+        let test_account_pk = H256::from_str(&transaction.secretKey).unwrap();
+
+        let test_account = Account::new(test_account_pk);
+
         let mut vm = VmTesterBuilder::new(HistoryDisabled)
             .with_storage(storage)
             .with_random_rich_accounts(1)
@@ -5512,6 +5525,163 @@ fn evm_tests(
             },
             None,
         );
+
+        vm.vm.push_transaction(tx);
+
+        let debug_tracer = EvmDebugTracer::new();
+
+        let tracer_ptr = debug_tracer.into_tracer_pointer();
+
+        let VmExecutionResultAndLogs { result, .. } =
+            vm.vm.inspect(tracer_ptr.into(), VmExecutionMode::Batch);
+        if result.is_failed() {
+            dbg!(&file_name, &result);
+        }
+        assert!(!result.is_failed());
+    }
+}
+
+#[rstest::rstest]
+fn evm_tests_yul_ecmul(
+    #[files("src/versions/vm_latest/tests/tests/GeneralStateTests/stZeroKnowledge/*.json")]
+    file: PathBuf,
+) {
+    let file_name = &file.file_name().unwrap();
+    let test_json = std::fs::read_to_string(&file).unwrap();
+
+    let test_instance = serde_json::from_str::<GethTest>(&test_json).unwrap();
+
+    let mut storage = InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
+
+    let mut errs = "";
+    for (
+        test_name,
+        GethTestData {
+            pre,
+            transaction,
+            env,
+        },
+    ) in test_instance
+    {
+        let mut storage =
+            InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
+
+        let contracts_for_test = pre
+            .iter()
+            .filter(|(_address, bytecode)| bytecode.code != "0x")
+            .map(|(address, bytecode)| {
+                let address = Address::from_str(&address).unwrap();
+                insert_evm_contract(
+                    &mut storage,
+                    bytecode.code.as_bytes().to_vec(),
+                    Some(address),
+                );
+                return address;
+            })
+            .collect_vec();
+
+        let calldata = transaction
+            .data
+            .into_iter()
+            .flat_map(|call_data| call_data.into_bytes())
+            .collect_vec();
+
+        let test_account_pk = H256::from_str(&transaction.secretKey).unwrap();
+        let mut test_account = Account::new(test_account_pk);
+
+        let tx = test_account.get_l1_tx(
+            Execute {
+                contract_address: None,
+                calldata,
+                value: transaction.value.concat().as_bytes().into(),
+                factory_deps: None,
+            },
+            1,
+        );
+
+        let mut vm = VmTesterBuilder::new(HistoryDisabled)
+            .with_storage(storage)
+            .with_rich_accounts(vec![test_account])
+            .with_base_system_smart_contracts(BaseSystemContracts::load_from_disk())
+            .build();
+
+        vm.vm.push_transaction(tx);
+
+        let debug_tracer = EvmDebugTracer::new();
+
+        let tracer_ptr = debug_tracer.into_tracer_pointer();
+
+        let VmExecutionResultAndLogs { result, .. } =
+            vm.vm.inspect(tracer_ptr.into(), VmExecutionMode::Batch);
+
+        assert!(!result.is_failed());
+    }
+}
+
+#[rstest::rstest]
+fn evm_tests_yul_precompiled2(
+    #[files("src/versions/vm_latest/tests/tests/GeneralStateTests/stPrecompiledContracts2/*.json")]
+    file: PathBuf,
+) {
+    let file_name = &file.file_name().unwrap();
+    let test_json = std::fs::read_to_string(&file).unwrap();
+
+    let test_instance = serde_json::from_str::<GethTest>(&test_json).unwrap();
+
+    let mut storage = InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
+
+    let mut errs = "";
+    for (
+        test_name,
+        GethTestData {
+            pre,
+            transaction,
+            env,
+        },
+    ) in test_instance
+    {
+        let mut storage =
+            InMemoryStorage::with_system_contracts(zksync_utils::bytecode::hash_bytecode);
+
+        let contracts_for_test = pre
+            .iter()
+            .filter(|(_address, bytecode)| bytecode.code != "0x")
+            .map(|(address, bytecode)| {
+                let address = Address::from_str(&address).unwrap();
+                insert_evm_contract(
+                    &mut storage,
+                    bytecode.code.as_bytes().to_vec(),
+                    Some(address),
+                );
+                return address;
+            })
+            .collect_vec();
+
+        let calldata = transaction
+            .data
+            .into_iter()
+            .flat_map(|call_data| call_data.into_bytes())
+            .collect_vec();
+
+        let test_account_pk = H256::from_str(&transaction.secretKey).unwrap();
+
+        let test_account = Account::new(test_account_pk);
+
+        let tx = test_account.get_l1_tx(
+            Execute {
+                contract_address: Some(*contracts_for_test.first().unwrap()),
+                calldata,
+                value: transaction.value.concat().as_bytes().into(),
+                factory_deps: None,
+            },
+            1,
+        );
+
+        let mut vm = VmTesterBuilder::new(HistoryDisabled)
+            .with_storage(storage)
+            .with_rich_accounts(vec![test_account])
+            .with_base_system_smart_contracts(BaseSystemContracts::load_from_disk())
+            .build();
 
         vm.vm.push_transaction(tx);
 
