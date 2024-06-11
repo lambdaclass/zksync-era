@@ -1,7 +1,7 @@
 use zksync_types::circuit::CircuitStatistic;
 
 /// Statistics of the tx execution.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, serde::Deserialize, serde::Serialize)]
 pub struct VmExecutionStatistics {
     /// Number of contracts used by the VM during the tx execution.
     pub contracts_used: usize,

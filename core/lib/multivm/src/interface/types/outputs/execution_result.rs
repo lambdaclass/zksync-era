@@ -10,14 +10,14 @@ use zksync_utils::bytecode::bytecode_len_in_bytes;
 use crate::interface::{Halt, VmExecutionStatistics, VmRevertReason};
 
 /// Refunds produced for the user.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct Refunds {
     pub gas_refunded: u32,
     pub operator_suggested_refund: u32,
 }
 
 /// Events/storage logs/l2->l1 logs created within transaction execution.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct VmExecutionLogs {
     pub storage_logs: Vec<StorageLogQuery>,
     pub events: Vec<VmEvent>,
@@ -36,7 +36,7 @@ impl VmExecutionLogs {
 }
 
 /// Result and logs of the VM execution.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct VmExecutionResultAndLogs {
     pub result: ExecutionResult,
     pub logs: VmExecutionLogs,
@@ -44,7 +44,7 @@ pub struct VmExecutionResultAndLogs {
     pub refunds: Refunds,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum ExecutionResult {
     /// Returned successfully
     Success { output: Vec<u8> },

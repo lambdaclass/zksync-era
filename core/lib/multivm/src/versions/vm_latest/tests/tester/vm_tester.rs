@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Deref};
 
 use zksync_contracts::BaseSystemContracts;
 use zksync_state::{InMemoryStorage, StoragePtr, StorageView, WriteStorage};
@@ -31,7 +31,7 @@ use crate::{
 pub(crate) type InMemoryStorageView = StorageView<InMemoryStorage>;
 
 pub(crate) struct VmTester<H: HistoryMode> {
-    pub(crate) vm: Vm<InMemoryStorageView, H>,
+    pub vm: Vm<InMemoryStorageView, H>,
     pub(crate) storage: StoragePtr<InMemoryStorageView>,
     pub(crate) fee_account: Address,
     pub(crate) deployer: Option<Account>,
@@ -102,6 +102,10 @@ impl<H: HistoryMode> VmTester<H> {
         }
 
         self.vm = vm;
+    }
+    pub fn print_storage(&self) {
+        let cloned = self.clone();
+        dbg!(&cloned.storage.borrow().modified_storage_keys());
     }
 }
 
@@ -267,7 +271,7 @@ pub(crate) fn default_l1_batch(number: L1BatchNumber) -> L1BatchEnv {
     }
 }
 
-pub(crate) fn make_account_rich(storage: StoragePtr<InMemoryStorageView>, account: &Account) {
+pub fn make_account_rich(storage: StoragePtr<InMemoryStorageView>, account: &Account) {
     let key = storage_key_for_eth_balance(&account.address);
     storage
         .as_ref()

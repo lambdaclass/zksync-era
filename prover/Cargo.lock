@@ -3183,6 +3183,8 @@ dependencies = [
  "hex",
  "itertools 0.10.5",
  "once_cell",
+ "serde",
+ "serde_json",
  "thiserror",
  "tracing",
  "vise",

@@ -1,3 +1,7 @@
 [submodule "contracts"]
 path = contracts
 url = https://github.com/matter-labs/era-contracts.git
+[submodule "core/lib/multivm/src/versions/vm_latest/tests/tests"]
+	path = core/lib/multivm/src/versions/vm_latest/tests/tests
+	url = https://github.com/ethereum/tests
+	branch = develop
