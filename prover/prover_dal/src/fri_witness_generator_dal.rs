@@ -1,7 +1,7 @@
 #![doc = include_str!("../doc/FriWitnessGeneratorDal.md")]
 use std::{collections::HashMap, str::FromStr, time::Duration};
 
-use sqlx::Row;
+use sqlx::{Executor, Postgres, Row};
 use zksync_basic_types::{
     basic_fri_types::{AggregationRound, Eip4844Blobs},
     protocol_version::{ProtocolSemanticVersion, ProtocolVersionId, VersionPatch},
@@ -1891,5 +1891,257 @@ impl FriWitnessGeneratorDal<'_, '_> {
             | AggregationRound::Scheduler => "l1_batch_number",
             AggregationRound::LeafAggregation | AggregationRound::NodeAggregation => "id",
         }
+    }
+
+    pub(crate) async fn restart_prover_job(
+        executor: impl sqlx::Executor<'_, Database = Postgres>,
+        real_id: u32,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r#"
+            UPDATE prover_jobs_fri
+            SET status = 'queued'
+            WHERE id = $1
+            "#,
+            real_id as i64,
+        )
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn restart_prover_jobs_with_circuit_id_in_batch(
+        executor: impl sqlx::Executor<'_, Database = Postgres>,
+        aggregation_round: AggregationRound,
+        l1_batch_number: L1BatchNumber,
+        circuit_id: u8
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r#"
+            UPDATE prover_jobs_fri
+            SET status = 'queued'
+            WHERE aggregation_round > $1
+            AND l1_batch_number = $2
+            AND (circuit_id = $3 OR aggregation_round >= 3)
+            "#,
+            aggregation_round as i16,
+            l1_batch_number.0 as i64,
+            circuit_id as i16,
+        )
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn restart_witness_generator_job_and_dependent_jobs(
+        &mut self,
+        aggregation_round: AggregationRound,
+        id: u32,
+    ) -> anyhow::Result<()> {
+        // TODO: how do I reset __DATA__ so queued jobs don't just pick the old one
+        // while we're reprocessing?
+        // Should check how it is posted now.
+
+        // tx will be rolled back on `drop` unless explicitly commited.
+        let mut tx = self.storage.conn().begin().await?;
+
+        let (real_id, batch_number, circuit_id) = sqlx::query!(
+            r#"
+            SELECT id, l1_batch_number, circuit_id
+            FROM prover_jobs_fri
+            WHERE
+                (aggregation_round < 3 AND aggregation_round = $2 AND id = $1)
+            OR
+                (aggregation_round >= 3 AND aggregation_round = $2 AND l1_batch_number = $1)
+            "#,
+            id as i64,
+            aggregation_round as i16,
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map(|r| (r.id as u32, r.l1_batch_number as u64, r.circuit_id as u8))?;
+
+        let mut in_progress_count = sqlx::query!(
+            r#"
+            SELECT COUNT(*)
+            FROM prover_jobs_fri
+            WHERE status IN ('in_progress', 'in_gpu_proof')
+            AND (
+                id = $1
+                OR (
+                    aggregation_round > $2 AND l1_batch_number = $3
+                    AND (
+                        circuit_id = $4 OR aggregation_round >= 3
+                    )
+                )
+            )
+            "#,
+            real_id as i64,
+            aggregation_round as i16,
+            batch_number as i64,
+            circuit_id as i16,
+        )
+        .fetch_one(&mut *tx)
+        .await?
+        .count
+        .unwrap_or_default();
+
+        for i in (aggregation_round as u8 + 1)..5 {
+            in_progress_count += match AggregationRound::from(i) {
+                AggregationRound::BasicCircuits => unreachable!(),
+                AggregationRound::LeafAggregation => {
+                    sqlx::query!(
+                        r#"
+                        SELECT COUNT(*)
+                        FROM leaf_aggregation_witness_jobs_fri
+                        WHERE status = 'in_progress' AND l1_batch_number = $1 AND circuit_id = $2
+                        "#,
+                        batch_number as i64,
+                        circuit_id as i16,
+                    )
+                    .fetch_one(&mut *tx)
+                    .await?
+                    .count
+                    .unwrap_or_default()
+                },
+                AggregationRound::NodeAggregation => {
+                    sqlx::query!(
+                        r#"
+                        SELECT COUNT(*)
+                        FROM node_aggregation_witness_jobs_fri
+                        WHERE status = 'in_progress' AND l1_batch_number = $1 AND circuit_id = $2
+                        "#,
+                        batch_number as i64,
+                        circuit_id as i16,
+                    )
+                    .fetch_one(&mut *tx)
+                    .await?
+                    .count
+                    .unwrap_or_default()
+                },
+                AggregationRound::RecursionTip => {
+                    sqlx::query!(
+                        r#"
+                        SELECT COUNT(*)
+                        FROM recursion_tip_witness_jobs_fri
+                        WHERE status = 'in_progress' AND l1_batch_number = $1
+                        "#,
+                        batch_number as i64,
+                    )
+                    .fetch_one(&mut *tx)
+                    .await?
+                    .count
+                    .unwrap_or_default()
+                },
+                AggregationRound::Scheduler => {
+                    sqlx::query!(
+                        r#"
+                        SELECT COUNT(*)
+                        FROM scheduler_witness_jobs_fri
+                        WHERE status = 'in_progress' AND l1_batch_number = $1
+                        "#,
+                        batch_number as i64,
+                    )
+                    .fetch_one(&mut *tx)
+                    .await?
+                    .count
+                    .unwrap_or_default()
+                },
+            };
+        }
+
+        in_progress_count += sqlx::query!(
+            r#"
+            SELECT COUNT(*)
+            FROM proof_compression_jobs_fri
+            WHERE status = 'in_progress' AND l1_batch_number = $1
+            "#,
+            batch_number as i64,
+        )
+        .fetch_one(&mut *tx)
+        .await?
+        .count
+        .unwrap_or_default();
+
+        if in_progress_count != 0 {
+            anyhow::bail!(format!("{in_progress_count} affected tasks in progress, retry later"));
+        }
+
+        Self::restart_prover_job(&mut *tx, real_id)
+            .await?;
+        Self::restart_prover_jobs_with_circuit_id_in_batch(&mut *tx, aggregation_round, batch_number, circuit_id)
+            .await?;
+       
+        // TODO: check for in-progress witness jobs
+        for i in (aggregation_round as u8 + 1)..5 {
+            match AggregationRound::from(i) {
+                AggregationRound::BasicCircuits => unreachable!(),
+                AggregationRound::LeafAggregation => {
+                    sqlx::query!(
+                        r#"
+                        UPDATE leaf_aggregation_witness_jobs_fri
+                        SET status = 'waiting_for_proof'
+                        WHERE l1_batch_number = $1 AND circuit_id = $2
+                        "#,
+                        batch_number as i64,
+                        circuit_id as i16,
+                    )
+                    .execute(&mut *tx)
+                    .await?;
+                },
+                AggregationRound::NodeAggregation => {
+                    sqlx::query!(
+                        r#"
+                        UPDATE node_aggregation_witness_jobs_fri
+                        SET status = 'waiting_for_proof'
+                        WHERE l1_batch_number = $1 AND circuit_id = $2
+                        "#,
+                        batch_number as i64,
+                        circuit_id as i16,
+                    )
+                    .execute(&mut *tx)
+                    .await?;
+                },
+                AggregationRound::RecursionTip => {
+                    sqlx::query!(
+                        r#"
+                        UPDATE recursion_tip_witness_jobs_fri
+                        SET status = 'waiting_for_proof'
+                        WHERE l1_batch_number = $1
+                        "#,
+                        batch_number as i64,
+                    )
+                    .execute(&mut *tx)
+                    .await?;
+                },
+                AggregationRound::Scheduler => {
+                    sqlx::query!(
+                        r#"
+                        UPDATE scheduler_witness_jobs_fri
+                        SET status = 'waiting_for_proof'
+                        WHERE l1_batch_number = $1
+                        "#,
+                        batch_number as i64,
+                    )
+                    .execute(&mut *tx)
+                    .await?;
+                },
+            }
+        }
+
+        sqlx::query!(
+            r#"
+            UPDATE proof_compression_jobs_fri
+            SET status = 'queued'
+            WHERE l1_batch_number = $1
+            "#,
+            batch_number as i64,
+        )
+        .execute(&mut *tx)
+        .await?;
+        
+        tx.commit().await?;
+
+        Ok(())
     }
 }

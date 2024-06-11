@@ -55,27 +55,217 @@ pub async fn run(args: Args, config: ProverCLIConfig) -> anyhow::Result<()> {
     unreachable!()
 }
 
-async fn restart_prover_job(round: AggregationRound, id: u32, conn: &mut Connection<'_, Prover>) -> Result<(), anyhow::Error> {
-    if matches!(round, RecursionTip|Scheduler) {
-        return batch::restart_from_prover_jobs_in_aggregation_round(round, L1BatchNumber::from(id), conn).await;
+async fn restart_prover_job(
+    round: AggregationRound,
+    id: u32,
+    conn: &mut Connection<'_, Prover>,
+) -> anyhow::Result<()> {
+    let mut conn = conn.start_transaction().await?;
+    let mut prover_dal = conn.fri_prover_jobs_dal();
+
+    // Closure to simplify early return with a rollback.
+    let inner = || -> anyhow::Result<()> {
+        let (real_id, l1_batch_number, circuit_id, status) = prover_dal.get_prover_job_metadata_for_restart(round, id).await?;
+        match status {
+            "in_progress"|"in_gpu_proof" => return Err(anyhow::anyhow!("Job {} in progress", id)),
+            _ => (),
+        }
+        prover_dal.restart_jobs(vec![real_id]).await?;
+
+        restart_prover_jobs_for_circuit_after_round(round, l1_batch_number, circuit_id, &mut conn).await?;
+        restart_witness_jobs_for_circuit_after_round(round, l1_batch_number, circuit_id, &mut conn).await?;
+
+        Ok(())
+    };
+
+    // Prioritize the inner error over the transaction error.
+    // This way we don't miss reports of jobs in progress.
+    let result = inner();
+    match result {
+        Ok(()) => conn.commit().await?,
+        Err(e) => conn.rollback().await?,
     }
-    let mut dal = conn.fri_prover_jobs_dal();
-    let (batch, circuit_id) = dal.restart_prover_job_fri(round, id).await?;
-    if let Some(next_round) = round.next() {
-        dal.delete_data_for_circuit_from_round(batch, next_round, circuit_id).await?;
-    }
-    Ok(())
+    result
 }
 
 async fn restart_witness_job(round: AggregationRound, id: u32, conn: &mut Connection<'_, Prover>) -> Result<(), anyhow::Error> {
-    if matches!(round, RecursionTip|Scheduler) {
-        return batch::restart_from_aggregation_round(round, L1BatchNumber::from(id), conn).await;
-    }
-    todo!();
-    //conn.fri_witness_generator_dal().mark_witness_job(id, "queued").await
+    let mut conn = conn.start_transaction().await?;
+    let mut witness_dal = conn.fri_witness_generator_dal();
 
+    match round {
+        BasicCircuits => {
+            let (real_id, l1_batch_number, circuit_id, status) = witness_dal.get_leaf_witness_generator_job_metadata_for_restart(round, id).await?;
+            match status {
+                "in_progress"|"in_gpu_proof" => return Err(anyhow::anyhow!("Job {} in progress", id)),
+                _ => (),
+            }
+            witness_dal.restart_leaf_aggregation_jobs(vec![real_id]).await?;
+        }
+        LeafAggregation => {
+            let (real_id, l1_batch_number, circuit_id, status) = witness_dal.get_leaf_witness_generator_job_metadata_for_restart(round, id).await?;
+            match status {
+                "in_progress"|"in_gpu_proof" => return Err(anyhow::anyhow!("Job {} in progress", id)),
+                _ => (),
+            }
+            witness_dal.restart_leaf_aggregation_jobs(vec![real_id]).await?;
+        }
+        NodeAggregation => {
+            let (real_id, l1_batch_number, circuit_id, status) = witness_dal.get_node_witness_generator_job_metadata_for_restart(round, id).await?;
+            match status {
+                "in_progress"|"in_gpu_proof" => return Err(anyhow::anyhow!("Job {} in progress", id)),
+                _ => (),
+            }
+            witness_dal.restart_node_aggregation_jobs(vec![real_id]).await?;
+        }
+        RecursionTip => {
+            let (real_id, l1_batch_number, circuit_id, status) = witness_dal.get_recursion_tip_witness_generator_job_metadata_for_restart(round, id).await?;
+            match status {
+                "in_progress"|"in_gpu_proof" => return Err(anyhow::anyhow!("Job {} in progress", id)),
+                _ => (),
+            }
+            witness_dal.restart_recursion_tip_jobs(vec![real_id]).await?;
+        }
+        Scheduler => {
+            let (real_id, l1_batch_number, circuit_id, status) = witness_dal.get_scheduler_witness_generator_job_metadata_for_restart(round, id).await?;
+            match status {
+                "in_progress"|"in_gpu_proof" => return Err(anyhow::anyhow!("Job {} in progress", id)),
+                _ => (),
+            }
+            witness_dal.restart_scheduler_jobs(vec![real_id]).await?;
+        }
+    }
+
+    let (real_id, l1_batch_number, circuit_id, status) = witness_dal.get_witness_job_metadata_for_restart(round, id).await?;
+    match status {
+        "in_progress"|"in_gpu_proof" => return Err(anyhow::anyhow!("Job {} in progress", id)),
+        _ => (),
+    }
+
+    let job_stats = witness_dal.get_witness_jobs_stats_for_batch(l1_batch_number, round).await?;
+    let to_restart: Vec<_> = job_stats.iter()
+        .filter(|info| info.id == real_id || (info.circuit_id == circuit_id && info.aggregation_round as u8 > round as u8))
+        .collect();
+
+    if to_restart.iter().any(|info| matches!(info.status, "in_progress"|"in_gpu_proof")) {
+        return Err(anyhow::anyhow!("Some jobs are in progress"));
+    }
+
+    let to_restart: Vec<_> = to_restart.iter().map(|info| info.id).collect();
+    witness_dal.restart_jobs(to_restart).await?;
+
+    restart_prover_jobs_for_circuit_in_round(round, l1_batch_number, circuit_id, &mut conn).await?;
+    restart_prover_jobs_for_circuit_after_round(round, l1_batch_number, circuit_id, &mut conn).await?;
+    restart_witness_jobs_for_circuit_after_round(round, l1_batch_number, circuit_id, &mut conn).await?;
+
+    conn.commit().await?;
+
+    Ok(())
 }
 
 async fn restart_compressor_job(id: u32, conn: &mut Connection<'_, Prover>) -> Result<(), anyhow::Error> {
     batch::restart_compressor(L1BatchNumber::from(id), conn).await
+}
+
+async fn restart_prover_jobs_for_circuit_in_round(
+    round: AggregationRound,
+    l1_batch_number: L1BatchNumber,
+    circuit_id: u32,
+    conn: &mut Connection<'_, Prover>,
+) -> Result<(), anyhow::Error> {
+    let job_stats = prover_dal.get_prover_jobs_stats_for_batch(l1_batch_number, round).await?;
+    let to_restart: Vec<_> = job_stats.iter()
+        .filter(|info| (info.circuit_id, info.aggregation_round) == (circuit_id, round))
+        .collect();
+
+    if to_restart.iter().any(|info| matches!(info.status, "in_progress"|"in_gpu_proof")) {
+        return Err(anyhow::anyhow!("Some jobs are in progress"));
+    }
+
+    let to_restart: Vec<_> = to_restart.iter().map(|info| info.id).collect();
+    prover_dal.restart_jobs(to_restart).await?;
+
+    Ok(())
+}
+
+async fn restart_prover_jobs_for_circuit_after_round(
+    round: AggregationRound,
+    l1_batch_number: L1BatchNumber,
+    circuit_id: u32,
+    conn: &mut Connection<'_, Prover>,
+) -> Result<(), anyhow::Error> {
+    let job_stats = prover_dal.get_prover_jobs_stats_for_batch(l1_batch_number, round).await?;
+    let to_restart: Vec<_> = job_stats.iter()
+        .filter(|info| info.circuit_id == circuit_id && info.aggregation_round as u8 > round as u8)
+        .collect();
+
+    if to_restart.iter().any(|info| matches!(info.status, "in_progress"|"in_gpu_proof")) {
+        return Err(anyhow::anyhow!("Some jobs are in progress"));
+    }
+
+    let to_restart: Vec<_> = to_restart.iter().map(|info| info.id).collect();
+    prover_dal.restart_jobs(to_restart).await?;
+
+    Ok(())
+}
+
+async fn restart_witness_jobs_for_circuit_after_round(
+    round: AggregationRound,
+    l1_batch_number: L1BatchNumber,
+    circuit_id: u32,
+    conn: &mut Connection<'_, Prover>,
+) -> Result<(), anyhow::Error> {
+    let mut witness_dal = conn.fri_witness_generator_dal();
+    let mut next_round = round.next();
+    loop {
+        match next_round {
+            Some(BasicCircuits) => unreachable!("BasicCircuits is the first round"),
+            Some(LeafAggregation) => {
+                let job_stats = witness_dal.get_leaf_witness_generator_jobs_for_batch(l1_batch_number).await?;
+                let to_restart: Vec<_> = job_stats.iter()
+                    .filter(|info| info.circuit_id == circuit_id)
+                    .collect();
+                let to_restart: Vec<_> = to_restart.iter().map(|info| info.id).collect();
+                if to_restart.iter().any(|info| matches!(info.status, "in_progress"|"in_gpu_proof")) {
+                    return Err(anyhow::anyhow!("Some jobs are in progress"));
+                }
+                witness_dal.restart_leaf_aggregation_jobs(to_restart).await?;
+            }
+            Some(NodeAggregation) => {
+                let job_stats = witness_dal.get_node_witness_generator_jobs_for_batch(l1_batch_number).await?;
+                let to_restart: Vec<_> = job_stats.iter()
+                    .filter(|info| info.circuit_id == circuit_id)
+                    .collect();
+                let to_restart: Vec<_> = to_restart.iter().map(|info| info.id).collect();
+                if to_restart.iter().any(|info| matches!(info.status, "in_progress"|"in_gpu_proof")) {
+                    return Err(anyhow::anyhow!("Some jobs are in progress"));
+                }
+                witness_dal.restart_node_aggregation_jobs(to_restart).await?;
+            }
+            Some(RecursionTip) => {
+                let job_stats = witness_dal.get_recursion_tip_witness_generator_jobs_for_batch(l1_batch_number).await?;
+                let to_restart: Vec<_> = to_restart.iter().map(|info| info.id).collect();
+                if to_restart.iter().any(|info| matches!(info.status, "in_progress"|"in_gpu_proof")) {
+                    return Err(anyhow::anyhow!("Some jobs are in progress"));
+                }
+                witness_dal.restart_recursion_tip_jobs(to_restart).await?;
+            }
+            Some(Scheduler) => {
+                let job_stats = witness_dal.get_scheduler_witness_generator_jobs_for_batch(l1_batch_number).await?;
+                let to_restart: Vec<_> = to_restart.iter().map(|info| info.id).collect();
+                if to_restart.iter().any(|info| matches!(info.status, "in_progress"|"in_gpu_proof")) {
+                    return Err(anyhow::anyhow!("Some jobs are in progress"));
+                }
+                witness_dal.restart_scheduler_jobs(to_restart).await?;
+            }
+            None => break,
+        }
+        next_round = next_round.next();
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod test {
+
 }

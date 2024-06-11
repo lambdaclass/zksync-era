@@ -876,6 +876,55 @@ impl FriProverDal<'_, '_> {
         self.delete_prover_jobs_fri_archive().await
     }
 
+    pub async fn get_prover_job_metadata_for_restart(
+        &mut self,
+        aggregation_round: AggregationRound,
+        id: u32,
+    ) -> anyhow::Result<(u32, L1BatchNumber, u8, String)> {
+        let rec = sqlx::query!(
+            r#"
+            SELECT id, l1_batch_number, circuit_id, status
+            FROM prover_jobs_fri
+            WHERE
+                (aggregation_round < 3 AND aggregation_round = $2 AND id = $1)
+            OR
+                (aggregation_round >= 3 AND aggregation_round = $2 AND l1_batch_number = $1)
+            "#,
+            id as i64,
+            aggregation_round as i16,
+        )
+        .fetch_one(self.storage.conn())
+        .await?;
+        Ok((rec.id as u32, (rec.l1_batch_number as u32).into(), rec.circuit_id as u8, rec.status))
+    }
+
+    pub async fn get_prover_jobs_in_progress_for_circuit(
+        &mut self,
+        l1_batch_number: L1BatchNumber,
+        circuit_id: u8,
+    ) -> Vec<u32> {
+        sqlx::query!(
+            r#"
+            SELECT
+                id
+            FROM
+                prover_jobs_fri
+            WHERE
+                l1_batch_number = $1
+                AND circuit_id = $2
+                AND status IN ('in_progress', 'in_gpu_proof')
+            "#,
+            i64::from(l1_batch_number.0),
+            circuit_id as i16,
+        )
+        .fetch_all(self.storage.conn())
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| row.id as u32)
+        .collect()
+    }
+
     /// Returns (l1_batch_number, circuit_id), which is later used
     /// to identify jobs that depend on the generated data.
     pub async fn restart_prover_job_fri_and_dependent_jobs(
@@ -888,23 +937,6 @@ impl FriProverDal<'_, '_> {
         // Should check how it is posted now.
 
         // tx will be rolled back on `drop` unless explicitly commited.
-        let mut tx = self.storage.conn().begin().await?;
-
-        let (real_id, batch_number, circuit_id) = sqlx::query!(
-            r#"
-            SELECT id, l1_batch_number, circuit_id
-            FROM prover_jobs_fri
-            WHERE
-                (aggregation_round < 3 AND aggregation_round = $2 AND id = $1)
-            OR
-                (aggregation_round >= 3 AND aggregation_round = $2 AND l1_batch_number = $1)
-            "#,
-            id as i64,
-            aggregation_round as i16,
-        )
-        .fetch_one(&mut *tx)
-        .await
-        .map(|r| (r.id as u32, r.l1_batch_number as u64, r.circuit_id as u8))?;
 
         let mut in_progress_count = sqlx::query!(
             r#"
@@ -1009,7 +1041,7 @@ impl FriProverDal<'_, '_> {
         .unwrap_or_default();
 
         if in_progress_count != 0 {
-            anyhow::bail(format!("{in_progress_count} affected tasks in progress, retry later"))?;
+            anyhow::bail!(format!("{in_progress_count} affected tasks in progress, retry later"));
         }
 
         sqlx::query!(

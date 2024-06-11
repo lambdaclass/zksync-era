@@ -4650,6 +4650,7 @@ dependencies = [
 name = "prover_dal"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "sqlx",
  "strum",
  "zksync_basic_types",
