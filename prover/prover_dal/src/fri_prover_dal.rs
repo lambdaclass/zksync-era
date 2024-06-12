@@ -925,6 +925,25 @@ impl FriProverDal<'_, '_> {
         .collect()
     }
 
+    pub async fn restart_jobs(&mut self, ids: &Vec<i64>) -> anyhow::Result<()> {
+        sqlx::query!(
+            r#"
+            UPDATE prover_jobs_fri
+            SET
+                status = 'queued',
+                updated_at = NOW()
+            WHERE
+                id = ANY($1)
+            "#,
+            ids,
+        )
+        .execute(self.storage.conn())
+        .await?;
+
+        Ok(())
+    }
+
+    /*
     /// Returns (l1_batch_number, circuit_id), which is later used
     /// to identify jobs that depend on the generated data.
     pub async fn restart_prover_job_fri_and_dependent_jobs(
@@ -1136,6 +1155,7 @@ impl FriProverDal<'_, '_> {
 
         Ok(())
     }
+    */
 
     pub async fn requeue_stuck_jobs_for_batch(
         &mut self,
