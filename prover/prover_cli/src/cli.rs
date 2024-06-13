@@ -1,7 +1,7 @@
 use clap::{command, Args, Parser, Subcommand};
 use zksync_types::url::SensitiveUrl;
 
-use crate::commands::{self, config, debug_proof, delete, get_file_info, requeue, restart};
+use crate::commands::{self, config, debug_proof, delete, get_file_info, requeue};
 
 pub const VERSION_STRING: &str = env!("CARGO_PKG_VERSION");
 

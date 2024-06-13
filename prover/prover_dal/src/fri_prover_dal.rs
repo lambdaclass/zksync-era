@@ -880,7 +880,7 @@ impl FriProverDal<'_, '_> {
         &mut self,
         aggregation_round: AggregationRound,
         id: u32,
-    ) -> anyhow::Result<(u32, L1BatchNumber, u8, String)> {
+    ) -> anyhow::Result<(u32, L1BatchNumber, u32, String)> {
         let rec = sqlx::query!(
             r#"
             SELECT id, l1_batch_number, circuit_id, status
@@ -895,7 +895,7 @@ impl FriProverDal<'_, '_> {
         )
         .fetch_one(self.storage.conn())
         .await?;
-        Ok((rec.id as u32, (rec.l1_batch_number as u32).into(), rec.circuit_id as u8, rec.status))
+        Ok((rec.id as u32, (rec.l1_batch_number as u32).into(), rec.circuit_id as u32, rec.status))
     }
 
     pub async fn get_prover_jobs_in_progress_for_circuit(

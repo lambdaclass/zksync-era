@@ -1,7 +1,7 @@
 #![doc = include_str!("../doc/FriWitnessGeneratorDal.md")]
 use std::{collections::HashMap, str::FromStr, time::Duration};
 
-use sqlx::{Executor, Postgres, Row};
+use sqlx::Row;
 use zksync_basic_types::{
     basic_fri_types::{AggregationRound, Eip4844Blobs},
     protocol_version::{ProtocolSemanticVersion, ProtocolVersionId, VersionPatch},
@@ -1444,7 +1444,7 @@ impl FriWitnessGeneratorDal<'_, '_> {
         &mut self,
         round: AggregationRound,
         id: u32,
-    ) -> anyhow::Result<(L1BatchNumber, u8, String)> {
+    ) -> anyhow::Result<(L1BatchNumber, u32, String)> {
         let row = sqlx::query!(
             r#"
             SELECT l1_batch_number, circuit_id, status
@@ -1468,7 +1468,7 @@ impl FriWitnessGeneratorDal<'_, '_> {
 
         Ok((
             L1BatchNumber(row.l1_batch_number.unwrap_or_default() as u32),
-            row.circuit_id.unwrap_or_default() as u8,
+            row.circuit_id.unwrap_or_default() as u32,
             row.status.unwrap_or_default(),
         ))
     }
@@ -1511,6 +1511,50 @@ impl FriWitnessGeneratorDal<'_, '_> {
                 .transpose()
                 .unwrap(),
         })
+    }
+
+    pub async fn restart_leaf_aggregation_jobs(
+        &mut self,
+        ids: Vec<i64>,
+    ) -> anyhow::Result<()> {
+        sqlx::query!(
+            r#"
+            UPDATE leaf_aggregation_witness_jobs_fri
+            SET
+                status = 'queued',
+                updated_at = NOW(),
+                processing_started_at = NULL
+            WHERE
+                id = ANY($1)
+            "#,
+            &ids,
+        )
+        .execute(self.storage.conn())
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn restart_node_aggregation_jobs(
+        &mut self,
+        ids: Vec<i64>,
+    ) -> anyhow::Result<()> {
+        sqlx::query!(
+            r#"
+            UPDATE node_aggregation_witness_jobs_fri
+            SET
+                status = 'queued',
+                updated_at = NOW(),
+                processing_started_at = NULL
+            WHERE
+                id = ANY($1)
+            "#,
+            &ids,
+        )
+        .execute(self.storage.conn())
+        .await?;
+
+        Ok(())
     }
 
     pub async fn get_leaf_witness_generator_jobs_for_batch(
@@ -1925,45 +1969,4 @@ impl FriWitnessGeneratorDal<'_, '_> {
             AggregationRound::LeafAggregation | AggregationRound::NodeAggregation => "id",
         }
     }
-
-    pub(crate) async fn restart_prover_job(
-        executor: impl sqlx::Executor<'_, Database = Postgres>,
-        real_id: u32,
-    ) -> sqlx::Result<()> {
-        sqlx::query!(
-            r#"
-            UPDATE prover_jobs_fri
-            SET status = 'queued'
-            WHERE id = $1
-            "#,
-            real_id as i64,
-        )
-        .execute(executor)
-        .await?;
-        Ok(())
-    }
-
-    pub(crate) async fn restart_prover_jobs_with_circuit_id_in_batch(
-        executor: impl sqlx::Executor<'_, Database = Postgres>,
-        aggregation_round: AggregationRound,
-        l1_batch_number: L1BatchNumber,
-        circuit_id: u8
-    ) -> sqlx::Result<()> {
-        sqlx::query!(
-            r#"
-            UPDATE prover_jobs_fri
-            SET status = 'queued'
-            WHERE aggregation_round > $1
-            AND l1_batch_number = $2
-            AND (circuit_id = $3 OR aggregation_round >= 3)
-            "#,
-            aggregation_round as i16,
-            l1_batch_number.0 as i64,
-            circuit_id as i16,
-        )
-        .execute(executor)
-        .await?;
-        Ok(())
-    }
-
 }
