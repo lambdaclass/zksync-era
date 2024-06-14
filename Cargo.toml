@@ -70,6 +70,8 @@ members = [
     "core/tests/loadnext",
     "core/tests/vm-benchmark",
     "core/tests/vm-benchmark/harness",
+
+    "zksync_components",
 ]
 resolver = "2"
 
