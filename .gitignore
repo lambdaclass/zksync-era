@@ -67,6 +67,19 @@ Cargo.lock
 !/etc/env/ext-node-validium.toml
 !/etc/env/*.yaml
 !/etc/env/ext-node-validium-docker.toml
+!/etc/env/configs/http_api.toml
+!/etc/env/configs/ws_api.toml
+!/etc/env/configs/contract_verification_api.toml
+!/etc/env/configs/state_keeper.toml
+!/etc/env/configs/housekeeper.toml
+!/etc/env/configs/tee_verifier_input_producer.toml
+!/etc/env/configs/eth_watcher.toml
+!/etc/env/configs/eth_tx_aggregator.toml
+!/etc/env/configs/eth_tx_manager.toml
+!/etc/env/configs/proof_data_handler.toml
+!/etc/env/configs/consensus.toml
+!/etc/env/configs/commitment_generator.toml
+!/etc/env/configs/tree.toml
 /etc/tokens/localhost.json
 /etc/zksolc-bin/*
 /etc/zkvyper-bin/*
@@ -113,3 +126,7 @@ prover/vk_setup_data_generator_server_fri/data/setup_*
 # Zk Toolbox
 chains/era/configs/*
 configs/*
+
+# ZkSync Components Logs
+zksync_components/*.err
+zksync_components/*.log

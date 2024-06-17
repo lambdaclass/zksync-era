@@ -1,0 +1,16 @@
+__imports__ = [ "base", "l1-inits/.init.env", "l2-inits/dev.init.env" ]
+
+ETH_SENDER_SENDER_PUBDATA_SENDING_MODE = "Blobs"
+
+# Configuration for the prometheus exporter server.
+[api.prometheus]
+listener_port = 3325
+pushgateway_url = "http://127.0.0.1:9104"
+
+# Configuration for the healtcheck server.
+[api.healthcheck]
+port = 3096
+
+# Configuration for the Merkle tree API server
+[api.merkle_tree]
+port = 3097
