@@ -1,8 +1,10 @@
-use std::borrow::Borrow;
-use std::io::{BufRead, BufReader, Write};
-use std::process::{Command, Stdio};
-use std::thread;
-use std::time::Duration;
+use std::{
+    borrow::Borrow,
+    io::{BufRead, BufReader, Write},
+    process::{Command, Stdio},
+    thread,
+    time::Duration,
+};
 
 // Function to check ports used by a specific PID
 fn check_ports(pid: u32) -> Vec<u16> {
