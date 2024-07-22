@@ -51,7 +51,7 @@ impl Scheduler {
             txn_status: vec![Mutex::default(); block_size],
             ..SchedulerInner::default(),
         };
-        Sefl(Arc::new(inner))
+        Self(Arc::new(inner))
     }
 
     pub fn decrease_execution_idx(&mut self, target_idx: usize) {
