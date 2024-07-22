@@ -5,6 +5,8 @@
 //    paper).
 // 3. Mermory ordering needs to be reviewed. To play it safe, I'm using SeqCst, which provides
 //    stricter ordering, but it comes with some overhead.
+// 4. Maybe `txn_status` can become a `Vec<AtomicUsize>` with some work and see if that helps
+//    reduce overhead.
 #[derive(Default)]
 enum TaskStatus {
     Ready,
@@ -63,7 +65,19 @@ impl Scheduler {
     }
 
     pub fn check_done(&mut self) {
-        // TODO
+        let block_size = self.0.txn_status.len();
+        let observed_cnt = self.0.decrease_cnt.load(MemoryOrdering::SeqCst);
+        let exec_idx = self.0.execution_idx.load(MemoryOrdering::SeqCst);
+        let val_idx = self.0.validation_idx.load(MemoryOrdering::SeqCst);
+        let num_active_tasks = self.0.num_active_tasks.load(MemoryOrdering::SeqCst);
+        // NOTE: decrease_cnt needs to be checked again after the others to make sure it didn't
+        // change.
+        // TODO: better explanation from the paper.
+        let decrease_cnt = self.0.decrease_cnt.load(MemoryOrdering::SeqCst);
+
+        if val_idx.min(exec_idx) >= block_size && num_active_tasks == 0 && observed_cnt == decreace_cnt {
+            self.0.done_marker.store(true, MemoryOrdering::SeqCst);
+        }
     }
 
     pub fn try_incarnate(&mut self, txn_idx: usize) -> Option<(usize, usize)> {
@@ -134,5 +148,68 @@ impl Scheduler {
         deps.insert(txn_idx);
         self.0.num_active_tasks.fetch_sub(1, MemoryOrdering::SeqCst);
         true
+    }
+
+    pub fn set_ready_status(&mut self, txn_idx: usize) {
+        let lock = self.0.txn_status[txn_ids].lock().expect("poisoned mutex");
+        let (current_incarnation, current_status) = *lock;
+        debug_assert!(matches!(current_status, TaskStatus::Aborting);
+        *lock = (current_incarnation + 1, TaskStatus::Ready);
+    }
+
+    pub fn resume_dependencies(&mut self, dependent_txn_indices: &HashSet<usize>) {
+        // TODO: consider using a more efficient set for the kind of numbers we deal with.
+        let mut min_dependency_idx = usize::MAX;
+        for dep_txn_idx in dependent_txn_indices {
+            min_dependency_idx = min_dependency_idx.min(dep_txn_idx);
+            self.set_ready_status(*dep_txn_idx);
+        }
+        if min != usize::MAX {
+            self.decrease_execution_idx(min_dependency_idx);
+        }
+    }
+
+    pub fn finish_execution(&mut self, txn_idx: usize, wrote_new_path: bool) -> Option<(usize, usize, TaskKind)> {
+        {
+            let lock = self.0.txn_status[txn_idx].lock().expect("poisoned mutex");
+            let (current_incarnation, current_status) = *lock;
+            debug_assert!(matches!(current_status, TaskStatus::Executing));
+            *lock = (current_incarnation, TaskStatus::Executed);
+        }
+        let deps = core::mem::take(&mut self.txn_depencency[txn_idx].lock().expect("poisoned_mutex"));
+        self.resume_dependencies(&deps);
+        let val_idx = self.0.validation_idx.load(MemoryOrdering::SeqCst);
+        if val_idx > txn_idx {
+            if wrote_new_path {
+                self.decrease_validation_idx(txn_idx);
+            } else {
+                return Some((txn_idx, current_incarnation, TaskKind::Validation));
+            }
+        }
+        self.0.num_active_tasks.fetch_sub(1, MemoryOrdering::SeqCst);
+        None
+    }
+
+    pub fn try_validation_abort(&mut self, txn_idx: usize, incarnation: usize) -> bool {
+        let lock = self.0.txn_status[txn_idx].lock().expect("poisoned mutex");
+        let (current_incarnation, current_status) = *lock;
+        if matches!(current_status, TaskStatus::Executed) {
+            *lock = (current_incarnation, TaskStatus::Aborting);
+            return true;
+        }
+        false
+    }
+
+    pub fn finish_validation(&mut self, txn_idx: usize, aborted: bool) -> Option<(usize, usize, TaskKind)> {
+        if aborted {
+            self.set_ready_status(txn_idx);
+            self.decrease_validation_idx(txn_idx + 1);
+            let exec_idx = self.0.execution_idx.load(MemoryOrdering::SeqCst);
+            if exec_idx > txn_idx {
+                return self.try_incarnate(txn_idx)
+                    .map(|(idx, inc_num)| (idx, inc_num, TaskKind::Execution);
+            }
+        }
+        None
     }
 }
