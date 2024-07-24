@@ -1,21 +1,21 @@
-//! Helper module to submit transactions into the zkSync Network.
+//! Helper module to submit transactions into the ZKsync Network.
 
 use std::{sync::Arc, time::Instant};
 
 use anyhow::Context as _;
-use multivm::{
-    interface::VmExecutionResultAndLogs,
-    utils::{
-        adjust_pubdata_price_for_tx, derive_base_fee_and_gas_per_pubdata, derive_overhead,
-        get_max_batch_gas_limit,
-    },
-    vm_latest::constants::BATCH_COMPUTATIONAL_GAS_LIMIT,
-};
 use tokio::sync::RwLock;
 use zksync_config::configs::{api::Web3JsonRpcConfig, chain::StateKeeperConfig};
 use zksync_contracts::BaseSystemContracts;
 use zksync_dal::{
     transactions_dal::L2TxSubmissionResult, Connection, ConnectionPool, Core, CoreDal,
+};
+use zksync_multivm::{
+    interface::VmExecutionResultAndLogs,
+    utils::{
+        adjust_pubdata_price_for_tx, derive_base_fee_and_gas_per_pubdata, derive_overhead,
+        get_eth_call_gas_limit, get_max_batch_gas_limit,
+    },
+    vm_latest::constants::BATCH_COMPUTATIONAL_GAS_LIMIT,
 };
 use zksync_node_fee_model::{ApiFeeInputProvider, BatchFeeModelInputProvider};
 use zksync_state::PostgresStorageCaches;
@@ -24,10 +24,12 @@ use zksync_state_keeper::{
     SequencerSealer,
 };
 use zksync_types::{
+    api::state_override::StateOverride,
     fee::{Fee, TransactionExecutionMetrics},
     fee_model::BatchFeeInput,
     get_code_key, get_intrinsic_constants,
     l2::{error::TxCheckError::TxDuplication, L2Tx},
+    transaction_request::CallOverrides,
     utils::storage_key_for_eth_balance,
     AccountTreeId, Address, ExecuteTransactionCommon, L2ChainId, Nonce, PackedEthSignature,
     ProtocolVersionId, Transaction, VmVersion, H160, H256, MAX_L2_TX_GAS_LIMIT,
@@ -60,7 +62,7 @@ pub async fn build_tx_sender(
     master_pool: ConnectionPool<Core>,
     batch_fee_model_input_provider: Arc<dyn BatchFeeModelInputProvider>,
     storage_caches: PostgresStorageCaches,
-) -> (TxSender, VmConcurrencyBarrier) {
+) -> anyhow::Result<(TxSender, VmConcurrencyBarrier)> {
     let sequencer_sealer = SequencerSealer::new(state_keeper_config.clone());
     let master_pool_sink = MasterPoolSink::new(master_pool);
     let tx_sender_builder = TxSenderBuilder::new(
@@ -76,15 +78,13 @@ pub async fn build_tx_sender(
     let batch_fee_input_provider =
         ApiFeeInputProvider::new(batch_fee_model_input_provider, replica_pool);
 
-    let tx_sender = tx_sender_builder
-        .build(
-            Arc::new(batch_fee_input_provider),
-            Arc::new(vm_concurrency_limiter),
-            ApiContracts::load_from_disk(),
-            storage_caches,
-        )
-        .await;
-    (tx_sender, vm_barrier)
+    let tx_sender = tx_sender_builder.build(
+        Arc::new(batch_fee_input_provider),
+        Arc::new(vm_concurrency_limiter),
+        ApiContracts::load_from_disk().await?,
+        storage_caches,
+    );
+    Ok((tx_sender, vm_barrier))
 }
 
 #[derive(Debug, Clone)]
@@ -160,7 +160,14 @@ impl ApiContracts {
     /// Loads the contracts from the local file system.
     /// This method is *currently* preferred to be used in all contexts,
     /// given that there is no way to fetch "playground" contracts from the main node.
-    pub fn load_from_disk() -> Self {
+    pub async fn load_from_disk() -> anyhow::Result<Self> {
+        tokio::task::spawn_blocking(Self::load_from_disk_blocking)
+            .await
+            .context("loading `ApiContracts` panicked")
+    }
+
+    /// Blocking version of [`Self::load_from_disk()`].
+    pub fn load_from_disk_blocking() -> Self {
         Self {
             estimate_gas: MultiVMBaseSystemContracts {
                 pre_virtual_blocks: BaseSystemContracts::estimate_gas_pre_virtual_blocks(),
@@ -232,7 +239,7 @@ impl TxSenderBuilder {
         self
     }
 
-    pub async fn build(
+    pub fn build(
         self,
         batch_fee_input_provider: Arc<dyn BatchFeeModelInputProvider>,
         vm_concurrency_limiter: Arc<VmConcurrencyLimiter>,
@@ -379,6 +386,7 @@ impl TxSender {
                 self.0.replica_connection_pool.clone(),
                 tx.clone().into(),
                 block_args,
+                None,
                 vec![],
             )
             .await?;
@@ -525,9 +533,9 @@ impl TxSender {
             );
             return Err(SubmitTxError::MaxPriorityFeeGreaterThanMaxFee);
         }
-        if tx.execute.factory_deps_length() > MAX_NEW_FACTORY_DEPS {
+        if tx.execute.factory_deps.len() > MAX_NEW_FACTORY_DEPS {
             return Err(SubmitTxError::TooManyFactoryDependencies(
-                tx.execute.factory_deps_length(),
+                tx.execute.factory_deps.len(),
                 MAX_NEW_FACTORY_DEPS,
             ));
         }
@@ -650,6 +658,7 @@ impl TxSender {
         block_args: BlockArgs,
         base_fee: u64,
         vm_version: VmVersion,
+        state_override: Option<StateOverride>,
     ) -> anyhow::Result<(VmExecutionResultAndLogs, TransactionExecutionMetrics)> {
         let gas_limit_with_overhead = tx_gas_limit
             + derive_overhead(
@@ -697,6 +706,7 @@ impl TxSender {
                 self.0.replica_connection_pool.clone(),
                 tx.clone(),
                 block_args,
+                state_override,
                 vec![],
             )
             .await?;
@@ -727,6 +737,7 @@ impl TxSender {
         mut tx: Transaction,
         estimated_fee_scale_factor: f64,
         acceptable_overestimation: u64,
+        state_override: Option<StateOverride>,
     ) -> Result<Fee, SubmitTxError> {
         let estimation_started_at = Instant::now();
 
@@ -780,17 +791,25 @@ impl TxSender {
                 )
             })?;
 
-        if !tx.is_l1()
-            && account_code_hash == H256::zero()
-            && tx.execute.value > self.get_balance(&tx.initiator_account()).await?
-        {
-            tracing::info!(
-                "fee estimation failed on validation step.
-                account: {} does not have enough funds for for transferring tx.value: {}.",
-                &tx.initiator_account(),
-                tx.execute.value
-            );
-            return Err(SubmitTxError::InsufficientFundsForTransfer);
+        if !tx.is_l1() && account_code_hash == H256::zero() {
+            let balance = match state_override
+                .as_ref()
+                .and_then(|overrides| overrides.get(&tx.initiator_account()))
+                .and_then(|account| account.balance)
+            {
+                Some(balance) => balance,
+                None => self.get_balance(&tx.initiator_account()).await?,
+            };
+
+            if tx.execute.value > balance {
+                tracing::info!(
+                    "fee estimation failed on validation step.
+                    account: {} does not have enough funds for for transferring tx.value: {}.",
+                    tx.initiator_account(),
+                    tx.execute.value
+                );
+                return Err(SubmitTxError::InsufficientFundsForTransfer);
+            }
         }
 
         // For L2 transactions we need a properly formatted signature
@@ -830,6 +849,7 @@ impl TxSender {
                     block_args,
                     base_fee,
                     protocol_version.into(),
+                    state_override.clone(),
                 )
                 .await
                 .context("estimate_gas step failed")?;
@@ -865,6 +885,7 @@ impl TxSender {
                     block_args,
                     base_fee,
                     protocol_version.into(),
+                    state_override.clone(),
                 )
                 .await
                 .context("estimate_gas step failed")?;
@@ -897,6 +918,7 @@ impl TxSender {
                 block_args,
                 base_fee,
                 protocol_version.into(),
+                state_override,
             )
             .await
             .context("final estimate_gas step failed")?;
@@ -965,7 +987,9 @@ impl TxSender {
     pub(super) async fn eth_call(
         &self,
         block_args: BlockArgs,
+        call_overrides: CallOverrides,
         tx: L2Tx,
+        state_override: Option<StateOverride>,
     ) -> Result<Vec<u8>, SubmitTxError> {
         let vm_permit = self.0.vm_concurrency_limiter.acquire().await;
         let vm_permit = vm_permit.ok_or(SubmitTxError::ServerShuttingDown)?;
@@ -977,10 +1001,12 @@ impl TxSender {
                 vm_permit,
                 self.shared_args().await?,
                 self.0.replica_connection_pool.clone(),
+                call_overrides,
                 tx,
                 block_args,
                 vm_execution_cache_misses_limit,
                 vec![],
+                state_override,
             )
             .await?
             .into_api_call_result()
@@ -1035,5 +1061,20 @@ impl TxSender {
             return Err(SubmitTxError::Unexecutable(message));
         }
         Ok(())
+    }
+
+    pub(crate) async fn get_default_eth_call_gas(
+        &self,
+        block_args: BlockArgs,
+    ) -> anyhow::Result<u64> {
+        let mut connection = self.acquire_replica_connection().await?;
+
+        let protocol_version = block_args
+            .resolve_block_info(&mut connection)
+            .await
+            .context("failed to resolve block info")?
+            .protocol_version;
+
+        Ok(get_eth_call_gas_limit(protocol_version.into()))
     }
 }

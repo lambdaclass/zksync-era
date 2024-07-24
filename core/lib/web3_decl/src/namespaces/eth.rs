@@ -2,29 +2,29 @@
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
 use zksync_types::{
-    api::{BlockId, BlockIdVariant, BlockNumber, Transaction, TransactionVariant},
+    api::{
+        state_override::StateOverride, BlockId, BlockIdVariant, BlockNumber, Transaction,
+        TransactionVariant,
+    },
     transaction_request::CallRequest,
     Address, H256,
 };
 
-#[cfg(feature = "client")]
-use crate::client::{ForNetwork, L2};
-use crate::types::{
-    Block, Bytes, FeeHistory, Filter, FilterChanges, Index, Log, SyncState, TransactionReceipt,
-    U256, U64,
+use crate::{
+    client::{ForNetwork, L2},
+    types::{
+        Block, Bytes, FeeHistory, Filter, FilterChanges, Index, Log, SyncState, TransactionReceipt,
+        U256, U64,
+    },
 };
 
 #[cfg_attr(
-    all(feature = "client", feature = "server"),
+    feature = "server",
     rpc(server, client, namespace = "eth", client_bounds(Self: ForNetwork<Net = L2>))
 )]
 #[cfg_attr(
-    all(feature = "client", not(feature = "server")),
+    not(feature = "server"),
     rpc(client, namespace = "eth", client_bounds(Self: ForNetwork<Net = L2>))
-)]
-#[cfg_attr(
-    all(not(feature = "client"), feature = "server"),
-    rpc(server, namespace = "eth")
 )]
 pub trait EthNamespace {
     #[method(name = "blockNumber")]
@@ -34,10 +34,20 @@ pub trait EthNamespace {
     async fn chain_id(&self) -> RpcResult<U64>;
 
     #[method(name = "call")]
-    async fn call(&self, req: CallRequest, block: Option<BlockIdVariant>) -> RpcResult<Bytes>;
+    async fn call(
+        &self,
+        req: CallRequest,
+        block: Option<BlockIdVariant>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<Bytes>;
 
     #[method(name = "estimateGas")]
-    async fn estimate_gas(&self, req: CallRequest, _block: Option<BlockNumber>) -> RpcResult<U256>;
+    async fn estimate_gas(
+        &self,
+        req: CallRequest,
+        _block: Option<BlockNumber>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<U256>;
 
     #[method(name = "gasPrice")]
     async fn gas_price(&self) -> RpcResult<U256>;

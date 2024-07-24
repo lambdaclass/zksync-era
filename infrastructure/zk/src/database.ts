@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import * as utils from './utils';
+import * as utils from 'utils';
 
 export async function reset(opts: DbOpts) {
     await utils.confirmAction();
@@ -10,7 +10,7 @@ export async function reset(opts: DbOpts) {
 
 export enum DalPath {
     CoreDal = 'core/lib/dal',
-    ProverDal = 'prover/prover_dal'
+    ProverDal = 'prover/crates/lib/prover_dal'
 }
 
 export interface DbOpts {

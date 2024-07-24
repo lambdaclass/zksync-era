@@ -73,7 +73,7 @@ where
                 execute_calldata,
                 fee,
                 nonce,
-                Some(vec![bytecode.clone()]),
+                vec![bytecode.clone()],
                 paymaster_params,
             )
             .await
@@ -150,12 +150,12 @@ where
             Default::default(),
             self.wallet.address(),
             self.value.unwrap_or_default(),
-            Some(factory_deps),
+            factory_deps,
             paymaster_params,
         );
         self.wallet
             .provider
-            .estimate_fee(l2_tx.into())
+            .estimate_fee(l2_tx.into(), None)
             .await
             .map_err(Into::into)
     }
