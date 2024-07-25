@@ -3,11 +3,12 @@ use std::{cell::RefCell, rc::Rc};
 use once_cell::sync::Lazy;
 use zksync_contracts::{deployer_contract, BaseSystemContracts};
 use zksync_multivm::{
+    era_vm::vm::Vm,
     interface::{
         L2BlockEnv, TxExecutionMode, VmExecutionMode, VmExecutionResultAndLogs, VmInterface,
     },
     utils::get_max_gas_per_pubdata_byte,
-    vm_latest::{constants::BATCH_COMPUTATIONAL_GAS_LIMIT, HistoryEnabled, TracerDispatcher, Vm},
+    vm_latest::constants::BATCH_COMPUTATIONAL_GAS_LIMIT,
 };
 use zksync_state::{InMemoryStorage, StorageView};
 use zksync_types::{
@@ -61,7 +62,7 @@ static CREATE_FUNCTION_SIGNATURE: Lazy<[u8; 4]> = Lazy::new(|| {
 static PRIVATE_KEY: Lazy<K256PrivateKey> =
     Lazy::new(|| K256PrivateKey::from_bytes(H256([42; 32])).expect("invalid key bytes"));
 
-pub struct BenchmarkingVm(Vm<StorageView<&'static InMemoryStorage>, HistoryEnabled>);
+pub struct BenchmarkingVm(Vm<StorageView<&'static InMemoryStorage>>);
 
 impl BenchmarkingVm {
     #[allow(clippy::new_without_default)]
@@ -104,20 +105,20 @@ impl BenchmarkingVm {
         self.0.execute(VmExecutionMode::OneTx)
     }
 
-    pub fn instruction_count(&mut self, tx: &Transaction) -> usize {
-        self.0.push_transaction(tx.clone());
+    // pub fn instruction_count(&mut self, tx: &Transaction) -> usize {
+    //     self.0.push_transaction(tx.clone());
 
-        let count = Rc::new(RefCell::new(0));
+    //     let count = Rc::new(RefCell::new(0));
 
-        self.0.inspect(
-            TracerDispatcher::new(vec![Box::new(
-                instruction_counter::InstructionCounter::new(count.clone()),
-            )]),
-            VmExecutionMode::OneTx,
-        );
+    //     self.0.inspect(
+    //         TracerDispatcher::new(vec![Box::new(
+    //             instruction_counter::InstructionCounter::new(count.clone()),
+    //         )]),
+    //         VmExecutionMode::OneTx,
+    //     );
 
-        count.take()
-    }
+    //     count.take()
+    // }
 }
 
 pub fn get_deploy_tx(code: &[u8]) -> Transaction {
