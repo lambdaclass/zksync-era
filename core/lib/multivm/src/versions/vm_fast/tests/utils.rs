@@ -1,6 +1,6 @@
 use ethabi::Contract;
 use once_cell::sync::Lazy;
-use vm2::State;
+use vm2::{instruction_handlers::HeapInterface, HeapId, State};
 use zksync_contracts::{
     load_contract, read_bytecode, read_zbin_bytecode, BaseSystemContracts, SystemContractCode,
 };
@@ -28,10 +28,11 @@ pub(crate) static BASE_SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> =
 
 pub(crate) fn verify_required_memory(state: &State, required_values: Vec<(U256, u32, u32)>) {
     for (required_value, memory_page, cell) in required_values {
-        let current_value = &state.heaps[memory_page][cell as usize * 32..(cell as usize + 1) * 32];
-        let mut bytes = [0; 32];
-        required_value.to_big_endian(&mut bytes);
-        assert_eq!(current_value, &bytes);
+        // let current_value = &state.heaps[memory_page][cell as usize * 32..(cell as usize + 1) * 32];
+        let heap_id = HeapId::from_u32_unchecked(memory_page);
+        let current_value =
+            &state.heaps[heap_id].read_u256((cell as usize * 32).try_into().unwrap());
+        assert_eq!(current_value.to_owned(), required_value);
     }
 }
 

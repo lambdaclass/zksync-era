@@ -1,6 +1,9 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use vm2::{decode::decode_program, ExecutionEnd, Program, Settings, VirtualMachine};
+use vm2::{
+    decode::decode_program, instruction_handlers::HeapInterface, ExecutionEnd, Program, Settings,
+    VirtualMachine,
+};
 use zk_evm_1_5_0::{
     aux_structures::LogQuery, zkevm_opcode_defs::system_params::INITIAL_FRAME_FORMAL_EH_LOCATION,
 };
@@ -50,6 +53,7 @@ pub struct Vm<S: ReadStorage> {
     // these two are only needed for tests so far
     pub(crate) batch_env: L1BatchEnv,
     pub(crate) system_env: SystemEnv,
+    pub(crate) world: Rc<RefCell<dyn vm2::World>>,
 
     snapshots: Vec<VmSnapshot>,
 }
@@ -57,7 +61,10 @@ pub struct Vm<S: ReadStorage> {
 impl<S: ReadStorage + 'static> Vm<S> {
     fn run(&mut self, execution_mode: VmExecutionMode) -> ExecutionResult {
         loop {
-            let hook = match self.inner.resume_from(self.suspended_at) {
+            let hook = match self
+                .inner
+                .resume_from(self.suspended_at, &mut *self.world.borrow_mut())
+            {
                 ExecutionEnd::SuspendedOnHook {
                     hook,
                     pc_to_resume_from,
@@ -192,6 +199,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
         loop {
             match self.inner.resume_with_additional_gas_limit(
                 self.suspended_at,
+                &mut *self.world.borrow_mut(),
                 self.gas_for_account_validation,
             ) {
                 None => {
@@ -238,26 +246,24 @@ impl<S: ReadStorage + 'static> Vm<S> {
     /// Typically used to read the bootloader heap. We know that we're in the bootloader
     /// when a hook occurs, as they are only enabled when preprocessing bootloader code.
     fn read_heap_word(&self, word: usize) -> U256 {
-        self.inner.state.heaps[self.inner.state.current_frame.heap]
-            [word as usize * 32..(word as usize + 1) * 32]
-            .into()
+        self.inner.state.heaps[self.inner.state.current_frame.heap].read_u256((word * 32) as u32)
     }
 
     fn write_to_bootloader_heap(&mut self, memory: impl IntoIterator<Item = (usize, U256)>) {
         assert!(self.inner.state.previous_frames.is_empty());
-        let heap = &mut self.inner.state.heaps[self.inner.state.current_frame.heap];
         for (slot, value) in memory {
-            let end = (slot + 1) * 32;
-            if heap.len() <= end {
-                heap.resize(end, 0);
-            }
-            value.to_big_endian(&mut heap[slot * 32..end]);
+            self.inner.state.heaps.write_u256(
+                self.inner.state.current_frame.heap,
+                (slot * 32) as u32,
+                value,
+            );
         }
     }
 
     pub(crate) fn insert_bytecodes<'a>(&mut self, bytecodes: impl IntoIterator<Item = &'a [u8]>) {
+        let mut program_cache = RefCell::borrow_mut(&self.program_cache);
         for code in bytecodes {
-            self.program_cache.borrow_mut().insert(
+            program_cache.insert(
                 U256::from_big_endian(hash_bytecode(code).as_bytes()),
                 bytecode_to_program(code),
             );
@@ -270,12 +276,11 @@ impl<S: ReadStorage + 'static> Vm<S> {
         (
             self.inner.state.clone(),
             self.inner
-                .world
+                .world_diff
                 .get_storage_changes()
-                .iter()
-                .map(|(k, v)| (*k, *v))
+                .map(|(k, (_, v))| (k, v))
                 .collect(),
-            self.inner.world.events().into(),
+            self.inner.world_diff.events().into(),
         )
     }
 
@@ -290,12 +295,17 @@ impl<S: ReadStorage + 'static> Vm<S> {
             vec![]
         } else {
             compress_bytecodes(&tx.factory_deps, |hash| {
-                self.inner
-                    .world
+                let res = self
+                    .inner
+                    .world_diff
                     .get_storage_changes()
-                    .get(&(KNOWN_CODES_STORAGE_ADDRESS.into(), h256_to_u256(hash)))
-                    .map(|x| !x.is_zero())
-                    .unwrap_or_else(|| self.storage.borrow_mut().is_bytecode_known(&hash))
+                    .find(|s| s.0 == (KNOWN_CODES_STORAGE_ADDRESS.into(), h256_to_u256(hash)));
+                if res.is_none() {
+                    let mut storage = RefCell::borrow_mut(&self.storage);
+                    storage.is_bytecode_known(&hash)
+                } else {
+                    true
+                }
             })
         };
 
@@ -314,13 +324,12 @@ impl<S: ReadStorage + 'static> Vm<S> {
     }
 
     fn compute_state_diffs(&self) -> Vec<StateDiffRecord> {
-        let mut storage = self.storage.borrow_mut();
+        let mut storage = RefCell::borrow_mut(&self.storage);
 
         self.inner
-            .world
+            .world_diff
             .get_storage_changes()
-            .iter()
-            .map(|(&(address, key), value)| {
+            .map(|((address, key), (_, value))| {
                 let storage_key = StorageKey::new(AccountTreeId::new(address), u256_to_h256(key));
                 StateDiffRecord {
                     address,
@@ -330,7 +339,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
                         .get_enumeration_index(&storage_key)
                         .unwrap_or_default(),
                     initial_value: storage.read_value(&storage_key).as_bytes().into(),
-                    final_value: *value,
+                    final_value: value,
                 }
             })
             .collect()
@@ -359,9 +368,11 @@ impl<S: ReadStorage + 'static> VmInterface<S, HistoryEnabled> for Vm<S> {
         let (_, bootloader) =
             convert_system_contract_code(&system_env.base_system_smart_contracts.bootloader, true);
         let bootloader_memory = bootloader_initial_memory(&batch_env);
-
+        let world = Rc::new(RefCell::new(World::new(
+            storage.clone(),
+            program_cache.clone(),
+        )));
         let mut inner = VirtualMachine::new(
-            Box::new(World::new(storage.clone(), program_cache.clone())),
             BOOTLOADER_ADDRESS,
             bootloader,
             H160::zero(),
@@ -380,8 +391,14 @@ impl<S: ReadStorage + 'static> VmInterface<S, HistoryEnabled> for Vm<S> {
         // The bootloader shouldn't pay for growing memory and it writes results
         // to the end of its heap, so it makes sense to preallocate it in its entirety.
         const BOOTLOADER_MAX_MEMORY_SIZE: usize = 59000000;
-        inner.state.heaps[vm2::FIRST_HEAP].resize(BOOTLOADER_MAX_MEMORY_SIZE, 0);
-        inner.state.heaps[vm2::FIRST_HEAP + 1].resize(BOOTLOADER_MAX_MEMORY_SIZE, 0);
+        inner
+            .state
+            .heaps
+            .write_u256(vm2::FIRST_HEAP, 59000000 as u32, U256::zero());
+        inner
+            .state
+            .heaps
+            .write_u256(vm2::FIRST_AUX_HEAP, 59000000 as u32, U256::zero());
 
         inner.state.current_frame.exception_handler = INITIAL_FRAME_FORMAL_EH_LOCATION;
 
@@ -399,6 +416,7 @@ impl<S: ReadStorage + 'static> VmInterface<S, HistoryEnabled> for Vm<S> {
             system_env,
             batch_env,
             program_cache,
+            world,
             snapshots: vec![],
         };
 
@@ -424,13 +442,14 @@ impl<S: ReadStorage + 'static> VmInterface<S, HistoryEnabled> for Vm<S> {
         }
 
         let result = self.run(execution_mode);
+        println!("Execution Result: {:?}", result);
         //dbg!(&result);
 
         VmExecutionResultAndLogs {
             result,
             logs: VmExecutionLogs {
                 storage_logs: Default::default(),
-                events: merge_events(self.inner.world.events(), self.batch_env.number),
+                events: merge_events(self.inner.world_diff.events(), self.batch_env.number),
                 user_l2_to_l1_logs: Default::default(),
                 system_l2_to_l1_logs: Default::default(),
                 total_log_queries_count: 0, // This field is unused
@@ -491,7 +510,7 @@ impl<S: ReadStorage + 'static> VmInterfaceHistoryEnabled<S> for Vm<S> {
     fn make_snapshot(&mut self) {
         self.snapshots.push(VmSnapshot {
             state: self.inner.state.clone(),
-            world_snapshot: self.inner.world.external_snapshot(),
+            world_snapshot: self.inner.world_diff.external_snapshot(),
             bootloader_snapshot: self.bootloader_state.get_snapshot(),
             suspended_at: self.suspended_at,
             gas_for_account_validation: self.gas_for_account_validation,
@@ -508,7 +527,7 @@ impl<S: ReadStorage + 'static> VmInterfaceHistoryEnabled<S> for Vm<S> {
         } = self.snapshots.pop().expect("no snapshots to rollback to");
 
         self.inner.state = state;
-        self.inner.world.external_rollback(world_snapshot);
+        self.inner.world_diff.external_rollback(world_snapshot);
         self.bootloader_state.apply_snapshot(bootloader_snapshot);
         self.suspended_at = suspended_at;
         self.gas_for_account_validation = gas_for_account_validation;
@@ -525,7 +544,7 @@ impl<S: ReadStorage + 'static> VmInterfaceHistoryEnabled<S> for Vm<S> {
 impl<S: ReadStorage + 'static> Vm<S> {
     fn delete_history_if_appropriate(&mut self) {
         if self.snapshots.is_empty() && self.inner.state.previous_frames.is_empty() {
-            self.inner.world.delete_history();
+            self.inner.world_diff.delete_history();
         }
     }
 }
@@ -549,13 +568,12 @@ impl<S: ReadStorage> World<S> {
 
 impl<S: ReadStorage> vm2::World for World<S> {
     fn decommit(&mut self, hash: U256) -> Program {
-        self.program_cache
-            .borrow_mut()
+        let mut program_cache = RefCell::borrow_mut(&self.program_cache);
+        program_cache
             .entry(hash)
             .or_insert_with(|| {
-                let bytecode = self
-                    .storage
-                    .borrow_mut()
+                let mut storage = RefCell::borrow_mut(&self.storage);
+                let bytecode = storage
                     .load_factory_dep(u256_to_h256(hash))
                     .expect("vm tried to decommit nonexistent bytecode");
 
@@ -564,15 +582,37 @@ impl<S: ReadStorage> vm2::World for World<S> {
             .clone()
     }
 
-    fn read_storage(&mut self, contract: zksync_types::H160, key: U256) -> U256 {
-        self.storage
-            .borrow_mut()
-            .read_value(&StorageKey::new(
-                AccountTreeId::new(contract),
-                u256_to_h256(key),
-            ))
-            .as_bytes()
-            .into()
+    fn read_storage(&mut self, contract: zksync_types::H160, key: U256) -> Option<U256> {
+        let mut storage = RefCell::borrow_mut(&self.storage);
+        Some(
+            storage
+                .read_value(&StorageKey::new(
+                    AccountTreeId::new(contract),
+                    u256_to_h256(key),
+                ))
+                .as_bytes()
+                .into(),
+        )
+    }
+
+    fn decommit_code(&mut self, hash: U256) -> Vec<u8> {
+        self.decommit(hash)
+            .code_page()
+            .iter()
+            .flat_map(|u256| {
+                let mut buffer = [0u8; 32];
+                u256.to_big_endian(&mut buffer);
+                buffer
+            })
+            .collect()
+    }
+
+    fn cost_of_writing_storage(&mut self, _initial_value: Option<U256>, _new_value: U256) -> u32 {
+        50
+    }
+
+    fn is_free_storage_slot(&self, contract: &H160, key: &U256) -> bool {
+        false
     }
 }
 
