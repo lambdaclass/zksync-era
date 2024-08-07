@@ -1996,7 +1996,6 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 [[package]]
 name = "era_vm"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/era_vm.git?branch=era_integration#e2c5a226c96b5d480e37e28776f7fb3053396cb8"
 dependencies = [
  "hex",
  "primitive-types",
