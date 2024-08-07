@@ -55,7 +55,9 @@ pub fn start_containers(shell: &Shell, observability: bool) -> anyhow::Result<()
         MSG_RETRY_START_CONTAINERS_PROMPT,
     )?;
 
-    if observability {
+    println!("Observability: {}", observability);
+
+    if observability { 
         start_container(
             shell,
             ERA_OBSERVABILITY_COMPOSE_FILE,
