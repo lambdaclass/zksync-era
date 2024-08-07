@@ -161,8 +161,6 @@ impl<S: WriteStorage + 'static> Vm<S> {
                 let raw_opcode_u256 = U256::from_big_endian(&raw_opcode_bytes);
                 program_code.push(raw_opcode_u256);
             }
-            // println!("HASH: {:?}", U256::from_big_endian(hash_bytecode(code).as_bytes()));
-            // println!("PROGRAM CODE: {:?}", program_code);
             self.program_cache.borrow_mut().insert(
                 U256::from_big_endian(hash_bytecode(code).as_bytes()),
                 program_code,
@@ -479,11 +477,6 @@ impl<S: WriteStorage> era_vm::store::Storage for World<S> {
         Ok(())
     }
 
-    fn storage_drop(&mut self, key: EraStorageKey) -> Result<(), StorageError> {
-        println!("STORAGE DROP");
-        todo!()
-    }
-
     fn storage_read(&self, key: EraStorageKey) -> Result<Option<U256>, StorageError> {
         let mut storage = RefCell::borrow_mut(&self.storage);
         Ok(Some(
@@ -509,17 +502,6 @@ impl<S: WriteStorage> era_vm::store::Storage for World<S> {
     fn record_l2_to_l1_log(&mut self, log: L2ToL1Log) -> Result<(), StorageError> {
         self.l2_to_l1_logs.push(log);
         Ok(())
-    }
-
-    fn fake_clone(&self) -> InMemory {
-        println!("FAKE CLONE");
-        // InMemory::new(self.contract_storage.clone(), self.storage.clone())
-        InMemory::new_empty()
-    }
-
-    fn get_all_keys(&self) -> Vec<EraStorageKey> {
-        println!("GET ALL KEYS");
-        Vec::new()
     }
 }
 
