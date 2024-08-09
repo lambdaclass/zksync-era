@@ -18,12 +18,15 @@ pub fn fill_forge_private_key(
 }
 
 pub async fn check_the_balance(forge: &ForgeScript) -> anyhow::Result<()> {
+    println!("Checking the balance of the wallet...");
+    println!("Address: {}", forge.address().unwrap_or_default());
     let Some(address) = forge.address() else {
         return Ok(());
     };
-
     let expected_balance = U256::from(MINIMUM_BALANCE_FOR_WALLET);
+    println!("Expected balance: {}", expected_balance);
     while let Some(balance) = forge.get_the_balance().await? {
+        println!("Current balance: {}", balance);
         if balance >= expected_balance {
             return Ok(());
         }
