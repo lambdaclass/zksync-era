@@ -1,3 +1,4 @@
 [submodule "contracts"]
 path = contracts
-url = https://github.com/matter-labs/era-contracts.git
+	url = git@github.com:lambdaclass/era-contracts.git
+	branch = dockerize-toolbox
