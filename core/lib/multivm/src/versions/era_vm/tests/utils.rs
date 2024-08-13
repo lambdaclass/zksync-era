@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
-use era_vm::state::VMState;
+use era_vm::{state::VMState, store::StorageKey};
 use ethabi::Contract;
 use once_cell::sync::Lazy;
 use vm2::HeapId;
@@ -9,13 +9,24 @@ use zksync_contracts::{
 };
 use zksync_state::ReadStorage;
 use zksync_types::{
-    utils::storage_key_for_standard_token_balance, AccountTreeId, Address, StorageKey, H160, H256,
-    U256,
+    self, utils::storage_key_for_standard_token_balance, AccountTreeId, Address,
+    StorageKey as ZKStorageKey, H160, H256, U256,
 };
 use zksync_utils::{bytecode::hash_bytecode, bytes_to_be_words, h256_to_u256, u256_to_h256};
 
 pub(crate) static BASE_SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> =
     Lazy::new(BaseSystemContracts::load_from_disk);
+
+fn lambda_storage_key_to_zk(key: StorageKey) -> ZKStorageKey {
+    ZKStorageKey::new(AccountTreeId::new(key.address), u256_to_h256(key.key))
+}
+
+fn zk_storage_key_to_lambda(key: &ZKStorageKey) -> StorageKey {
+    StorageKey {
+        address: key.address().clone(),
+        key: h256_to_u256(key.key().clone()),
+    }
+}
 
 pub(crate) fn verify_required_memory(state: &VMState, required_values: Vec<(U256, HeapId, u32)>) {
     for (required_value, memory_page, cell) in required_values {
@@ -31,13 +42,12 @@ pub(crate) fn verify_required_memory(state: &VMState, required_values: Vec<(U256
 pub(crate) fn verify_required_storage(
     required_values: &[(H256, StorageKey)],
     main_storage: &mut impl ReadStorage,
-    storage_changes: &BTreeMap<(H160, U256), U256>,
+    storage_changes: &HashMap<StorageKey, U256>,
 ) {
     for &(required_value, key) in required_values {
-        let current_value = storage_changes
-            .get(&(*key.account().address(), h256_to_u256(*key.key())))
-            .copied()
-            .unwrap_or_else(|| h256_to_u256(main_storage.read_value(&key)));
+        let current_value = storage_changes.get(&key).copied().unwrap_or_else(|| {
+            h256_to_u256(main_storage.read_value(&lambda_storage_key_to_zk(key)))
+        });
 
         assert_eq!(
             u256_to_h256(current_value),
@@ -50,12 +60,12 @@ pub(crate) fn get_balance(
     token_id: AccountTreeId,
     account: &Address,
     main_storage: &mut impl ReadStorage,
-    storage_changes: &BTreeMap<(H160, U256), U256>,
+    storage_changes: &HashMap<StorageKey, U256>,
 ) -> U256 {
     let key = storage_key_for_standard_token_balance(token_id, account);
 
     storage_changes
-        .get(&(*key.account().address(), h256_to_u256(*key.key())))
+        .get(&zk_storage_key_to_lambda(&key))
         .copied()
         .unwrap_or_else(|| h256_to_u256(main_storage.read_value(&key)))
 }
