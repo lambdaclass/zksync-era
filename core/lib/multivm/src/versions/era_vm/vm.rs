@@ -8,7 +8,7 @@ use std::{
 };
 
 use era_vm::{
-    store::{L2ToL1Log, StorageError, StorageKey as EraStorageKey},
+    store::{L2ToL1Log, SnapShot, StorageError, StorageKey as EraStorageKey},
     vm::ExecutionOutput,
     EraVM, VMState,
 };
@@ -60,7 +60,7 @@ pub struct Vm<S: ReadStorage> {
     pub(crate) batch_env: L1BatchEnv,
     pub(crate) system_env: SystemEnv,
 
-    snapshots: Vec<VmSnapshot>, // TODO: Implement snapshots logic
+    snapshot: Option<VmSnapshot>, // TODO: Implement snapshots logic
 }
 
 /// Encapsulates creating VM instance based on the provided environment.
@@ -149,7 +149,7 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
             storage,
             batch_env,
             system_env,
-            snapshots: Vec::new(),
+            snapshot: None,
         };
 
         mv.write_to_bootloader_heap(bootloader_memory);
@@ -471,15 +471,45 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
 
 impl<S: ReadStorage + 'static> VmInterfaceHistoryEnabled for Vm<S> {
     fn make_snapshot(&mut self) {
-        todo!()
+        assert!(
+            self.snapshot.is_none(),
+            "cannot create a VM snapshot until a previous snapshot is rolled back to or popped"
+        );
+
+        // self.delete_history_if_appropriate();
+        self.snapshot = Some(VmSnapshot {
+            storage_snapshot: self.inner.state_storage.create_snapshot(),
+            transient_storage_snapshot: self.inner.transient_storage.create_snapshot(),
+            bootloader_snapshot: self.bootloader_state.get_snapshot(),
+            suspended_at: self.suspended_at,
+            gas_for_account_validation: self.gas_for_account_validation,
+        });
     }
 
     fn rollback_to_the_latest_snapshot(&mut self) {
-        todo!()
+        let VmSnapshot {
+            storage_snapshot,
+            transient_storage_snapshot,
+            bootloader_snapshot,
+            suspended_at,
+            gas_for_account_validation,
+        } = self.snapshot.take().expect("no snapshots to rollback to");
+
+        self.inner.state_storage.rollback(&storage_snapshot);
+        self.inner
+            .transient_storage
+            .rollback(&transient_storage_snapshot);
+
+        self.bootloader_state.apply_snapshot(bootloader_snapshot);
+        self.suspended_at = suspended_at;
+        self.gas_for_account_validation = gas_for_account_validation;
+
+        // self.delete_history_if_appropriate();
     }
 
     fn pop_snapshot_no_rollback(&mut self) {
-        todo!()
+        self.snapshot = None;
+        // self.delete_history_if_appropriate();
     }
 }
 

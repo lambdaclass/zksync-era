@@ -1,20 +1,7 @@
+use era_vm::store::SnapShot;
 use zksync_types::H256;
 
-#[derive(Debug, Clone)]
-pub(crate) struct BootloaderStateSnapshot {
-    /// ID of the next transaction to be executed.
-    pub(crate) tx_to_execute: usize,
-    /// Stored L2 blocks in bootloader memory
-    pub(crate) l2_blocks_len: usize,
-    /// Snapshot of the last L2 block. Only this block could be changed during the rollback
-    pub(crate) last_l2_block: L2BlockSnapshot,
-    /// The number of 32-byte words spent on the already included compressed bytecodes.
-    pub(crate) compressed_bytecodes_encoding: usize,
-    /// Current offset of the free space in the bootloader memory.
-    pub(crate) free_tx_offset: usize,
-    /// Whether the pubdata information has been provided already
-    pub(crate) is_pubdata_information_provided: bool,
-}
+use super::bootloader_state::BootloaderStateSnapshot;
 
 #[derive(Debug, Clone)]
 pub(crate) struct L2BlockSnapshot {
@@ -25,11 +12,9 @@ pub(crate) struct L2BlockSnapshot {
 }
 
 pub struct VmSnapshot {
-    state: era_vm::VMState,
-
-    // TODO: Implement snapshots in era vm
-    // world_snapshot: vm2::ExternalSnapshot,
-    bootloader_snapshot: BootloaderStateSnapshot,
-    suspended_at: u16,
-    gas_for_account_validation: u32,
+    pub(crate) storage_snapshot: SnapShot,
+    pub(crate) transient_storage_snapshot: SnapShot,
+    pub(crate) bootloader_snapshot: BootloaderStateSnapshot,
+    pub(crate) suspended_at: u16,
+    pub(crate) gas_for_account_validation: u32,
 }
