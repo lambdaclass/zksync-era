@@ -11,7 +11,7 @@ use crate::{
     defaults::LOCAL_RPC_URL,
     messages::{
         MSG_DEPLOY_PAYMASTER_PROMPT, MSG_GENESIS_ARGS_HELP, MSG_L1_RPC_URL_HELP,
-        MSG_L1_RPC_URL_INVALID_ERR, MSG_L1_RPC_URL_PROMPT,
+        MSG_L1_RPC_URL_INVALID_ERR, MSG_L1_RPC_URL_PROMPT, MSG_RUN_GENESIS__HELP,
     },
 };
 
@@ -21,6 +21,8 @@ pub struct InitArgs {
     #[clap(flatten)]
     #[serde(flatten)]
     pub forge_args: ForgeScriptArgs,
+    #[clap(long, default_missing_value = "true", num_args = 0..=1)]
+    pub run_genesis: Option<bool>,
     #[clap(flatten, next_help_heading = MSG_GENESIS_ARGS_HELP)]
     #[serde(flatten)]
     pub genesis_args: GenesisArgs,
@@ -32,6 +34,12 @@ pub struct InitArgs {
 
 impl InitArgs {
     pub fn fill_values_with_prompt(self, config: &ChainConfig) -> InitArgsFinal {
+        let run_genesis = self.run_genesis.unwrap_or_else(|| {
+            common::PromptConfirm::new(MSG_RUN_GENESIS__HELP)
+                .default(true)
+                .ask()
+        });
+
         let deploy_paymaster = self.deploy_paymaster.unwrap_or_else(|| {
             common::PromptConfirm::new(MSG_DEPLOY_PAYMASTER_PROMPT)
                 .default(true)
@@ -52,9 +60,18 @@ impl InitArgs {
                 .ask()
         });
 
+        if !run_genesis {
+            return InitArgsFinal {
+                forge_args: self.forge_args,
+                genesis_args: None,
+                deploy_paymaster,
+                l1_rpc_url,
+            };
+        }
+
         InitArgsFinal {
             forge_args: self.forge_args,
-            genesis_args: self.genesis_args.fill_values_with_prompt(config),
+            genesis_args: Some(self.genesis_args.fill_values_with_prompt(config)),
             deploy_paymaster,
             l1_rpc_url,
         }
@@ -64,7 +81,7 @@ impl InitArgs {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct InitArgsFinal {
     pub forge_args: ForgeScriptArgs,
-    pub genesis_args: GenesisArgsFinal,
+    pub genesis_args: Option<GenesisArgsFinal>,
     pub deploy_paymaster: bool,
     pub l1_rpc_url: String,
 }

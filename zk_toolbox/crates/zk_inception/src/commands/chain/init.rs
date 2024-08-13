@@ -122,10 +122,12 @@ pub async fn init(
         contracts_config.save_with_base_path(shell, &chain_config.configs)?;
     }
 
-    genesis(init_args.genesis_args.clone(), shell, chain_config)
-        .await
-        .context(MSG_GENESIS_DATABASE_ERR)?;
-
+    if init_args.genesis_args.is_some() {
+        let genesis_args = init_args.genesis_args.clone().unwrap();
+        genesis(genesis_args, shell, chain_config)
+            .await
+            .context(MSG_GENESIS_DATABASE_ERR)?;
+    }
     Ok(())
 }
 
