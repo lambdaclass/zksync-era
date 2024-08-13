@@ -17,11 +17,11 @@ use zksync_utils::{bytecode::hash_bytecode, bytes_to_be_words, h256_to_u256, u25
 pub(crate) static BASE_SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> =
     Lazy::new(BaseSystemContracts::load_from_disk);
 
-fn lambda_storage_key_to_zk(key: StorageKey) -> ZKStorageKey {
+pub fn lambda_storage_key_to_zk(key: StorageKey) -> ZKStorageKey {
     ZKStorageKey::new(AccountTreeId::new(key.address), u256_to_h256(key.key))
 }
 
-fn zk_storage_key_to_lambda(key: &ZKStorageKey) -> StorageKey {
+pub fn zk_storage_key_to_lambda(key: &ZKStorageKey) -> StorageKey {
     StorageKey {
         address: key.address().clone(),
         key: h256_to_u256(key.key().clone()),
