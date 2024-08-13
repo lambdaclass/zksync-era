@@ -1,4 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Write, io::Read, rc::Rc, str::FromStr};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    fmt::Write,
+    io::Read,
+    rc::Rc,
+    str::FromStr,
+};
 
 use era_vm::{
     store::{L2ToL1Log, StorageError, StorageKey as EraStorageKey},
@@ -328,6 +335,15 @@ impl<S: ReadStorage + 'static> Vm<S> {
     // pub(crate) fn dump_state(&self) -> VMState {
     //     self.inner.state.clone()
     // }
+
+    pub fn read_word_from_bootloader_heap(&self, word: usize) -> U256 {
+        self.inner
+            .state
+            .heaps
+            .get(2)
+            .unwrap()
+            .read(word as u32 * 32)
+    }
 
     fn write_to_bootloader_heap(&mut self, memory: impl IntoIterator<Item = (usize, U256)>) {
         assert!(self.inner.state.running_contexts.len() == 1); // No on-going far calls
