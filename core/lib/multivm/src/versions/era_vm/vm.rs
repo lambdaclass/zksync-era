@@ -86,6 +86,7 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
                 .to_fixed_bytes(),
             vm_hook_position,
             true,
+            system_env.bootloader_gas_limit,
         );
         let pre_contract_storage = Rc::new(RefCell::new(HashMap::new()));
         pre_contract_storage.borrow_mut().insert(
