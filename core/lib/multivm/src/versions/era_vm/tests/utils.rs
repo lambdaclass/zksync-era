@@ -40,14 +40,15 @@ pub(crate) fn verify_required_memory(state: &VMState, required_values: Vec<(U256
 }
 
 pub(crate) fn verify_required_storage(
-    required_values: &[(H256, StorageKey)],
+    required_values: &[(H256, ZKStorageKey)],
     main_storage: &mut impl ReadStorage,
     storage_changes: &HashMap<StorageKey, U256>,
 ) {
     for &(required_value, key) in required_values {
-        let current_value = storage_changes.get(&key).copied().unwrap_or_else(|| {
-            h256_to_u256(main_storage.read_value(&lambda_storage_key_to_zk(key)))
-        });
+        let current_value = storage_changes
+            .get(&zk_storage_key_to_lambda(&key))
+            .copied()
+            .unwrap_or_else(|| h256_to_u256(main_storage.read_value(&key)));
 
         assert_eq!(
             u256_to_h256(current_value),
