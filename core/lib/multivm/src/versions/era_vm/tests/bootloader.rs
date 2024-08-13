@@ -43,7 +43,6 @@ fn test_bootloader_out_of_gas() {
         .build();
 
     let res = vm.vm.execute(VmExecutionMode::Batch);
-
     assert!(matches!(
         res.result,
         ExecutionResult::Halt {
