@@ -121,7 +121,7 @@ pub async fn init(
         .await?;
         contracts_config.save_with_base_path(shell, &chain_config.configs)?;
     }
-    println!("genesis_args: {:?}", genesis_args);
+    println!("genesis_args: {:?}", init_args.genesis_args);
 
     if init_args.genesis_args.is_some() {
         let genesis_args = init_args.genesis_args.clone().unwrap();
