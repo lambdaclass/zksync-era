@@ -41,7 +41,7 @@ fn test_get_used_contracts() {
         .vm
         .inner
         .contract_storage
-        .borrow()
+        .borrow_mut()
         .decommit(h256_to_u256(tx.bytecode_hash))
         .is_ok());
 
@@ -53,24 +53,8 @@ fn test_get_used_contracts() {
             .inner
             .contract_storage
             .borrow()
-            .hash_map()
-            .unwrap()
-            .keys()
-            .copied()
-            .collect::<HashSet<_>>()
-            .len(),
-        known_bytecodes_without_aa_code(&vm.vm).len()
-    );
-    assert_eq!(
-        vm.vm
-            .inner
-            .contract_storage
-            .borrow()
-            .hash_map()
-            .unwrap()
-            .keys()
-            .copied()
-            .collect::<HashSet<_>>(),
+            .decommited_hashes()
+            .unwrap(),
         known_bytecodes_without_aa_code(&vm.vm)
     );
 
@@ -110,20 +94,16 @@ fn test_get_used_contracts() {
             .inner
             .contract_storage
             .borrow()
-            .hash_map()
+            .decommited_hashes()
             .unwrap()
-            .keys()
             .contains(&hash_to_u256));
     }
 }
 
 fn known_bytecodes_without_aa_code<S: ReadStorage>(vm: &Vm<S>) -> HashSet<U256> {
     let mut known_bytecodes_without_aa_code = vm
-        .inner
-        .contract_storage
+        .program_cache
         .borrow()
-        .hash_map()
-        .unwrap()
         .keys()
         .copied()
         .collect::<HashSet<_>>();

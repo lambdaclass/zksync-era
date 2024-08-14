@@ -12,6 +12,7 @@ use era_vm::{
     vm::ExecutionOutput,
     EraVM, VMState,
 };
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 use zksync_state::{InMemoryStorage, ReadStorage, StoragePtr, StorageView, WriteStorage};
 use zksync_types::{
@@ -490,7 +491,15 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
         CurrentExecutionState {
             events,
             deduplicated_storage_logs,
-            used_contract_hashes: vec![], // self.decommitted_hashes().collect(),
+            used_contract_hashes: self
+                .inner
+                .contract_storage
+                .borrow()
+                .decommited_hashes()
+                .unwrap()
+                .iter()
+                .copied()
+                .collect(),
             system_logs,
             user_l2_to_l1_logs,
             storage_refunds: vec![], // world_diff.storage_refunds().to_vec(),
@@ -568,6 +577,7 @@ pub struct World<S: ReadStorage> {
     pub storage: StoragePtr<S>,
     pub contract_storage: Rc<RefCell<HashMap<U256, Vec<U256>>>>,
     pub l2_to_l1_logs: Vec<L2ToL1Log>,
+    decommited_hashes: HashSet<U256>,
 }
 
 impl<S: ReadStorage> World<S> {
@@ -578,6 +588,7 @@ impl<S: ReadStorage> World<S> {
             contract_storage,
             storage,
             l2_to_l1_logs,
+            decommited_hashes: HashSet::new(),
         }
     }
 
@@ -589,6 +600,7 @@ impl<S: ReadStorage> World<S> {
             storage,
             contract_storage,
             l2_to_l1_logs: Vec::new(),
+            decommited_hashes: HashSet::new(),
         }
     }
 }
@@ -609,7 +621,8 @@ impl<S: ReadStorage> era_vm::store::InitialStorage for World<S> {
 }
 
 impl<S: ReadStorage> era_vm::store::ContractStorage for World<S> {
-    fn decommit(&self, hash: U256) -> Result<Option<Vec<U256>>, StorageError> {
+    fn decommit(&mut self, hash: U256) -> Result<Option<Vec<U256>>, StorageError> {
+        self.decommited_hashes.insert(hash);
         Ok(Some(
             self.contract_storage
                 .borrow_mut()
@@ -633,8 +646,9 @@ impl<S: ReadStorage> era_vm::store::ContractStorage for World<S> {
                 .clone(),
         ))
     }
-    fn hash_map(&self) -> Result<HashMap<U256, Vec<U256>>, StorageError> {
-        Ok(self.contract_storage.as_ref().clone().into_inner())
+
+    fn decommited_hashes(&self) -> Result<HashSet<U256>, StorageError> {
+        Ok(self.decommited_hashes.clone())
     }
 }
 
