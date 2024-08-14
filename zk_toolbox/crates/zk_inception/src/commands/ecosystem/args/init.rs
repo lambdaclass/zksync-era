@@ -12,7 +12,7 @@ use crate::{
     messages::{
         MSG_DEPLOY_ECOSYSTEM_PROMPT, MSG_DEPLOY_ERC20_PROMPT, MSG_DEPLOY_PAYMASTER_PROMPT,
         MSG_DEV_ARG_HELP, MSG_GENESIS_ARGS_HELP, MSG_L1_RPC_URL_HELP, MSG_L1_RPC_URL_INVALID_ERR,
-        MSG_L1_RPC_URL_PROMPT, MSG_OBSERVABILITY_HELP, MSG_OBSERVABILITY_PROMPT,
+        MSG_L1_RPC_URL_PROMPT, MSG_OBSERVABILITY_HELP, MSG_OBSERVABILITY_PROMPT, MSG_RUN_GENESIS__HELP,
     },
 };
 
@@ -89,6 +89,8 @@ pub struct EcosystemInitArgs {
     #[serde(flatten)]
     pub genesis_args: GenesisArgs,
     #[clap(long, help = MSG_DEV_ARG_HELP)]
+    #[clap(long, default_missing_value = "true", num_args = 0..=1)]
+    pub run_genesis: Option<bool>,
     pub dev: bool,
     #[clap(long, short = 'o', help = MSG_OBSERVABILITY_HELP, default_missing_value = "true", num_args = 0..=1)]
     pub observability: Option<bool>,
