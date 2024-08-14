@@ -52,7 +52,7 @@ pub struct Vm<S: ReadStorage> {
     gas_for_account_validation: u32,
     last_tx_result: Option<ExecutionResult>,
 
-    bootloader_state: BootloaderState,
+    pub bootloader_state: BootloaderState,
     pub(crate) storage: StoragePtr<S>,
 
     // TODO: Maybe not necessary, check
@@ -353,7 +353,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
             .read(word as u32 * 32)
     }
 
-    fn write_to_bootloader_heap(&mut self, memory: impl IntoIterator<Item = (usize, U256)>) {
+    pub fn write_to_bootloader_heap(&mut self, memory: impl IntoIterator<Item = (usize, U256)>) {
         assert!(self.inner.state.running_contexts.len() == 1); // No on-going far calls
         if let Some(heap) = &mut self
             .inner
