@@ -56,7 +56,7 @@ pub struct Vm<S: ReadStorage> {
     pub(crate) storage: StoragePtr<S>,
 
     // TODO: Maybe not necessary, check
-    program_cache: Rc<RefCell<HashMap<U256, Vec<U256>>>>,
+    pub program_cache: Rc<RefCell<HashMap<U256, Vec<U256>>>>,
 
     // these two are only needed for tests so far
     pub(crate) batch_env: L1BatchEnv,
@@ -628,6 +628,9 @@ impl<S: ReadStorage> era_vm::store::ContractStorage for World<S> {
                 })
                 .clone(),
         ))
+    }
+    fn hash_map(&self) -> Result<HashMap<U256, Vec<U256>>, StorageError> {
+        Ok(self.contract_storage.as_ref().clone().into_inner())
     }
 }
 
