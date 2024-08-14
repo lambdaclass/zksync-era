@@ -211,6 +211,9 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 Hook::DebugReturnData => {
                     // println!("DEBUG RETURN DATA");
                 }
+                Hook::NearCallCatch => {
+                    //println!("NEAR Call catch")
+                }
                 Hook::PostResult => {
                     // println!("POST RESULT");
                     let result = self.get_hook_params()[0];
