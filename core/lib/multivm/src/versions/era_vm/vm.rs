@@ -15,7 +15,8 @@ use era_vm::{
 use once_cell::sync::Lazy;
 use zksync_state::{InMemoryStorage, ReadStorage, StoragePtr, StorageView, WriteStorage};
 use zksync_types::{
-    l1::is_l1_tx_type, AccountTreeId, StorageKey, Transaction, BOOTLOADER_ADDRESS, H160,
+    event::extract_l2tol1logs_from_l1_messenger, l1::is_l1_tx_type, l2_to_l1_log::UserL2ToL1Log,
+    AccountTreeId, StorageKey, StorageLog, StorageLogKind, Transaction, BOOTLOADER_ADDRESS, H160,
     KNOWN_CODES_STORAGE_ADDRESS, U256,
 };
 use zksync_utils::{
@@ -32,6 +33,7 @@ use super::{
 };
 use crate::{
     era_vm::{bytecode::compress_bytecodes, transaction_data::TransactionData},
+    glue::GlueInto,
     interface::{
         Halt, TxRevertReason, VmFactory, VmInterface, VmInterfaceHistoryEnabled, VmRevertReason,
     },
@@ -271,6 +273,12 @@ impl<S: ReadStorage + 'static> Vm<S> {
                         return result;
                     }
                 }
+                Hook::PubdataRequested => {
+                    if !matches!(execution_mode, VmExecutionMode::Batch) {
+                        unreachable!("We do not provide the pubdata when executing the block tip or a single transaction");
+                    }
+                    // TODO: implement pubdata hook
+                }
             }
             self.inner.state.current_frame_mut().unwrap().pc = self.suspended_at as u64;
         }
@@ -373,7 +381,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
         } else {
             compress_bytecodes(&tx.factory_deps, |hash| {
                 self.inner
-                    .state_storage
+                    .transient_storage
                     .storage_read(EraStorageKey::new(
                         KNOWN_CODES_STORAGE_ADDRESS,
                         h256_to_u256(hash),
@@ -449,7 +457,41 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
     }
 
     fn get_current_execution_state(&self) -> CurrentExecutionState {
-        todo!()
+        let world_diff = &self.inner.state_storage;
+        let events = merge_events(&self.inner.state.events, self.batch_env.number);
+
+        let user_l2_to_l1_logs = extract_l2tol1logs_from_l1_messenger(&events)
+            .into_iter()
+            .map(Into::into)
+            .map(UserL2ToL1Log)
+            .collect();
+
+        let deduplicated_storage_logs = world_diff
+            .storage_changes
+            .clone()
+            .into_iter()
+            .map(|(sk, value)| StorageLog {
+                key: StorageKey::new(AccountTreeId::new(sk.address), u256_to_h256(sk.key)),
+                value: u256_to_h256(value),
+                kind: StorageLogKind::RepeatedWrite, // Initialness doesn't matter here
+            })
+            .collect();
+
+        let system_logs = world_diff
+            .l2_to_l1_logs
+            .iter()
+            .map(|x| x.glue_into())
+            .collect();
+
+        CurrentExecutionState {
+            events,
+            deduplicated_storage_logs,
+            used_contract_hashes: vec![], // self.decommitted_hashes().collect(),
+            system_logs,
+            user_l2_to_l1_logs,
+            storage_refunds: vec![], // world_diff.storage_refunds().to_vec(),
+            pubdata_costs: vec![],   // world_diff.pubdata_costs().to_vec(),
+        }
     }
 
     fn inspect_transaction_with_bytecode_compression(

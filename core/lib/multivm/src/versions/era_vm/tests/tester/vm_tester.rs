@@ -192,7 +192,6 @@ impl VmTesterBuilder {
     }
 
     pub(crate) fn with_empty_in_memory_storage(mut self) -> Self {
-        // self.storage = Some(get_empty_storage());
         self.storage = None;
         self
     }

@@ -10,6 +10,7 @@ pub(crate) enum Hook {
     NotifyAboutRefund,
     PostResult,
     FinalBatchInfo,
+    PubdataRequested,
 }
 
 impl Hook {
@@ -27,6 +28,7 @@ impl Hook {
             9 => Hook::NotifyAboutRefund,
             10 => Hook::PostResult,
             11 => Hook::FinalBatchInfo,
+            12 => Hook::PubdataRequested,
             _ => panic!("Unknown hook {}", hook),
         }
     }
