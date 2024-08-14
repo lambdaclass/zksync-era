@@ -21,11 +21,11 @@ pub struct InitArgs {
     #[clap(flatten)]
     #[serde(flatten)]
     pub forge_args: ForgeScriptArgs,
-    #[clap(long, default_missing_value = "true", num_args = 0..=1)]
-    pub run_genesis: Option<bool>,
     #[clap(flatten, next_help_heading = MSG_GENESIS_ARGS_HELP)]
     #[serde(flatten)]
     pub genesis_args: GenesisArgs,
+    #[clap(long, default_missing_value = "true", num_args = 0..=1)]
+    pub run_genesis: Option<bool>,
     #[clap(long, default_missing_value = "true", num_args = 0..=1)]
     pub deploy_paymaster: Option<bool>,
     #[clap(long, help = MSG_L1_RPC_URL_HELP)]
@@ -39,7 +39,7 @@ impl InitArgs {
                 .default(true)
                 .ask()
         });
-
+        
         let deploy_paymaster = self.deploy_paymaster.unwrap_or_else(|| {
             common::PromptConfirm::new(MSG_DEPLOY_PAYMASTER_PROMPT)
                 .default(true)
