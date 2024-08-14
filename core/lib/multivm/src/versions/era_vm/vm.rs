@@ -277,6 +277,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     if !matches!(execution_mode, VmExecutionMode::Batch) {
                         unreachable!("We do not provide the pubdata when executing the block tip or a single transaction");
                     }
+                    todo!()
                     // TODO: implement pubdata hook
                 }
             }
