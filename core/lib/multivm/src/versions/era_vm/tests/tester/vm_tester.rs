@@ -22,6 +22,7 @@ use crate::{
     },
     vm_latest::{constants::BATCH_COMPUTATIONAL_GAS_LIMIT, utils::l2_blocks::load_last_l2_block},
 };
+use era_vm::rollbacks::{RollbackableHashMap, RollbackableVec};
 
 pub(crate) struct VmTester {
     pub(crate) vm: Vm<InMemoryStorage>,
@@ -50,12 +51,12 @@ impl VmTester {
         self.test_contract = Some(deployed_address);
     }
     pub(crate) fn reset_with_empty_storage(&mut self) {
-        let contracts = self.vm.inner.contract_storage.clone();
+        let contracts = self.vm.inner.state.contracts_storage.clone();
         // self.storage = World::new(Rc::new(RefCell::new(HashMap::new())), contracts);
         self.storage = Rc::new(RefCell::new(get_empty_storage()));
-        self.vm.inner.state_storage.storage_changes = HashMap::default();
-        self.vm.inner.transient_storage.storage_changes = HashMap::default();
-        self.vm.inner.state.events = vec![];
+        self.vm.inner.state.storage_changes = RollbackableHashMap::new();
+        self.vm.inner.state.transient_storage = RollbackableHashMap::new();
+        self.vm.inner.state.events = RollbackableVec::new();
         self.reset_state(false);
     }
 
@@ -76,11 +77,10 @@ impl VmTester {
             // `insert_contracts(&mut self.storage, &self.custom_contracts);`
         }
 
-        let mut storage = self.storage.clone();
+        let storage = self.storage.clone();
         {
-            let mut storage = storage.borrow_mut();
             // Commit pending storage changes (old VM versions commit them on successful execution)
-            for (key, value) in self.vm.inner.state_storage.storage_changes.clone() {
+            for (key, value) in self.vm.inner.state.storage_changes.map.clone() {
                 let key = StorageKey::new(AccountTreeId::new(key.address), u256_to_h256(key.key));
                 storage
                     .as_ref()

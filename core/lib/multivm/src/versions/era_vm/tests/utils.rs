@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use era_vm::{state::VMState, store::StorageKey};
+use era_vm::{execution::Execution, store::StorageKey};
 use ethabi::Contract;
 use once_cell::sync::Lazy;
 use vm2::HeapId;
@@ -28,9 +28,12 @@ pub fn zk_storage_key_to_lambda(key: &ZKStorageKey) -> StorageKey {
     }
 }
 
-pub(crate) fn verify_required_memory(state: &VMState, required_values: Vec<(U256, HeapId, u32)>) {
+pub(crate) fn verify_required_memory(
+    execution: &Execution,
+    required_values: Vec<(U256, HeapId, u32)>,
+) {
     for (required_value, memory_page, cell) in required_values {
-        let current_value = state
+        let current_value = execution
             .heaps
             .get(memory_page.to_u32())
             .unwrap()

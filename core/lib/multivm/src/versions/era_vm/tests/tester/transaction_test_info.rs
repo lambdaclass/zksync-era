@@ -1,5 +1,5 @@
 use era_vm::state::Event;
-use zksync_state::{InMemoryStorage, WriteStorage};
+use zksync_state::{InMemoryStorage, ReadStorage, WriteStorage};
 use zksync_types::{ExecuteTransactionCommon, Transaction, H160, U256};
 
 use super::VmTester;
@@ -185,25 +185,28 @@ impl TransactionTestInfo {
 }
 
 // TODO this doesn't include all the state of ModifiedWorld
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 struct VmStateDump {
     state: era_vm::state::VMState,
     storage_writes: Vec<((H160, U256), U256)>,
     events: Vec<Event>,
 }
 
-impl Vm<InMemoryStorage> {
+impl PartialEq for VmStateDump {
+    fn eq(&self, other: &Self) -> bool {
+        self.state == other.state
+            && self.storage_writes == other.storage_writes
+            && self.events == other.events
+    }
+}
+
+impl<S: ReadStorage + 'static> Vm<S> {
     fn dump_state(&self) -> VmStateDump {
+        // TODO: only dumps state, should also dump storage writes and events
         VmStateDump {
             state: self.inner.state.clone(),
-            storage_writes: self
-                .inner
-                .state_storage
-                .storage_changes
-                .iter()
-                .map(|(k, v)| ((k.address, k.key), *v))
-                .collect(),
-            events: self.inner.state.events.clone(),
+            storage_writes: vec![], //self.storage_writes.clone(),
+            events: vec![],         //self.inner.state.events.clone(),
         }
     }
 }

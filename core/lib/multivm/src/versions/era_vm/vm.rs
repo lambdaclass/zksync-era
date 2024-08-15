@@ -8,12 +8,13 @@ use std::{
 };
 
 use era_vm::{
-    store::{L2ToL1Log, SnapShot, StorageError, StorageKey as EraStorageKey},
+    rollbacks::Rollbackable,
+    state::{L2ToL1Log, VMState},
+    store::{StorageError, StorageKey as EraStorageKey},
     vm::ExecutionOutput,
-    EraVM, VMState,
+    EraVM, Execution,
 };
-use once_cell::sync::Lazy;
-use zksync_state::{InMemoryStorage, ReadStorage, StoragePtr, StorageView, WriteStorage};
+use zksync_state::{ReadStorage, StoragePtr};
 use zksync_types::{
     event::extract_l2tol1logs_from_l1_messenger, l1::is_l1_tx_type, l2_to_l1_log::UserL2ToL1Log,
     AccountTreeId, StorageKey, StorageLog, StorageLogKind, Transaction, BOOTLOADER_ADDRESS, H160,
@@ -41,8 +42,8 @@ use crate::{
         constants::{
             get_vm_hook_position, get_vm_hook_start_position_latest, VM_HOOK_PARAMS_COUNT,
         },
-        BootloaderMemory, CurrentExecutionState, ExecutionResult, HistoryEnabled, L1BatchEnv,
-        L2BlockEnv, SystemEnv, VmExecutionLogs, VmExecutionMode, VmExecutionResultAndLogs,
+        BootloaderMemory, CurrentExecutionState, ExecutionResult, L1BatchEnv, L2BlockEnv,
+        SystemEnv, VmExecutionLogs, VmExecutionMode, VmExecutionResultAndLogs,
     },
 };
 
@@ -70,14 +71,14 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
     /// Creates a new VM instance.
     fn new(batch_env: L1BatchEnv, system_env: SystemEnv, storage: StoragePtr<S>) -> Self {
         let bootloader_code = system_env
-            .clone()
             .base_system_smart_contracts
             .bootloader
-            .code;
+            .code
+            .clone();
         let vm_hook_position =
             get_vm_hook_position(crate::vm_latest::MultiVMSubversion::IncreasedBootloaderMemory)
                 * 32;
-        let vm_state = VMState::new(
+        let vm_execution = Execution::new(
             bootloader_code.to_owned(),
             Vec::new(),
             BOOTLOADER_ADDRESS,
@@ -95,27 +96,20 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
                 .to_fixed_bytes(),
             vm_hook_position,
             true,
-            system_env.bootloader_gas_limit,
         );
         let pre_contract_storage = Rc::new(RefCell::new(HashMap::new()));
         pre_contract_storage.borrow_mut().insert(
-            h256_to_u256(
-                system_env
-                    .clone()
-                    .base_system_smart_contracts
-                    .default_aa
-                    .hash,
-            ),
+            h256_to_u256(system_env.base_system_smart_contracts.default_aa.hash),
             system_env
-                .clone()
                 .base_system_smart_contracts
                 .default_aa
-                .code,
+                .code
+                .clone(),
         );
         let world_storage1 = World::new(storage.clone(), pre_contract_storage.clone());
         let world_storage2 = World::new(storage.clone(), pre_contract_storage.clone());
         let mut vm = EraVM::new(
-            vm_state,
+            vm_execution,
             Rc::new(RefCell::new(world_storage1)),
             Rc::new(RefCell::new(world_storage2)),
         );
@@ -124,23 +118,21 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
         // The bootloader shouldn't pay for growing memory and it writes results
         // to the end of its heap, so it makes sense to preallocate it in its entirety.
         const BOOTLOADER_MAX_MEMORY_SIZE: u32 = 59000000;
-        vm.state
+        vm.execution
             .heaps
-            .get_mut(era_vm::state::FIRST_HEAP)
+            .get_mut(era_vm::execution::FIRST_HEAP)
             .unwrap()
             .expand_memory(BOOTLOADER_MAX_MEMORY_SIZE);
-        vm.state
+        vm.execution
             .heaps
-            .get_mut(era_vm::state::FIRST_HEAP + 1)
+            .get_mut(era_vm::execution::FIRST_HEAP + 1)
             .unwrap()
             .expand_memory(BOOTLOADER_MAX_MEMORY_SIZE);
 
         let mut mv = Self {
             inner: vm,
             suspended_at: 0,
-            gas_for_account_validation: system_env
-                .clone()
-                .default_validation_computational_gas_limit,
+            gas_for_account_validation: system_env.default_validation_computational_gas_limit,
             last_tx_result: None,
             bootloader_state: BootloaderState::new(
                 system_env.execution_mode.clone(),
@@ -173,7 +165,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 },
                 ExecutionOutput::Panic => {
                     return ExecutionResult::Halt {
-                        reason: if self.inner.state.gas_left().unwrap() == 0 {
+                        reason: if self.inner.execution.gas_left().unwrap() == 0 {
                             Halt::BootloaderOutOfGas
                         } else {
                             Halt::VMPanic
@@ -242,9 +234,9 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 Hook::DebugLog => {
                     let heap = self
                         .inner
-                        .state
+                        .execution
                         .heaps
-                        .get(self.inner.state.current_context().unwrap().heap_id)
+                        .get(self.inner.execution.current_context().unwrap().heap_id)
                         .unwrap();
                     let vm_hook_params: Vec<_> = self
                         .get_vm_hook_params(heap)
@@ -284,11 +276,11 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     // TODO: implement pubdata hook
                 }
             }
-            self.inner.state.current_frame_mut().unwrap().pc = self.suspended_at as u64;
+            self.inner.execution.current_frame_mut().unwrap().pc = self.suspended_at as u64;
         }
     }
 
-    fn get_vm_hook_params(&self, heap: &era_vm::state::Heap) -> Vec<U256> {
+    fn get_vm_hook_params(&self, heap: &era_vm::execution::Heap) -> Vec<U256> {
         (get_vm_hook_start_position_latest()..get_vm_hook_start_position_latest() + 2)
             .map(|word| {
                 let res = heap.read((word * 32) as u32);
@@ -335,35 +327,23 @@ impl<S: ReadStorage + 'static> Vm<S> {
     fn read_heap_word(&self, word: usize) -> U256 {
         let heap = self
             .inner
-            .state
+            .execution
             .heaps
-            .get(self.inner.state.current_context().unwrap().heap_id)
+            .get(self.inner.execution.current_context().unwrap().heap_id)
             .unwrap();
         heap.read((word * 32) as u32)
     }
 
     // #[cfg(test)]
     /// Returns the current state of the VM in a format that can be compared for equality.
-    // pub(crate) fn dump_state(&self) -> VMState {
-    //     self.inner.state.clone()
-    // }
 
-    pub fn read_word_from_bootloader_heap(&self, word: usize) -> U256 {
-        self.inner
-            .state
-            .heaps
-            .get(2)
-            .unwrap()
-            .read(word as u32 * 32)
-    }
-
-    pub fn write_to_bootloader_heap(&mut self, memory: impl IntoIterator<Item = (usize, U256)>) {
-        assert!(self.inner.state.running_contexts.len() == 1); // No on-going far calls
+    fn write_to_bootloader_heap(&mut self, memory: impl IntoIterator<Item = (usize, U256)>) {
+        assert!(self.inner.execution.running_contexts.len() == 1); // No on-going far calls
         if let Some(heap) = &mut self
             .inner
-            .state
+            .execution
             .heaps
-            .get_mut(self.inner.state.current_context().unwrap().heap_id)
+            .get_mut(self.inner.execution.current_context().unwrap().heap_id)
         {
             for (slot, value) in memory {
                 let end = (slot + 1) * 32;
@@ -385,7 +365,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
         } else {
             compress_bytecodes(&tx.factory_deps, |hash| {
                 self.inner
-                    .transient_storage
+                    .state
                     .storage_read(EraStorageKey::new(
                         KNOWN_CODES_STORAGE_ADDRESS,
                         h256_to_u256(hash),
@@ -438,7 +418,7 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
             result,
             logs: VmExecutionLogs {
                 storage_logs: Default::default(),
-                events: merge_events(&self.inner.state.events, self.batch_env.number),
+                events: merge_events(self.inner.state.events(), self.batch_env.number),
                 user_l2_to_l1_logs: Default::default(),
                 system_l2_to_l1_logs: Default::default(),
                 total_log_queries_count: 0, // This field is unused
@@ -461,8 +441,8 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
     }
 
     fn get_current_execution_state(&self) -> CurrentExecutionState {
-        let world_diff = &self.inner.state_storage;
-        let events = merge_events(&self.inner.state.events, self.batch_env.number);
+        let vm_state = &self.inner.state;
+        let events = merge_events(vm_state.events(), self.batch_env.number);
 
         let user_l2_to_l1_logs = extract_l2tol1logs_from_l1_messenger(&events)
             .into_iter()
@@ -470,7 +450,7 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
             .map(UserL2ToL1Log)
             .collect();
 
-        let deduplicated_storage_logs = world_diff
+        let deduplicated_storage_logs = vm_state
             .storage_changes
             .clone()
             .into_iter()
@@ -481,8 +461,9 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
             })
             .collect();
 
-        let system_logs = world_diff
+        let system_logs = vm_state
             .l2_to_l1_logs
+            .entries
             .iter()
             .map(|x| x.glue_into())
             .collect();
@@ -515,7 +496,7 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
     }
 
     fn gas_remaining(&self) -> u32 {
-        self.inner.state.current_frame().unwrap().gas_left.0
+        self.inner.execution.current_frame().unwrap().gas_left.0
     }
 }
 
@@ -528,28 +509,22 @@ impl<S: ReadStorage + 'static> VmInterfaceHistoryEnabled for Vm<S> {
 
         // self.delete_history_if_appropriate();
         self.snapshot = Some(VmSnapshot {
-            storage_snapshot: self.inner.state_storage.create_snapshot(),
-            transient_storage_snapshot: self.inner.transient_storage.create_snapshot(),
+            execution: self.inner.state.snapshot(),
             bootloader_snapshot: self.bootloader_state.get_snapshot(),
             suspended_at: self.suspended_at,
             gas_for_account_validation: self.gas_for_account_validation,
-        });
+        })
     }
 
     fn rollback_to_the_latest_snapshot(&mut self) {
         let VmSnapshot {
-            storage_snapshot,
-            transient_storage_snapshot,
+            execution,
             bootloader_snapshot,
             suspended_at,
             gas_for_account_validation,
         } = self.snapshot.take().expect("no snapshots to rollback to");
 
-        self.inner.state_storage.rollback(&storage_snapshot);
-        self.inner
-            .transient_storage
-            .rollback(&transient_storage_snapshot);
-
+        self.inner.state.rollback(execution);
         self.bootloader_state.apply_snapshot(bootloader_snapshot);
         self.suspended_at = suspended_at;
         self.gas_for_account_validation = gas_for_account_validation;
@@ -633,8 +608,146 @@ impl<S: ReadStorage> era_vm::store::ContractStorage for World<S> {
                 .clone(),
         ))
     }
-    fn hash_map(&self) -> Result<HashMap<U256, Vec<U256>>, StorageError> {
-        Ok(self.contract_storage.as_ref().clone().into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{cell::RefCell, path::PathBuf, rc::Rc};
+
+    use once_cell::sync::Lazy;
+    use zksync_contracts::{deployer_contract, BaseSystemContracts};
+    use zksync_state::{InMemoryStorage, StorageView};
+    use zksync_types::{
+        block::L2BlockHasher,
+        ethabi::{encode, Token},
+        fee::Fee,
+        fee_model::BatchFeeInput,
+        helpers::unix_timestamp_ms,
+        l2::L2Tx,
+        utils::storage_key_for_eth_balance,
+        Address, K256PrivateKey, L1BatchNumber, L2BlockNumber, L2ChainId, Nonce, ProtocolVersionId,
+        Transaction, CONTRACT_DEPLOYER_ADDRESS, H256, U256,
+    };
+    use zksync_utils::bytecode::hash_bytecode;
+
+    use super::*;
+    use crate::{
+        era_vm::vm::Vm,
+        interface::{
+            L2BlockEnv, TxExecutionMode, VmExecutionMode, VmExecutionResultAndLogs, VmInterface,
+        },
+        utils::get_max_gas_per_pubdata_byte,
+        vm_latest::constants::BATCH_COMPUTATIONAL_GAS_LIMIT,
+    };
+    /// Bytecodes have consist of an odd number of 32 byte words
+    /// This function "fixes" bytecodes of wrong length by cutting off their end.
+    pub fn cut_to_allowed_bytecode_size(bytes: &[u8]) -> Option<&[u8]> {
+        let mut words = bytes.len() / 32;
+        if words == 0 {
+            return None;
+        }
+        if words & 1 == 0 {
+            words -= 1;
+        }
+        Some(&bytes[..32 * words])
+    }
+
+    static PRIVATE_KEY: Lazy<K256PrivateKey> =
+        Lazy::new(|| K256PrivateKey::from_bytes(H256([42; 32])).expect("invalid key bytes"));
+    static SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> =
+        Lazy::new(BaseSystemContracts::load_from_disk);
+    static STORAGE: Lazy<InMemoryStorage> = Lazy::new(|| {
+        let mut storage = InMemoryStorage::with_system_contracts(hash_bytecode);
+
+        // Give `PRIVATE_KEY` some money
+        let key = storage_key_for_eth_balance(&PRIVATE_KEY.address());
+        storage.set_value(key, zksync_utils::u256_to_h256(U256([0, 0, 1, 0])));
+
+        storage
+    });
+    static CREATE_FUNCTION_SIGNATURE: Lazy<[u8; 4]> = Lazy::new(|| {
+        deployer_contract()
+            .function("create")
+            .unwrap()
+            .short_signature()
+    });
+
+    pub fn get_deploy_tx(code: &[u8]) -> Transaction {
+        let params = [
+            Token::FixedBytes(vec![0u8; 32]),
+            Token::FixedBytes(hash_bytecode(code).0.to_vec()),
+            Token::Bytes([].to_vec()),
+        ];
+        let calldata = CREATE_FUNCTION_SIGNATURE
+            .iter()
+            .cloned()
+            .chain(encode(&params))
+            .collect();
+
+        let mut signed = L2Tx::new_signed(
+            CONTRACT_DEPLOYER_ADDRESS,
+            calldata,
+            Nonce(0),
+            Fee {
+                gas_limit: U256::from(30000000u32),
+                max_fee_per_gas: U256::from(250_000_000),
+                max_priority_fee_per_gas: U256::from(0),
+                gas_per_pubdata_limit: U256::from(get_max_gas_per_pubdata_byte(
+                    ProtocolVersionId::latest().into(),
+                )),
+            },
+            U256::zero(),
+            L2ChainId::from(270),
+            &PRIVATE_KEY,
+            vec![code.to_vec()], // maybe not needed?
+            Default::default(),
+        )
+        .expect("should create a signed execute transaction");
+
+        signed.set_input(H256::random().as_bytes().to_vec(), H256::random());
+
+        signed.into()
+    }
+
+    #[test]
+    fn test_vm() {
+        let path = PathBuf::from("./src/versions/era_vm/test_contract/storage");
+        let test_contract = std::fs::read(&path).expect("failed to read file");
+        let code = cut_to_allowed_bytecode_size(&test_contract).unwrap();
+        let tx = get_deploy_tx(code);
+        let timestamp = unix_timestamp_ms();
+        let mut vm = Vm::new(
+            crate::interface::L1BatchEnv {
+                previous_batch_hash: None,
+                number: L1BatchNumber(1),
+                timestamp,
+                fee_input: BatchFeeInput::l1_pegged(
+                    50_000_000_000, // 50 gwei
+                    250_000_000,    // 0.25 gwei
+                ),
+                fee_account: Address::random(),
+                enforced_base_fee: None,
+                first_l2_block: L2BlockEnv {
+                    number: 1,
+                    timestamp,
+                    prev_block_hash: L2BlockHasher::legacy_hash(L2BlockNumber(0)),
+                    max_virtual_blocks_to_create: 100,
+                },
+            },
+            crate::interface::SystemEnv {
+                zk_porter_available: false,
+                version: ProtocolVersionId::latest(),
+                base_system_smart_contracts: SYSTEM_CONTRACTS.clone(),
+                bootloader_gas_limit: BATCH_COMPUTATIONAL_GAS_LIMIT,
+                execution_mode: TxExecutionMode::VerifyExecute,
+                default_validation_computational_gas_limit: BATCH_COMPUTATIONAL_GAS_LIMIT,
+                chain_id: L2ChainId::from(270),
+            },
+            Rc::new(RefCell::new(StorageView::new(&*STORAGE))),
+        );
+        vm.push_transaction(tx);
+        let a = vm.execute(VmExecutionMode::OneTx);
+        println!("{:?}", a.result);
     }
 }
 

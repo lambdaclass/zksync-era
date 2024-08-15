@@ -3,9 +3,9 @@ use zksync_utils::u256_to_h256;
 
 use crate::glue::GlueFrom;
 
-impl GlueFrom<&era_vm::store::L2ToL1Log> for SystemL2ToL1Log {
-    fn glue_from(value: &era_vm::store::L2ToL1Log) -> Self {
-        let era_vm::store::L2ToL1Log {
+impl GlueFrom<&era_vm::state::L2ToL1Log> for SystemL2ToL1Log {
+    fn glue_from(value: &era_vm::state::L2ToL1Log) -> Self {
+        let era_vm::state::L2ToL1Log {
             key,
             value,
             is_service,

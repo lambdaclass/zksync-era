@@ -1,4 +1,4 @@
-use era_vm::store::SnapShot;
+use era_vm::state::StateSnapshot;
 use zksync_types::H256;
 
 use super::bootloader_state::BootloaderStateSnapshot;
@@ -12,9 +12,8 @@ pub(crate) struct L2BlockSnapshot {
 }
 
 pub struct VmSnapshot {
-    pub(crate) storage_snapshot: SnapShot,
-    pub(crate) transient_storage_snapshot: SnapShot,
-    pub(crate) bootloader_snapshot: BootloaderStateSnapshot,
-    pub(crate) suspended_at: u16,
-    pub(crate) gas_for_account_validation: u32,
+    pub execution: StateSnapshot,
+    pub bootloader_snapshot: BootloaderStateSnapshot,
+    pub suspended_at: u16,
+    pub gas_for_account_validation: u32,
 }
