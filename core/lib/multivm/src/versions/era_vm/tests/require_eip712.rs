@@ -26,8 +26,9 @@ impl VmTester {
         );
         self.vm
             .inner
-            .state_storage
+            .state
             .storage_changes
+            .map
             .get(&zk_storage_key_to_lambda(&key))
             .copied()
             .unwrap_or_else(|| h256_to_u256(self.vm.storage.read_value(&key)))

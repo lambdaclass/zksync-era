@@ -27,7 +27,7 @@ fn test_tx_gas_limit_offset() {
 
     vm.vm.push_transaction(tx);
 
-    assert!(vm.vm.inner.state.running_contexts.len() == 1);
+    assert!(vm.vm.inner.execution.running_contexts.len() == 1);
 
     let gas_limit_from_memory = vm
         .vm

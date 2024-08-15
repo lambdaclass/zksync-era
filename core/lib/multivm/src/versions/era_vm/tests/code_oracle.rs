@@ -210,7 +210,8 @@ fn refunds_in_code_oracle() {
             let is_fresh = vm
                 .vm
                 .inner
-                .contract_storage
+                .state
+                .contracts_storage
                 .borrow_mut()
                 .decommit(h256_to_u256(normal_zkevm_bytecode_hash))
                 .unwrap()

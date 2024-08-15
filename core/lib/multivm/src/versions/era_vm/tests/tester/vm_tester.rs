@@ -1,5 +1,6 @@
 use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap, rc::Rc};
 
+use era_vm::rollbacks::{RollbackableHashMap, RollbackableVec};
 use zksync_contracts::BaseSystemContracts;
 use zksync_state::{InMemoryStorage, StoragePtr, WriteStorage};
 use zksync_test_account::{Account, TxType};
@@ -22,7 +23,6 @@ use crate::{
     },
     vm_latest::{constants::BATCH_COMPUTATIONAL_GAS_LIMIT, utils::l2_blocks::load_last_l2_block},
 };
-use era_vm::rollbacks::{RollbackableHashMap, RollbackableVec};
 
 pub(crate) struct VmTester {
     pub(crate) vm: Vm<InMemoryStorage>,

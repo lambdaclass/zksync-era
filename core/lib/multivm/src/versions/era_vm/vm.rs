@@ -290,6 +290,10 @@ impl<S: ReadStorage + 'static> Vm<S> {
             .collect()
     }
 
+    pub(crate) fn read_word_from_bootloader_heap(&self, word: usize) -> U256 {
+        self.inner.execution.heaps.get(2).unwrap().read(word as u32)
+    }
+
     pub(crate) fn insert_bytecodes<'a>(&mut self, bytecodes: impl IntoIterator<Item = &'a [u8]>) {
         for code in bytecodes {
             let mut program_code = vec![];
@@ -337,7 +341,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
     // #[cfg(test)]
     /// Returns the current state of the VM in a format that can be compared for equality.
 
-    fn write_to_bootloader_heap(&mut self, memory: impl IntoIterator<Item = (usize, U256)>) {
+    pub fn write_to_bootloader_heap(&mut self, memory: impl IntoIterator<Item = (usize, U256)>) {
         assert!(self.inner.execution.running_contexts.len() == 1); // No on-going far calls
         if let Some(heap) = &mut self
             .inner
@@ -607,6 +611,10 @@ impl<S: ReadStorage> era_vm::store::ContractStorage for World<S> {
                 })
                 .clone(),
         ))
+    }
+
+    fn hash_map(&self) -> Result<HashMap<U256, Vec<U256>>, StorageError> {
+        Ok(self.contract_storage.as_ref().clone().into_inner())
     }
 }
 

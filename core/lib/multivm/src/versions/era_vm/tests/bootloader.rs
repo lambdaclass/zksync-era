@@ -25,7 +25,7 @@ fn test_dummy_bootloader() {
     let correct_first_cell = U256::from_str_radix("123123123", 16).unwrap();
 
     verify_required_memory(
-        &vm.vm.inner.state,
+        &vm.vm.inner.execution,
         vec![(correct_first_cell, vm2::FIRST_HEAP, 0)],
     );
 }

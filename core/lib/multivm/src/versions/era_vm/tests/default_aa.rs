@@ -19,28 +19,28 @@ use crate::{
 fn test_default_aa_interaction() {
     // In this test, we aim to test whether a simple account interaction (without any fee logic)
     // will work. The account will try to deploy a simple contract from integration tests.
-    let mut vm = VmTesterBuilder::new()
+    let mut vm_tester = VmTesterBuilder::new()
         .with_empty_in_memory_storage()
         .with_execution_mode(TxExecutionMode::VerifyExecute)
         .with_random_rich_accounts(1)
         .build();
 
     let counter = read_test_contract();
-    let account = &mut vm.rich_accounts[0];
+    let account = &mut vm_tester.rich_accounts[0];
     let DeployContractsTx {
         tx,
         bytecode_hash,
         address,
     } = account.get_deploy_tx(&counter, None, TxType::L2);
-    let maximal_fee = tx.gas_limit() * get_batch_base_fee(&vm.vm.batch_env);
+    let maximal_fee = tx.gas_limit() * get_batch_base_fee(&vm_tester.vm.batch_env);
 
-    vm.vm.push_transaction(tx);
-    let result = vm.vm.execute(VmExecutionMode::OneTx);
+    vm_tester.vm.push_transaction(tx);
+    let result = vm_tester.vm.execute(VmExecutionMode::OneTx);
     assert!(!result.result.is_failed(), "Transaction wasn't successful");
 
-    vm.vm.execute(VmExecutionMode::Batch);
+    vm_tester.vm.execute(VmExecutionMode::Batch);
 
-    vm.vm.get_current_execution_state();
+    vm_tester.vm.get_current_execution_state();
 
     // Both deployment and ordinary nonce should be incremented by one.
     let account_nonce_key = get_nonce_key(&account.address);
@@ -60,18 +60,18 @@ fn test_default_aa_interaction() {
 
     verify_required_storage(
         &expected_slots,
-        &mut *vm.storage.borrow_mut(),
-        &vm.vm.inner.state_storage.storage_changes,
+        &mut *vm_tester.storage.borrow_mut(),
+        &vm_tester.vm.inner.state.storage_changes.map,
     );
 
     let expected_fee = maximal_fee
         - U256::from(result.refunds.gas_refunded)
-            * U256::from(get_batch_base_fee(&vm.vm.batch_env));
+            * U256::from(get_batch_base_fee(&vm_tester.vm.batch_env));
     let operator_balance = get_balance(
         AccountTreeId::new(L2_BASE_TOKEN_ADDRESS),
-        &vm.fee_account,
-        &mut *vm.storage.borrow_mut(),
-        &vm.vm.inner.state_storage.storage_changes,
+        &vm_tester.fee_account,
+        &mut *vm_tester.storage.borrow_mut(),
+        &vm_tester.vm.inner.state.storage_changes.map,
     );
 
     assert_eq!(

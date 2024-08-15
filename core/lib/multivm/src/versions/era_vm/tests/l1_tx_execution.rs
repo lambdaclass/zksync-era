@@ -83,8 +83,9 @@ fn test_l1_tx_execution() {
         let actual_value = vm
             .vm
             .inner
-            .state_storage
+            .state
             .storage_changes
+            .map
             .get(&zk_storage_key_to_lambda(&storage_location))
             .unwrap();
         assert_eq!(expected_value, *actual_value,);
