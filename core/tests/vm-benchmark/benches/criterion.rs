@@ -7,17 +7,17 @@ use criterion::{
 use zksync_types::Transaction;
 use zksync_vm_benchmark_harness::{
     cut_to_allowed_bytecode_size, get_deploy_tx, get_heavy_load_test_tx, get_load_test_deploy_tx,
-    get_load_test_tx, get_realistic_load_test_tx, BenchmarkingVm, BenchmarkingVmFactory, Fast, Lambda,
-    Legacy, LoadTestParams,
+    get_load_test_tx, get_realistic_load_test_tx, BenchmarkingVm, BenchmarkingVmFactory, Fast,
+    Lambda, Legacy, LoadTestParams,
 };
 
-const SAMPLE_SIZE: usize = 20;
+const SAMPLE_SIZE: usize = 50;
 
 fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
     let mut group = c.benchmark_group(VM::LABEL.as_str());
     group
         .sample_size(SAMPLE_SIZE)
-        .measurement_time(Duration::from_secs(10));
+        .measurement_time(Duration::from_secs(12));
 
     for path in std::fs::read_dir("deployment_benchmarks").unwrap() {
         let path = path.unwrap().path();
@@ -51,7 +51,7 @@ fn bench_load_test<VM: BenchmarkingVmFactory>(c: &mut Criterion) {
     let mut group = c.benchmark_group(VM::LABEL.as_str());
     group
         .sample_size(SAMPLE_SIZE)
-        .measurement_time(Duration::from_secs(10));
+        .measurement_time(Duration::from_secs(12));
 
     // Nonce 0 is used for the deployment transaction
     let tx = get_load_test_tx(1, 10_000_000, LoadTestParams::default());
