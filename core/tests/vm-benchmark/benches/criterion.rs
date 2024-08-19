@@ -11,7 +11,7 @@ use zksync_vm_benchmark_harness::{
     Lambda, Legacy, LoadTestParams,
 };
 
-const SAMPLE_SIZE: usize = 50;
+const SAMPLE_SIZE: usize = 30;
 
 fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
     let mut group = c.benchmark_group(VM::LABEL.as_str());
