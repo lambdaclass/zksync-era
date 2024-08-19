@@ -189,6 +189,9 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 Hook::ValidationStepEnded => {
                     // println!("VALIDATION STEP ENDED");
                 }
+                Hook::PaymasterValidationEntered => {}
+                Hook::PubdataRequested => {}
+                Hook::NearCallCatch => {}
                 Hook::AccountValidationExited => {
                     // println!("ACCOUNT VALIDATION EXITED");
                 }
