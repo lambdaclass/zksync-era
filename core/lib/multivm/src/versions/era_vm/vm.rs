@@ -352,15 +352,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
         }
     }
 
-    fn get_vm_hook_params(&self, heap: &era_vm::execution::Heap) -> Vec<U256> {
-        (get_vm_hook_start_position_latest()..get_vm_hook_start_position_latest() + 2)
-            .map(|word| {
-                let res = heap.read((word * 32) as u32);
-                res
-            })
-            .collect()
-    }
-
     pub(crate) fn insert_bytecodes<'a>(&mut self, bytecodes: impl IntoIterator<Item = &'a [u8]>) {
         for code in bytecodes {
             let mut program_code = vec![];
@@ -634,16 +625,16 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
                 .map(|log| log.into_system_log())
                 .collect(),
             user_l2_to_l1_logs,
-            storage_refunds: state.refunds().clone(),
-            pubdata_costs: state.pubdata_costs().clone(),
+            storage_refunds: state.refunds().to_vec(),
+            pubdata_costs: state.pubdata_costs().to_vec(),
         }
     }
 
     fn inspect_transaction_with_bytecode_compression(
         &mut self,
-        tracer: Self::TracerDispatcher,
-        tx: zksync_types::Transaction,
-        with_compression: bool,
+        _tracer: Self::TracerDispatcher,
+        _tx: zksync_types::Transaction,
+        _with_compression: bool,
     ) -> (
         Result<(), crate::interface::BytecodeCompressionError>,
         VmExecutionResultAndLogs,

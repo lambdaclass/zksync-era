@@ -5,7 +5,7 @@ use era_vm::{
     store::StorageKey,
 };
 use zksync_state::ReadStorage;
-use zksync_types::{ExecuteTransactionCommon, Transaction, H160, U256};
+use zksync_types::{ExecuteTransactionCommon, Transaction, U256};
 
 use super::VmTester;
 use crate::{
@@ -213,11 +213,11 @@ impl<S: ReadStorage> Vm<S> {
             state: VmStateDump {
                 storage_changes: self.inner.state.storage_changes().clone(),
                 transient_storage: self.inner.state.transient_storage().clone(),
-                l2_to_l1_logs: self.inner.state.l2_to_l1_logs().clone(),
-                events: self.inner.state.events().clone(),
+                l2_to_l1_logs: self.inner.state.l2_to_l1_logs().to_vec(),
+                events: self.inner.state.events().to_vec(),
                 pubdata: self.inner.state.pubdata().clone(),
-                pubdata_costs: self.inner.state.pubdata_costs().clone(),
-                refunds: self.inner.state.refunds().clone(),
+                pubdata_costs: self.inner.state.pubdata_costs().to_vec(),
+                refunds: self.inner.state.refunds().to_vec(),
                 decommitted_hashes: self.inner.state.decommitted_hashes().clone(),
             },
         }
