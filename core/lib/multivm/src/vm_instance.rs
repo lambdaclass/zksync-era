@@ -15,7 +15,7 @@ use crate::{
 
 pub type ShadowedFastVm<S, H> = ShadowVm<S, crate::vm_latest::Vm<StorageView<S>, H>>;
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub enum VmInstance<S: ReadStorage, H: HistoryMode> {
     VmM5(crate::vm_m5::Vm<StorageView<S>, H>),
     VmM6(crate::vm_m6::Vm<StorageView<S>, H>),
@@ -27,6 +27,7 @@ pub enum VmInstance<S: ReadStorage, H: HistoryMode> {
     Vm1_4_2(crate::vm_1_4_2::Vm<StorageView<S>, H>),
     Vm1_5_0(crate::vm_latest::Vm<StorageView<S>, H>),
     VmFast(crate::vm_fast::Vm<ImmutableStorageView<S>>),
+    Lambda(crate::era_vm::vm::Vm<zksync_state::InMemoryStorage>),
     ShadowedVmFast(ShadowedFastVm<S, H>),
 }
 
@@ -43,6 +44,7 @@ macro_rules! dispatch_vm {
             VmInstance::Vm1_4_2(vm) => vm.$function($($params)*),
             VmInstance::Vm1_5_0(vm) => vm.$function($($params)*),
             VmInstance::VmFast(vm) => vm.$function($($params)*),
+            VmInstance::Lambda(vm) => vm.$function($($params)*),
             VmInstance::ShadowedVmFast(vm) => vm.$function($($params)*),
         }
     };
@@ -260,8 +262,11 @@ impl<S: ReadStorage, H: HistoryMode> VmInstance<S, H> {
             VmVersion::Vm1_5_0IncreasedBootloaderMemory => match mode {
                 FastVmMode::Old => Self::new(l1_batch_env, system_env, storage_view),
                 FastVmMode::New => {
-                    let storage = ImmutableStorageView::new(storage_view);
-                    Self::VmFast(crate::vm_fast::Vm::new(l1_batch_env, system_env, storage))
+                    // let storage = ImmutableStorageView::new(storage_view);
+                    // Self::VmFast(crate::vm_fast::Vm::new(l1_batch_env, system_env, storage))
+                    let vm =
+                        crate::era_vm::vm::Vm::new(l1_batch_env, system_env, Default::default());
+                    Self::Lambda(vm)
                 }
                 FastVmMode::Shadow => {
                     Self::ShadowedVmFast(ShadowVm::new(l1_batch_env, system_env, storage_view))

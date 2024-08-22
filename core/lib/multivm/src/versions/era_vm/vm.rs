@@ -5,12 +5,13 @@ use era_vm::{
     vm::ExecutionOutput, EraVM, Execution,
 };
 use itertools::Itertools;
-use zksync_state::{ReadStorage, StoragePtr};
+use zksync_state::{InMemoryStorage, ReadStorage, StoragePtr};
 use zksync_types::{
     event::{
         extract_l2tol1logs_from_l1_messenger, extract_long_l2_to_l1_messages,
         L1_MESSENGER_BYTECODE_PUBLICATION_EVENT_SIGNATURE,
     },
+    get_known_code_key,
     l1::is_l1_tx_type,
     l2_to_l1_log::UserL2ToL1Log,
     utils::key_for_eth_balance,
@@ -19,7 +20,7 @@ use zksync_types::{
         BYTES_PER_ENUMERATION_INDEX,
     },
     AccountTreeId, StorageKey, StorageLog, StorageLogKind, StorageLogWithPreviousValue,
-    Transaction, BOOTLOADER_ADDRESS, H160, KNOWN_CODES_STORAGE_ADDRESS, L1_MESSENGER_ADDRESS,
+    Transaction, BOOTLOADER_ADDRESS, H160, H256, KNOWN_CODES_STORAGE_ADDRESS, L1_MESSENGER_ADDRESS,
     L2_BASE_TOKEN_ADDRESS, U256,
 };
 use zksync_utils::{
@@ -42,7 +43,8 @@ use super::{
 use crate::{
     era_vm::{bytecode::compress_bytecodes, transaction_data::TransactionData},
     interface::{
-        Halt, TxRevertReason, VmFactory, VmInterface, VmInterfaceHistoryEnabled, VmRevertReason,
+        BytecodeCompressionError, Halt, TxRevertReason, VmFactory, VmInterface,
+        VmInterfaceHistoryEnabled, VmRevertReason,
     },
     vm_latest::{
         constants::{
@@ -55,7 +57,7 @@ use crate::{
     },
 };
 
-pub struct Vm<S: ReadStorage> {
+pub struct Vm<S> {
     pub(crate) inner: EraVM,
     pub suspended_at: u16,
     pub gas_for_account_validation: u32,
@@ -74,9 +76,13 @@ pub struct Vm<S: ReadStorage> {
 }
 
 /// Encapsulates creating VM instance based on the provided environment.
-impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
+impl VmFactory<InMemoryStorage> for Vm<InMemoryStorage> {
     /// Creates a new VM instance.
-    fn new(batch_env: L1BatchEnv, system_env: SystemEnv, storage: StoragePtr<S>) -> Self {
+    fn new(
+        batch_env: L1BatchEnv,
+        system_env: SystemEnv,
+        storage: StoragePtr<InMemoryStorage>,
+    ) -> Self {
         let bootloader_code = system_env
             .base_system_smart_contracts
             .bootloader
@@ -153,7 +159,7 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
     }
 }
 
-impl<S: ReadStorage + 'static> Vm<S> {
+impl<S: ReadStorage> Vm<S> {
     pub fn run(
         &mut self,
         execution_mode: VmExecutionMode,
@@ -218,9 +224,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 Hook::AccountValidationEntered => {
                     // println!("ACCOUNT VALIDATION ENTERED");
                 }
-                Hook::NearCallCatch => {}
-                Hook::PaymasterValidationEntered => {}
-                Hook::PubdataRequested => {}
                 Hook::ValidationStepEnded => {
                     // println!("VALIDATION STEP ENDED");
                 }
@@ -498,7 +501,29 @@ impl<S: ReadStorage + 'static> Vm<S> {
     }
 }
 
-impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
+impl<S: ReadStorage> Vm<S> {
+    fn has_unpublished_bytecodes(&mut self) -> bool {
+        self.bootloader_state
+            .get_last_tx_compressed_bytecodes()
+            .iter()
+            .any(|info| {
+                let hash_bytecode = hash_bytecode(&info.original);
+                let code_key = get_known_code_key(&hash_bytecode);
+                let is_bytecode_known =
+                    self.storage.borrow_mut().read_value(&code_key) != H256::zero();
+                // = self.inner.state.storage.is_bytecode_known(&hash_bytecode);
+
+                // let is_bytecode_known_cache = self
+                //     .world
+                //     .bytecode_cache
+                //     .contains_key(&h256_to_u256(hash_bytecode));
+                // !(is_bytecode_known || is_bytecode_known_cache)
+                true
+            })
+    }
+}
+
+impl<S: ReadStorage> VmInterface for Vm<S> {
     type TracerDispatcher = ();
 
     fn push_transaction(&mut self, tx: Transaction) {
@@ -651,7 +676,15 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
         Result<(), crate::interface::BytecodeCompressionError>,
         VmExecutionResultAndLogs,
     ) {
-        todo!()
+        self.push_transaction_inner(tx, 0, with_compression);
+        let result = self.inspect((), VmExecutionMode::OneTx);
+
+        let compression_result = if self.has_unpublished_bytecodes() {
+            Err(BytecodeCompressionError::BytecodeCompressionFailed)
+        } else {
+            Ok(())
+        };
+        (compression_result, result)
     }
 
     fn record_vm_memory_metrics(&self) -> crate::vm_1_4_1::VmMemoryMetrics {
@@ -663,7 +696,7 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
     }
 }
 
-impl<S: ReadStorage + 'static> VmInterfaceHistoryEnabled for Vm<S> {
+impl<S: ReadStorage> VmInterfaceHistoryEnabled for Vm<S> {
     fn make_snapshot(&mut self) {
         assert!(
             self.snapshot.is_none(),
