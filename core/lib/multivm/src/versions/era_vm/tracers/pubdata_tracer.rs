@@ -2,6 +2,12 @@ use super::traits::{BootloaderTracer, Tracer, VmTracer};
 
 pub struct PubdataTracer {}
 
+impl PubdataTracer {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 impl Tracer for PubdataTracer {
     fn before_decoding(
         &mut self,

@@ -1,10 +1,17 @@
-use super::traits::{BootloaderTracer, VmTracer};
 use era_vm::{state::VMState, tracers::tracer::Tracer, Execution, Opcode};
+
+use super::traits::{BootloaderTracer, VmTracer};
 
 #[derive(Default)]
 // dispatcher calls to other tracers
 pub struct TracerDispatcher {
     tracers: Vec<Box<dyn VmTracer>>,
+}
+
+impl TracerDispatcher {
+    pub fn new(tracers: Vec<Box<dyn VmTracer>>) -> Self {
+        Self { tracers }
+    }
 }
 
 impl Tracer for TracerDispatcher {

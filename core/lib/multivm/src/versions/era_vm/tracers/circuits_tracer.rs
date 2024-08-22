@@ -2,6 +2,12 @@ use super::traits::{BootloaderTracer, Tracer};
 
 pub struct CircuitsTracer {}
 
+impl CircuitsTracer {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 impl Tracer for CircuitsTracer {
     fn before_decoding(
         &mut self,

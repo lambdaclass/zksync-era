@@ -1,6 +1,12 @@
-use super::traits::{BootloaderTracer, Tracer, VmTracer};
+use super::traits::{BootloaderTracer, Tracer};
 
 pub struct RefundsTracer {}
+
+impl RefundsTracer {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 impl Tracer for RefundsTracer {
     fn before_decoding(

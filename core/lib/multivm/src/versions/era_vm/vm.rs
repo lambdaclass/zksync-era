@@ -38,6 +38,9 @@ use super::{
     logs::IntoSystemLog,
     refunds::compute_refund,
     snapshot::VmSnapshot,
+    tracers::{
+        dispatcher::TracerDispatcher, manager::VmTracerManager, refunds_tracer::RefundsTracer,
+    },
 };
 use crate::{
     era_vm::{bytecode::compress_bytecodes, transaction_data::TransactionData},
@@ -157,6 +160,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
     pub fn run(
         &mut self,
         execution_mode: VmExecutionMode,
+        tracer: TracerDispatcher,
         track_refunds: bool,
     ) -> (ExecutionResult, Refunds) {
         let mut refunds = Refunds {
@@ -166,8 +170,18 @@ impl<S: ReadStorage + 'static> Vm<S> {
         let mut pubdata_before = self.inner.state.pubdata() as u32;
         let mut last_tx_result = None;
 
+        let refund_tracer = if track_refunds {
+            Some(RefundsTracer::new())
+        } else {
+            None
+        };
+
+        let mut tracer = VmTracerManager::new(self.storage.clone(), tracer, refund_tracer);
+
         loop {
-            let (result, _blob_tracer) = self.inner.run_program_with_custom_bytecode();
+            let result = self
+                .inner
+                .run_program_with_custom_bytecode(Some(&mut tracer));
 
             let result = match result {
                 ExecutionOutput::Ok(output) => {
@@ -515,7 +529,11 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
         }
 
         let snapshot = self.inner.state.snapshot();
-        let (result, refunds) = self.run(execution_mode, enable_refund_tracer);
+        let (result, refunds) = self.run(
+            execution_mode,
+            TracerDispatcher::new(vec![]),
+            enable_refund_tracer,
+        );
 
         let ignore_world_diff = matches!(execution_mode, VmExecutionMode::OneTx)
             && matches!(result, ExecutionResult::Halt { .. });

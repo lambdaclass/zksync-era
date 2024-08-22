@@ -2,12 +2,8 @@ use era_vm::{execution::Execution, opcode::Opcode, state::VMState, tracers::trac
 use zksync_state::{ReadStorage, StoragePtr};
 
 use super::{
-    circuits_tracer::CircuitsTracer,
-    dispatcher::TracerDispatcher,
-    pubdata_tracer::PubdataTracer,
-    refunds_tracer::RefundsTracer,
-    result_tracer::ResultTracer,
-    traits::{BootloaderTracer, VmTracer},
+    circuits_tracer::CircuitsTracer, dispatcher::TracerDispatcher, pubdata_tracer::PubdataTracer,
+    refunds_tracer::RefundsTracer, result_tracer::ResultTracer, traits::BootloaderTracer,
 };
 
 // this tracer manager is the one that gets called when running the vm
@@ -15,9 +11,26 @@ pub struct VmTracerManager<S: ReadStorage> {
     dispatcher: TracerDispatcher,
     result_tracer: ResultTracer,
     refund_tracer: Option<RefundsTracer>,
-    pubdata_tracer: Option<PubdataTracer>,
+    pubdata_tracer: PubdataTracer,
     circuits_tracer: CircuitsTracer,
     storage: StoragePtr<S>,
+}
+
+impl<S: ReadStorage> VmTracerManager<S> {
+    pub fn new(
+        storage: StoragePtr<S>,
+        dispatcher: TracerDispatcher,
+        refund_tracer: Option<RefundsTracer>,
+    ) -> Self {
+        Self {
+            dispatcher,
+            refund_tracer,
+            circuits_tracer: CircuitsTracer::new(),
+            result_tracer: ResultTracer::new(),
+            pubdata_tracer: PubdataTracer::new(),
+            storage,
+        }
+    }
 }
 
 impl<S: ReadStorage> Tracer for VmTracerManager<S> {
@@ -30,9 +43,7 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.before_decoding(execution, state);
         }
-        if let Some(pubdata_tracer) = &mut self.pubdata_tracer {
-            pubdata_tracer.before_decoding(execution, state);
-        }
+        self.pubdata_tracer.before_decoding(execution, state);
         self.circuits_tracer.before_decoding(execution, state);
     }
 
@@ -45,9 +56,7 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.after_decoding(opcode, execution, state);
         }
-        if let Some(pubdata_tracer) = &mut self.pubdata_tracer {
-            pubdata_tracer.after_decoding(opcode, execution, state);
-        }
+        self.pubdata_tracer.after_decoding(opcode, execution, state);
         self.circuits_tracer
             .after_decoding(opcode, execution, state);
     }
@@ -67,9 +76,8 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.before_execution(opcode, execution, state);
         }
-        if let Some(pubdata_tracer) = &mut self.pubdata_tracer {
-            pubdata_tracer.before_execution(opcode, execution, state);
-        }
+        self.pubdata_tracer
+            .before_execution(opcode, execution, state);
         self.circuits_tracer
             .before_execution(opcode, execution, state);
     }
@@ -83,9 +91,8 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.after_execution(opcode, execution, state);
         }
-        if let Some(pubdata_tracer) = &mut self.pubdata_tracer {
-            pubdata_tracer.after_execution(opcode, execution, state);
-        }
+        self.pubdata_tracer
+            .after_execution(opcode, execution, state);
         self.circuits_tracer
             .after_execution(opcode, execution, state);
     }
@@ -108,9 +115,8 @@ impl<S: ReadStorage> BootloaderTracer for VmTracerManager<S> {
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.before_bootloader_execution(opcode, execution, state);
         }
-        if let Some(pubdata_tracer) = &mut self.pubdata_tracer {
-            pubdata_tracer.before_bootloader_execution(opcode, execution, state);
-        }
+        self.pubdata_tracer
+            .before_bootloader_execution(opcode, execution, state);
         self.circuits_tracer
             .before_bootloader_execution(opcode, execution, state);
     }
@@ -131,9 +137,8 @@ impl<S: ReadStorage> BootloaderTracer for VmTracerManager<S> {
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.after_bootloader_execution(opcode, execution, state);
         }
-        if let Some(pubdata_tracer) = &mut self.pubdata_tracer {
-            pubdata_tracer.after_bootloader_execution(opcode, execution, state);
-        }
+        self.pubdata_tracer
+            .after_bootloader_execution(opcode, execution, state);
         self.circuits_tracer
             .after_bootloader_execution(opcode, execution, state);
     }
