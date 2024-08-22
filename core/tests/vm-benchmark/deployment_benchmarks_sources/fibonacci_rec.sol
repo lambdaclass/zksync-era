@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 contract Fibonacci {
     uint256 value;
     constructor() {
-      value = fib(33);
+      value = fib(25);
     }
 
     function get_calculation() public view returns (uint256) {

@@ -3,14 +3,14 @@ pragma solidity ^0.8.0;
 contract Fibonacci {
     uint256 value;
     constructor() {
-      value = fib(33);
+      value = fib(370);
     }
 
     function get_calculation() public view returns (uint256) {
         return value;
     }
 
-    function fib(uint n) external pure returns(uint b) { 
+    function fib(uint n) internal pure returns(uint b) { 
         if (n == 0) {
             return 0;   
         }
