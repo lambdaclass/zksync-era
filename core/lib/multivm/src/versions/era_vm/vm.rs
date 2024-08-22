@@ -218,9 +218,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 Hook::AccountValidationEntered => {
                     // println!("ACCOUNT VALIDATION ENTERED");
                 }
-                Hook::NearCallCatch => {}
-                Hook::PaymasterValidationEntered => {}
-                Hook::PubdataRequested => {}
                 Hook::ValidationStepEnded => {
                     // println!("VALIDATION STEP ENDED");
                 }
