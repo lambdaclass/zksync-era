@@ -40,6 +40,7 @@ use super::{
     snapshot::VmSnapshot,
     tracers::{
         dispatcher::TracerDispatcher, manager::VmTracerManager, refunds_tracer::RefundsTracer,
+        traits::VmTracer,
     },
 };
 use crate::{
@@ -160,7 +161,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
     pub fn run(
         &mut self,
         execution_mode: VmExecutionMode,
-        tracer: TracerDispatcher,
+        tracer: TracerDispatcher<S>,
         track_refunds: bool,
     ) -> (ExecutionResult, Refunds) {
         let mut refunds = Refunds {
@@ -178,25 +179,26 @@ impl<S: ReadStorage + 'static> Vm<S> {
 
         let mut tracer = VmTracerManager::new(self.storage.clone(), tracer, refund_tracer);
 
-        loop {
+        tracer.before_bootloader_execution(self);
+        let (stop_reason, refunds) = loop {
             let result = self
                 .inner
                 .run_program_with_custom_bytecode(Some(&mut tracer));
 
             let result = match result {
                 ExecutionOutput::Ok(output) => {
-                    return (ExecutionResult::Success { output }, refunds)
+                    break (ExecutionResult::Success { output }, refunds)
                 }
                 ExecutionOutput::Revert(output) => match TxRevertReason::parse_error(&output) {
                     TxRevertReason::TxReverted(output) => {
-                        return (ExecutionResult::Revert { output }, refunds)
+                        break (ExecutionResult::Revert { output }, refunds)
                     }
                     TxRevertReason::Halt(reason) => {
-                        return (ExecutionResult::Halt { reason }, refunds)
+                        break (ExecutionResult::Halt { reason }, refunds)
                     }
                 },
                 ExecutionOutput::Panic => {
-                    return (
+                    break (
                         ExecutionResult::Halt {
                             reason: if self.inner.execution.gas_left().unwrap() == 0 {
                                 Halt::BootloaderOutOfGas
@@ -363,7 +365,11 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     self.write_to_bootloader_heap(memory_to_apply);
                 }
             }
-        }
+        };
+
+        tracer.after_bootloader_execution(self, stop_reason.clone());
+
+        (stop_reason, refunds)
     }
 
     fn get_vm_hook_params(&self, heap: &era_vm::execution::Heap) -> Vec<U256> {
