@@ -17,7 +17,8 @@ const reinitDevCmdAction = async (): Promise<void> => {
         // TODO(EVM-573): support Validium mode
         runObservability: true,
         deploymentMode: DeploymentMode.Rollup,
-        shouldCheckPostgres: false
+        shouldCheckPostgres: false,
+        evmSimulator: false
     });
 };
 
@@ -34,7 +35,8 @@ const reinitHyperCmdAction = async ({ baseTokenName, validiumMode }: ReinitHyper
         baseTokenName: baseTokenName,
         bumpChainId: true,
         runObservability: false,
-        deploymentMode
+        deploymentMode,
+        evmSimulator: false
     });
 };
 

@@ -46,14 +46,15 @@ export interface BasePromptOptions {
 }
 
 // An init command that allows configuring and spinning up a new hyperchain network.
-async function initHyperchain(envName: string, runObservability: boolean, validiumMode: boolean) {
+async function initHyperchain(envName: string, runObservability: boolean, validiumMode: boolean, evmSimulator: boolean) {
     await announced('Initializing hyperchain creation', setupConfiguration(envName, runObservability));
     let deploymentMode = validiumMode !== undefined ? DeploymentMode.Validium : DeploymentMode.Rollup;
     await init.initHyperCmdAction({
         skipSetupCompletely: false,
         bumpChainId: true,
         runObservability,
-        deploymentMode
+        deploymentMode,
+        evmSimulator,
     });
 
     // TODO: EVM:577 fix hyperchain wizard
@@ -764,7 +765,8 @@ async function configDemoHyperchain(cmd: Command) {
         // TODO(EVM-573): support Validium mode
         runObservability: false,
         deploymentMode: DeploymentMode.Rollup,
-        shouldCheckPostgres: true
+        shouldCheckPostgres: true,
+        evmSimulator: cmd.evmSimulator
     });
 
     env.mergeInitToEnv();
@@ -817,8 +819,9 @@ initHyperchainCommand
     .option('--env-name <env-name>', 'chain name to use for initialization')
     .description('Wizard for hyperchain creation/configuration')
     .option('--validium-mode')
+    .option('--evm-simulator')
     .action(async (cmd: Command) => {
-        await initHyperchain(cmd.envName, cmd.runObservability, cmd.validiumMode);
+        await initHyperchain(cmd.envName, cmd.runObservability, cmd.validiumMode, cmd.evmSimulator);
     });
 initHyperchainCommand
     .command('docker-setup')

@@ -15,7 +15,7 @@ use crate::vm_refunds_enhancement::types::internals::ZkSyncVmState;
 use crate::vm_refunds_enhancement::HistoryMode;
 
 pub(crate) static BASE_SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> =
-    Lazy::new(BaseSystemContracts::load_from_disk);
+    Lazy::new(|| BaseSystemContracts::load_from_disk(true));
 
 // Probably make it a part of vm tester
 pub(crate) fn verify_required_storage<H: HistoryMode>(

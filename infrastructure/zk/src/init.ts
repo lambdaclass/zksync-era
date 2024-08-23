@@ -106,16 +106,18 @@ type InitHyperchainOptions = {
     baseTokenName?: string;
     localLegacyBridgeTesting?: boolean;
     deploymentMode: DeploymentMode;
+    evmSimulator: boolean;
 };
 const initHyperchain = async ({
     includePaymaster,
     baseTokenName,
     localLegacyBridgeTesting,
-    deploymentMode
+    deploymentMode,
+    evmSimulator
 }: InitHyperchainOptions): Promise<void> => {
     await announced('Registering Hyperchain', contract.registerHyperchain({ baseTokenName, deploymentMode }));
     await announced('Reloading env', env.reload());
-    await announced('Running server genesis setup', server.genesisFromSources());
+    await announced('Running server genesis setup', server.genesisFromSources(evmSimulator));
     await announced(
         'Deploying L2 contracts',
         contract.deployL2ThroughL1({ includePaymaster, localLegacyBridgeTesting })
@@ -146,6 +148,7 @@ type InitDevCmdActionOptions = InitSetupOptions & {
     validiumMode?: boolean;
     localLegacyBridgeTesting?: boolean;
     shouldCheckPostgres: boolean; // Whether to perform `cargo sqlx prepare --check`
+    evmSimulator: boolean;
 };
 export const initDevCmdAction = async ({
     skipEnvSetup,
@@ -157,7 +160,8 @@ export const initDevCmdAction = async ({
     runObservability,
     validiumMode,
     localLegacyBridgeTesting,
-    shouldCheckPostgres
+    shouldCheckPostgres,
+    evmSimulator,
 }: InitDevCmdActionOptions): Promise<void> => {
     if (localLegacyBridgeTesting) {
         await makeEraChainIdSameAsCurrent();
@@ -181,7 +185,8 @@ export const initDevCmdAction = async ({
         includePaymaster: true,
         baseTokenName,
         localLegacyBridgeTesting,
-        deploymentMode
+        deploymentMode,
+        evmSimulator
     });
     if (localLegacyBridgeTesting) {
         await makeEraAddressSameAsCurrent();
@@ -214,13 +219,15 @@ type InitHyperCmdActionOptions = {
     baseTokenName?: string;
     runObservability: boolean;
     deploymentMode: DeploymentMode;
+    evmSimulator: boolean;
 };
 export const initHyperCmdAction = async ({
     skipSetupCompletely,
     bumpChainId,
     baseTokenName,
     runObservability,
-    deploymentMode
+    deploymentMode,
+    evmSimulator,
 }: InitHyperCmdActionOptions): Promise<void> => {
     if (bumpChainId) {
         config.bumpChainId();
@@ -237,7 +244,8 @@ export const initHyperCmdAction = async ({
     await initHyperchain({
         includePaymaster: true,
         baseTokenName,
-        deploymentMode
+        deploymentMode,
+        evmSimulator
     });
 };
 
@@ -254,6 +262,7 @@ export const initCommand = new Command('init')
         'used to test LegacyBridge compatibily. The chain will have the same id as the era chain id, while eraChainId in L2SharedBridge will be 0'
     )
     .option('--should-check-postgres', 'Whether to perform cargo sqlx prepare --check during database setup', true)
+    .option('--evm-simulator', 'use evm simulator')
     .description('Deploys the shared bridge and registers a hyperchain locally, as quickly as possible.')
     .action(initDevCmdAction);
 

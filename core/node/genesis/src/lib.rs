@@ -127,14 +127,14 @@ impl GenesisParams {
     }
 
     pub fn load_genesis_params(config: GenesisConfig) -> Result<GenesisParams, GenesisError> {
-        let base_system_contracts = BaseSystemContracts::load_from_disk();
+        let base_system_contracts = BaseSystemContracts::load_from_disk(true);
         let system_contracts = get_system_smart_contracts();
         Self::from_genesis_config(config, base_system_contracts, system_contracts)
     }
 
     pub fn mock() -> Self {
         Self {
-            base_system_contracts: BaseSystemContracts::load_from_disk(),
+            base_system_contracts: BaseSystemContracts::load_from_disk(true),
             system_contracts: get_system_smart_contracts(),
             config: mock_genesis_config(),
         }
@@ -162,7 +162,7 @@ pub struct GenesisBatchParams {
 }
 
 pub fn mock_genesis_config() -> GenesisConfig {
-    let base_system_contracts_hashes = BaseSystemContracts::load_from_disk().hashes();
+    let base_system_contracts_hashes = BaseSystemContracts::load_from_disk(true).hashes();
     let first_l1_verifier_config = L1VerifierConfig::default();
 
     GenesisConfig {

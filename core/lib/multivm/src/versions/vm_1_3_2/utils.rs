@@ -201,7 +201,7 @@ pub fn precompile_calls_count_after_timestamp(
 }
 
 pub static BASE_SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> =
-    Lazy::new(BaseSystemContracts::load_from_disk);
+    Lazy::new(|| BaseSystemContracts::load_from_disk(true));
 
 pub fn create_test_block_params() -> (BlockContext, BlockProperties) {
     let context = BlockContext {

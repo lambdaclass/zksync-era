@@ -379,7 +379,7 @@ impl ExternalNodeBuilder {
             latest_values_cache_size: self.config.optional.latest_values_cache_size() as u64,
         };
         let max_vm_concurrency = self.config.optional.vm_concurrency_limit;
-        let api_contracts = ApiContracts::load_from_disk_blocking(); // TODO (BFT-138): Allow to dynamically reload API contracts;
+        let api_contracts = ApiContracts::load_from_disk_blocking(true); // TODO (BFT-138): Allow to dynamically reload API contracts;
         let tx_sender_layer = TxSenderLayer::new(
             (&self.config).into(),
             postgres_storage_config,

@@ -43,7 +43,7 @@ pub struct Tester {
 
 impl Tester {
     pub(super) fn new(commitment_mode: L1BatchCommitmentMode) -> Self {
-        let base_system_contracts = BaseSystemContracts::load_from_disk();
+        let base_system_contracts = BaseSystemContracts::load_from_disk(true);
         Self {
             base_system_contracts,
             current_timestamp: 0,

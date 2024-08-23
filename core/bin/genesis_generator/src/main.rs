@@ -80,7 +80,7 @@ async fn generate_new_config(
         anyhow::bail!("Please cleanup database for regenerating genesis")
     }
 
-    let base_system_contracts = BaseSystemContracts::load_from_disk().hashes();
+    let base_system_contracts = BaseSystemContracts::load_from_disk(true).hashes();
     let mut updated_genesis = GenesisConfig {
         protocol_version: Some(ProtocolSemanticVersion {
             minor: ProtocolVersionId::latest(),

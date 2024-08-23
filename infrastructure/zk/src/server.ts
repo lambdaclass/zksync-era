@@ -58,10 +58,14 @@ async function create_genesis(cmd: string) {
     fs.copyFileSync('genesis.log', `logs/${label}/genesis.log`);
 }
 
-export async function genesisFromSources() {
+export async function genesisFromSources(evmSimulator: boolean) {
     // Note that that all the chains have the same chainId at genesis. It will be changed
     // via an upgrade transaction during the registration of the chain.
-    await create_genesis('cargo run --bin zksync_server --release -- --genesis');
+    if (evmSimulator) {
+        await create_genesis('cargo run --bin zksync_server --release -- --genesis --evm-simulator');
+    } else {
+        await create_genesis('cargo run --bin zksync_server --release -- --genesis');
+    }
 }
 
 export async function genesisFromBinary() {
@@ -74,10 +78,11 @@ export const serverCommand = new Command('server')
     .option('--uring', 'enables uring support for RocksDB')
     .option('--components <components>', 'comma-separated list of components to run')
     .option('--chain-name <chain-name>', 'environment name')
+    .option('--evm-simulator', 'run server with EVM simulator')
     .action(async (cmd: Command) => {
         cmd.chainName ? env.reload(cmd.chainName) : env.load();
         if (cmd.genesis) {
-            await genesisFromSources();
+            await genesisFromSources(cmd.evmSimulator);
         } else {
             await server(cmd.rebuildTree, cmd.uring, cmd.components, cmd.useNodeFramework);
         }

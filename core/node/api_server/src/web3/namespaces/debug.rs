@@ -33,7 +33,7 @@ pub(crate) struct DebugNamespace {
 
 impl DebugNamespace {
     pub async fn new(state: RpcState) -> anyhow::Result<Self> {
-        let api_contracts = ApiContracts::load_from_disk().await?;
+        let api_contracts = ApiContracts::load_from_disk(true).await?;
         let fee_input_provider = &state.tx_sender.0.batch_fee_input_provider;
         let batch_fee_input = fee_input_provider
             .get_batch_fee_input_scaled(

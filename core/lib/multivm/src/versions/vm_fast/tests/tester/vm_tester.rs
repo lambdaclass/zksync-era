@@ -140,7 +140,7 @@ impl VmTesterBuilder {
             system_env: SystemEnv {
                 zk_porter_available: false,
                 version: ProtocolVersionId::latest(),
-                base_system_smart_contracts: BaseSystemContracts::playground(),
+                base_system_smart_contracts: BaseSystemContracts::playground(true),
                 bootloader_gas_limit: BATCH_COMPUTATIONAL_GAS_LIMIT,
                 execution_mode: TxExecutionMode::VerifyExecute,
                 default_validation_computational_gas_limit: BATCH_COMPUTATIONAL_GAS_LIMIT,

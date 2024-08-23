@@ -66,6 +66,9 @@ struct Cli {
     /// Now the node framework is used by default and this argument is left for backward compatibility.
     #[arg(long)]
     use_node_framework: bool,
+    /// Flag to enable EVM simulator.
+    #[arg(long)]
+    evm_simulator: bool,
 }
 
 #[derive(Debug, Clone)]

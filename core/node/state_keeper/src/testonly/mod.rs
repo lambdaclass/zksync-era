@@ -25,7 +25,7 @@ use crate::{
 pub mod test_batch_executor;
 
 pub(super) static BASE_SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> =
-    Lazy::new(BaseSystemContracts::load_from_disk);
+    Lazy::new(|| BaseSystemContracts::load_from_disk(true));
 
 pub(super) fn default_vm_batch_result() -> FinishedL1Batch {
     FinishedL1Batch {

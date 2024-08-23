@@ -14,7 +14,7 @@ use crate::vm_1_4_2::{
 };
 
 pub(crate) static BASE_SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> =
-    Lazy::new(BaseSystemContracts::load_from_disk);
+    Lazy::new(|| BaseSystemContracts::load_from_disk(true));
 
 // Probably make it a part of vm tester
 pub(crate) fn verify_required_storage<H: HistoryMode>(
