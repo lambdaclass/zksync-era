@@ -1,4 +1,6 @@
-use super::traits::{BootloaderTracer, Tracer};
+use zksync_state::ReadStorage;
+
+use super::traits::{Tracer, VmTracer};
 
 pub struct RefundsTracer {}
 
@@ -8,53 +10,6 @@ impl RefundsTracer {
     }
 }
 
-impl Tracer for RefundsTracer {
-    fn before_decoding(
-        &mut self,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
+impl Tracer for RefundsTracer {}
 
-    fn after_decoding(
-        &mut self,
-        opcode: &era_vm::Opcode,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
-
-    fn before_execution(
-        &mut self,
-        opcode: &era_vm::Opcode,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
-
-    fn after_execution(
-        &mut self,
-        opcode: &era_vm::Opcode,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
-}
-
-impl BootloaderTracer for RefundsTracer {
-    fn before_bootloader_execution(
-        &mut self,
-        opcode: &era_vm::Opcode,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
-
-    fn after_bootloader_execution(
-        &mut self,
-        opcode: &era_vm::Opcode,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
-}
+impl<S: ReadStorage> VmTracer<S> for RefundsTracer {}

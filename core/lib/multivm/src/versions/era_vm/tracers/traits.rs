@@ -1,21 +1,9 @@
+pub use crate::{era_vm::vm::Vm, vm_latest::ExecutionResult};
 pub use era_vm::tracers::tracer::Tracer;
-use era_vm::{state::VMState, Execution, Opcode};
+use zksync_state::ReadStorage;
 
-pub trait BootloaderTracer {
-    fn before_bootloader_execution(
-        &mut self,
-        opcode: &Opcode,
-        execution: &mut Execution,
-        state: &mut VMState,
-    );
+pub trait VmTracer<S: ReadStorage>: Tracer {
+    fn before_bootloader_execution(&mut self, _state: &mut Vm<S>) {}
 
-    fn after_bootloader_execution(
-        &mut self,
-        opcode: &Opcode,
-        execution: &mut Execution,
-        state: &mut VMState,
-    );
+    fn after_bootloader_execution(&mut self, _state: &mut Vm<S>, _stop_reason: ExecutionResult) {}
 }
-
-pub trait VmTracer: Tracer + BootloaderTracer {}
-impl<T: Tracer + VmTracer> VmTracer for T {}

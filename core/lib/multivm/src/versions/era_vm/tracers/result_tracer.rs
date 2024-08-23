@@ -1,4 +1,6 @@
-use super::traits::{BootloaderTracer, Tracer, VmTracer};
+use zksync_state::ReadStorage;
+
+use super::traits::{Tracer, VmTracer};
 
 pub struct ResultTracer {}
 
@@ -8,53 +10,6 @@ impl ResultTracer {
     }
 }
 
-impl Tracer for ResultTracer {
-    fn before_decoding(
-        &mut self,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
+impl Tracer for ResultTracer {}
 
-    fn after_decoding(
-        &mut self,
-        opcode: &era_vm::Opcode,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
-
-    fn before_execution(
-        &mut self,
-        opcode: &era_vm::Opcode,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
-
-    fn after_execution(
-        &mut self,
-        opcode: &era_vm::Opcode,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
-}
-
-impl BootloaderTracer for ResultTracer {
-    fn before_bootloader_execution(
-        &mut self,
-        opcode: &era_vm::Opcode,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
-
-    fn after_bootloader_execution(
-        &mut self,
-        opcode: &era_vm::Opcode,
-        execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
-    ) {
-    }
-}
+impl<S: ReadStorage> VmTracer<S> for ResultTracer {}

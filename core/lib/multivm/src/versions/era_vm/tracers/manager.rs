@@ -1,14 +1,23 @@
-use era_vm::{execution::Execution, opcode::Opcode, state::VMState, tracers::tracer::Tracer};
+use era_vm::{
+    execution::Execution, opcode::Opcode, state::VMState, tracers::tracer::Tracer,
+    vm::ExecutionOutput,
+};
 use zksync_state::{ReadStorage, StoragePtr};
 
+use crate::era_vm::vm::Vm;
+
 use super::{
-    circuits_tracer::CircuitsTracer, dispatcher::TracerDispatcher, pubdata_tracer::PubdataTracer,
-    refunds_tracer::RefundsTracer, result_tracer::ResultTracer, traits::BootloaderTracer,
+    circuits_tracer::CircuitsTracer,
+    dispatcher::TracerDispatcher,
+    pubdata_tracer::PubdataTracer,
+    refunds_tracer::RefundsTracer,
+    result_tracer::ResultTracer,
+    traits::{ExecutionResult, VmTracer},
 };
 
 // this tracer manager is the one that gets called when running the vm
 pub struct VmTracerManager<S: ReadStorage> {
-    dispatcher: TracerDispatcher,
+    dispatcher: TracerDispatcher<S>,
     result_tracer: ResultTracer,
     refund_tracer: Option<RefundsTracer>,
     pubdata_tracer: PubdataTracer,
@@ -19,7 +28,7 @@ pub struct VmTracerManager<S: ReadStorage> {
 impl<S: ReadStorage> VmTracerManager<S> {
     pub fn new(
         storage: StoragePtr<S>,
-        dispatcher: TracerDispatcher,
+        dispatcher: TracerDispatcher<S>,
         refund_tracer: Option<RefundsTracer>,
     ) -> Self {
         Self {
@@ -98,48 +107,35 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
     }
 }
 
-impl<S: ReadStorage> BootloaderTracer for VmTracerManager<S> {
-    fn before_bootloader_execution(
-        &mut self,
-        opcode: &Opcode,
-        execution: &mut Execution,
-        state: &mut VMState,
-    ) {
+impl<S: ReadStorage> VmTracer<S> for VmTracerManager<S> {
+    fn before_bootloader_execution(&mut self, state: &mut Vm<S>) {
         // Call the dispatcher to handle all the tracers added to it
-        self.dispatcher
-            .before_bootloader_execution(opcode, execution, state);
+        self.dispatcher.before_bootloader_execution(state);
 
         // Individual tracers
-        self.result_tracer
-            .before_bootloader_execution(opcode, execution, state);
+        self.result_tracer.before_bootloader_execution(state);
+
         if let Some(refunds_tracer) = &mut self.refund_tracer {
-            refunds_tracer.before_bootloader_execution(opcode, execution, state);
+            refunds_tracer.before_bootloader_execution(state);
         }
-        self.pubdata_tracer
-            .before_bootloader_execution(opcode, execution, state);
-        self.circuits_tracer
-            .before_bootloader_execution(opcode, execution, state);
+        self.pubdata_tracer.before_bootloader_execution(state);
+        self.circuits_tracer.before_bootloader_execution(state);
     }
 
-    fn after_bootloader_execution(
-        &mut self,
-        opcode: &Opcode,
-        execution: &mut Execution,
-        state: &mut VMState,
-    ) {
+    fn after_bootloader_execution(&mut self, state: &mut Vm<S>, stop_reason: ExecutionResult) {
         // Call the dispatcher to handle all the tracers added to it
         self.dispatcher
-            .after_bootloader_execution(opcode, execution, state);
+            .after_bootloader_execution(state, stop_reason.clone());
 
         // Individual tracers
         self.result_tracer
-            .after_bootloader_execution(opcode, execution, state);
+            .after_bootloader_execution(state, stop_reason.clone());
         if let Some(refunds_tracer) = &mut self.refund_tracer {
-            refunds_tracer.after_bootloader_execution(opcode, execution, state);
+            refunds_tracer.after_bootloader_execution(state, stop_reason.clone());
         }
         self.pubdata_tracer
-            .after_bootloader_execution(opcode, execution, state);
+            .after_bootloader_execution(state, stop_reason.clone());
         self.circuits_tracer
-            .after_bootloader_execution(opcode, execution, state);
+            .after_bootloader_execution(state, stop_reason.clone());
     }
 }
