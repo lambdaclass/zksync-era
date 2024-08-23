@@ -1,9 +1,8 @@
 use era_vm::{state::VMState, tracers::tracer::Tracer, vm::ExecutionOutput, Execution, Opcode};
 use zksync_state::ReadStorage;
 
-use crate::era_vm::vm::Vm;
-
 use super::traits::{ExecutionResult, VmTracer};
+use crate::era_vm::vm::Vm;
 
 #[derive(Default)]
 // dispatcher calls to other tracers

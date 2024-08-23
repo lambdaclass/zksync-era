@@ -1,10 +1,5 @@
-use era_vm::{
-    execution::Execution, opcode::Opcode, state::VMState, tracers::tracer::Tracer,
-    vm::ExecutionOutput,
-};
+use era_vm::{execution::Execution, opcode::Opcode, state::VMState, tracers::tracer::Tracer};
 use zksync_state::{ReadStorage, StoragePtr};
-
-use crate::era_vm::vm::Vm;
 
 use super::{
     circuits_tracer::CircuitsTracer,
@@ -14,6 +9,7 @@ use super::{
     result_tracer::ResultTracer,
     traits::{ExecutionResult, VmTracer},
 };
+use crate::era_vm::vm::Vm;
 
 // this tracer manager is the one that gets called when running the vm
 pub struct VmTracerManager<S: ReadStorage> {
