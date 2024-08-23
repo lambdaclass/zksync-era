@@ -46,7 +46,12 @@ export interface BasePromptOptions {
 }
 
 // An init command that allows configuring and spinning up a new hyperchain network.
-async function initHyperchain(envName: string, runObservability: boolean, validiumMode: boolean, evmSimulator: boolean) {
+async function initHyperchain(
+    envName: string,
+    runObservability: boolean,
+    validiumMode: boolean,
+    evmSimulator: boolean
+) {
     await announced('Initializing hyperchain creation', setupConfiguration(envName, runObservability));
     let deploymentMode = validiumMode !== undefined ? DeploymentMode.Validium : DeploymentMode.Rollup;
     await init.initHyperCmdAction({
@@ -54,7 +59,7 @@ async function initHyperchain(envName: string, runObservability: boolean, validi
         bumpChainId: true,
         runObservability,
         deploymentMode,
-        evmSimulator,
+        evmSimulator
     });
 
     // TODO: EVM:577 fix hyperchain wizard

@@ -56,7 +56,8 @@ static STORAGE: Lazy<InMemoryStorage> = Lazy::new(|| {
     storage
 });
 
-static SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> = Lazy::new(|| BaseSystemContracts::load_from_disk(true));
+static SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> =
+    Lazy::new(|| BaseSystemContracts::load_from_disk(true));
 
 static LOAD_TEST_CONTRACT: Lazy<TestContract> = Lazy::new(zksync_contracts::get_loadnext_contract);
 

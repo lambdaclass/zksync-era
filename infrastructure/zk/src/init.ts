@@ -161,7 +161,7 @@ export const initDevCmdAction = async ({
     validiumMode,
     localLegacyBridgeTesting,
     shouldCheckPostgres,
-    evmSimulator,
+    evmSimulator
 }: InitDevCmdActionOptions): Promise<void> => {
     if (localLegacyBridgeTesting) {
         await makeEraChainIdSameAsCurrent();
@@ -227,7 +227,7 @@ export const initHyperCmdAction = async ({
     baseTokenName,
     runObservability,
     deploymentMode,
-    evmSimulator,
+    evmSimulator
 }: InitHyperCmdActionOptions): Promise<void> => {
     if (bumpChainId) {
         config.bumpChainId();

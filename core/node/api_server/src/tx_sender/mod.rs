@@ -171,28 +171,48 @@ impl ApiContracts {
     pub fn load_from_disk_blocking(evm_simulator: bool) -> Self {
         Self {
             estimate_gas: MultiVMBaseSystemContracts {
-                pre_virtual_blocks: BaseSystemContracts::estimate_gas_pre_virtual_blocks(evm_simulator),
-                post_virtual_blocks: BaseSystemContracts::estimate_gas_post_virtual_blocks(evm_simulator),
+                pre_virtual_blocks: BaseSystemContracts::estimate_gas_pre_virtual_blocks(
+                    evm_simulator,
+                ),
+                post_virtual_blocks: BaseSystemContracts::estimate_gas_post_virtual_blocks(
+                    evm_simulator,
+                ),
                 post_virtual_blocks_finish_upgrade_fix:
-                    BaseSystemContracts::estimate_gas_post_virtual_blocks_finish_upgrade_fix(evm_simulator),
+                    BaseSystemContracts::estimate_gas_post_virtual_blocks_finish_upgrade_fix(
+                        evm_simulator,
+                    ),
                 post_boojum: BaseSystemContracts::estimate_gas_post_boojum(evm_simulator),
-                post_allowlist_removal: BaseSystemContracts::estimate_gas_post_allowlist_removal(evm_simulator),
+                post_allowlist_removal: BaseSystemContracts::estimate_gas_post_allowlist_removal(
+                    evm_simulator,
+                ),
                 post_1_4_1: BaseSystemContracts::estimate_gas_post_1_4_1(evm_simulator),
                 post_1_4_2: BaseSystemContracts::estimate_gas_post_1_4_2(evm_simulator),
-                vm_1_5_0_small_memory: BaseSystemContracts::estimate_gas_1_5_0_small_memory(evm_simulator),
+                vm_1_5_0_small_memory: BaseSystemContracts::estimate_gas_1_5_0_small_memory(
+                    evm_simulator,
+                ),
                 vm_1_5_0_increased_memory:
                     BaseSystemContracts::estimate_gas_post_1_5_0_increased_memory(evm_simulator),
             },
             eth_call: MultiVMBaseSystemContracts {
-                pre_virtual_blocks: BaseSystemContracts::playground_pre_virtual_blocks(evm_simulator),
-                post_virtual_blocks: BaseSystemContracts::playground_post_virtual_blocks(evm_simulator),
+                pre_virtual_blocks: BaseSystemContracts::playground_pre_virtual_blocks(
+                    evm_simulator,
+                ),
+                post_virtual_blocks: BaseSystemContracts::playground_post_virtual_blocks(
+                    evm_simulator,
+                ),
                 post_virtual_blocks_finish_upgrade_fix:
-                    BaseSystemContracts::playground_post_virtual_blocks_finish_upgrade_fix(evm_simulator),
+                    BaseSystemContracts::playground_post_virtual_blocks_finish_upgrade_fix(
+                        evm_simulator,
+                    ),
                 post_boojum: BaseSystemContracts::playground_post_boojum(evm_simulator),
-                post_allowlist_removal: BaseSystemContracts::playground_post_allowlist_removal(evm_simulator),
+                post_allowlist_removal: BaseSystemContracts::playground_post_allowlist_removal(
+                    evm_simulator,
+                ),
                 post_1_4_1: BaseSystemContracts::playground_post_1_4_1(evm_simulator),
                 post_1_4_2: BaseSystemContracts::playground_post_1_4_2(evm_simulator),
-                vm_1_5_0_small_memory: BaseSystemContracts::playground_1_5_0_small_memory(evm_simulator),
+                vm_1_5_0_small_memory: BaseSystemContracts::playground_1_5_0_small_memory(
+                    evm_simulator,
+                ),
                 vm_1_5_0_increased_memory:
                     BaseSystemContracts::playground_post_1_5_0_increased_memory(evm_simulator),
             },

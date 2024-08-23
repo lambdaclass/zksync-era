@@ -335,19 +335,19 @@ impl BaseSystemContracts {
         };
 
         let evm_simulator_code = if evm_simulator {
-          let evm_simulator_bytecode =
-          read_sys_contract_bytecode("", "EvmInterpreter", ContractLanguage::Yul);
-          let evm_simulator_hash = hash_bytecode(&evm_simulator_bytecode);
+            let evm_simulator_bytecode =
+                read_sys_contract_bytecode("", "EvmInterpreter", ContractLanguage::Yul);
+            let evm_simulator_hash = hash_bytecode(&evm_simulator_bytecode);
 
-          SystemContractCode {
-              code: bytes_to_be_words(evm_simulator_bytecode),
-              hash: evm_simulator_hash,
-          }
+            SystemContractCode {
+                code: bytes_to_be_words(evm_simulator_bytecode),
+                hash: evm_simulator_hash,
+            }
         } else {
-          SystemContractCode {
-              code: vec![],
-              hash: H256::zero(),
-          }
+            SystemContractCode {
+                code: vec![],
+                hash: H256::zero(),
+            }
         };
 
         BaseSystemContracts {
