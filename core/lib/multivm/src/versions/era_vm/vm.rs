@@ -1,9 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use era_vm::{
-    rollbacks::Rollbackable, store::StorageKey as EraStorageKey, value::FatPointer,
-    vm::ExecutionOutput, EraVM, Execution,
-};
+use era_vm::{rollbacks::Rollbackable, store::StorageKey as EraStorageKey, EraVM, Execution};
 use itertools::Itertools;
 use zksync_state::{ReadStorage, StoragePtr};
 use zksync_types::{
@@ -25,9 +22,8 @@ use zksync_utils::{
 };
 
 use super::{
-    bootloader_state::{utils::apply_l2_block, BootloaderState},
+    bootloader_state::BootloaderState,
     event::merge_events,
-    hook::Hook,
     initial_bootloader_memory::bootloader_initial_memory,
     logs::IntoSystemLog,
     snapshot::VmSnapshot,
@@ -38,9 +34,7 @@ use super::{
 };
 use crate::{
     era_vm::{bytecode::compress_bytecodes, transaction_data::TransactionData},
-    interface::{
-        Halt, TxRevertReason, VmFactory, VmInterface, VmInterfaceHistoryEnabled, VmRevertReason,
-    },
+    interface::{tracer::TracerExecutionStatus, VmFactory, VmInterface, VmInterfaceHistoryEnabled},
     vm_latest::{
         constants::{
             get_vm_hook_position, get_vm_hook_start_position_latest, VM_HOOK_PARAMS_COUNT,
@@ -150,19 +144,18 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
 }
 
 impl<S: ReadStorage + 'static> Vm<S> {
-    pub fn run(&mut self, tracer: &mut VmTracerManager<S>) -> ExecutionResult {
+    pub fn run(&mut self, tracer: &mut impl VmTracer<S>) {
         tracer.before_bootloader_execution(self);
         loop {
             let output = self.inner.run_program_with_custom_bytecode(Some(tracer));
 
-            let result = tracer.after_vm_run(self, output);
+            let status = tracer.after_vm_run(self, output);
 
-            if result.is_some() {
-                let result = result.unwrap();
-                tracer.after_bootloader_execution(self, result.clone());
-                return result;
+            if let TracerExecutionStatus::Stop(_) = status {
+                break;
             }
         }
+        tracer.after_bootloader_execution(self);
     }
 
     pub(crate) fn insert_bytecodes<'a>(&mut self, bytecodes: impl IntoIterator<Item = &'a [u8]>) {
@@ -327,7 +320,10 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
             VmTracerManager::new(execution_mode, self.storage.clone(), tracer, refund_tracer);
         let snapshot = self.inner.state.snapshot();
 
-        let result = self.run(&mut tracer);
+        self.run(&mut tracer);
+        // it is actually safe to unwrap here, since we always expect a result
+        // the reason we use an option is because we really can't set an initial value in the result tracer
+        let result = tracer.result_tracer.result.unwrap();
 
         let ignore_world_diff = matches!(execution_mode, VmExecutionMode::OneTx)
             && matches!(result, ExecutionResult::Halt { .. });

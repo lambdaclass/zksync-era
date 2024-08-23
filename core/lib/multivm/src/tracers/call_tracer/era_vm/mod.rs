@@ -61,11 +61,7 @@ impl Tracer for CallTracer {
 }
 
 impl<S: ReadStorage> VmTracer<S> for CallTracer {
-    fn after_bootloader_execution(
-        &mut self,
-        _state: &mut crate::era_vm::vm::Vm<S>,
-        _stop_reason: crate::vm_1_4_1::ExecutionResult,
-    ) {
+    fn after_bootloader_execution(&mut self, _state: &mut crate::era_vm::vm::Vm<S>) {
         self.store_result();
     }
 }

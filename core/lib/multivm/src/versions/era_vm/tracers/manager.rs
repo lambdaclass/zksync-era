@@ -5,16 +5,12 @@ use era_vm::{
 use zksync_state::{ReadStorage, StoragePtr};
 
 use super::{
-    circuits_tracer::CircuitsTracer,
-    dispatcher::TracerDispatcher,
-    pubdata_tracer::PubdataTracer,
-    refunds_tracer::RefundsTracer,
-    result_tracer::ResultTracer,
-    traits::{ExecutionResult, VmTracer},
+    circuits_tracer::CircuitsTracer, dispatcher::TracerDispatcher, pubdata_tracer::PubdataTracer,
+    refunds_tracer::RefundsTracer, result_tracer::ResultTracer, traits::VmTracer,
 };
 use crate::{
     era_vm::{bootloader_state::utils::apply_l2_block, hook::Hook, vm::Vm},
-    interface::{Halt, TxRevertReason},
+    interface::tracer::{TracerExecutionStatus, TracerExecutionStopReason},
     vm_1_4_1::VmExecutionMode,
 };
 
@@ -53,46 +49,6 @@ impl<S: ReadStorage + 'static> VmTracerManager<S> {
         }
     }
 
-    pub fn after_vm_run(
-        &mut self,
-        vm: &mut Vm<S>,
-        output: ExecutionOutput,
-    ) -> Option<ExecutionResult> {
-        match output {
-            ExecutionOutput::Ok(output) => Some(ExecutionResult::Success { output }),
-            ExecutionOutput::Revert(output) => match TxRevertReason::parse_error(&output) {
-                TxRevertReason::TxReverted(output) => (Some(ExecutionResult::Revert { output })),
-                TxRevertReason::Halt(reason) => Some(ExecutionResult::Halt { reason }),
-            },
-            ExecutionOutput::Panic => Some(ExecutionResult::Halt {
-                reason: if vm.inner.execution.gas_left().unwrap() == 0 {
-                    Halt::BootloaderOutOfGas
-                } else {
-                    Halt::VMPanic
-                },
-            }),
-            ExecutionOutput::SuspendedOnHook {
-                hook,
-                pc_to_resume_from,
-            } => {
-                vm.suspended_at = pc_to_resume_from;
-                vm.inner.execution.current_frame_mut().unwrap().pc = vm.suspended_at as u64;
-                let hook = Hook::from_u32(hook);
-                match hook {
-                    Hook::TxHasEnded => {
-                        if let VmExecutionMode::OneTx = self.execution_mode {
-                            return self.result_tracer.last_tx_result.take();
-                        }
-                    }
-                    Hook::FinalBatchInfo => self.set_final_batch_info(vm),
-                    _ => {}
-                }
-                self.bootloader_hook_call(vm, hook, &vm.get_hook_params());
-                None
-            }
-        }
-    }
-
     fn set_final_batch_info(&self, vm: &mut Vm<S>) {
         // set fictive l2 block
         let txs_index = vm.bootloader_state.free_tx_index();
@@ -100,6 +56,39 @@ impl<S: ReadStorage + 'static> VmTracerManager<S> {
         let mut memory = vec![];
         apply_l2_block(&mut memory, l2_block, txs_index);
         vm.write_to_bootloader_heap(memory);
+    }
+
+    fn handle_execution_output(
+        &mut self,
+        vm: &mut Vm<S>,
+        output: ExecutionOutput,
+    ) -> TracerExecutionStatus {
+        match output {
+            ExecutionOutput::SuspendedOnHook {
+                hook,
+                pc_to_resume_from,
+            } => {
+                vm.suspended_at = pc_to_resume_from;
+                vm.inner.execution.current_frame_mut().unwrap().pc = vm.suspended_at as u64;
+                let hook = Hook::from_u32(hook);
+                self.bootloader_hook_call(vm, hook.clone(), &vm.get_hook_params());
+                match hook {
+                    Hook::TxHasEnded => {
+                        if let VmExecutionMode::OneTx = self.execution_mode {
+                            TracerExecutionStatus::Stop(TracerExecutionStopReason::Finish)
+                        } else {
+                            TracerExecutionStatus::Continue
+                        }
+                    }
+                    Hook::FinalBatchInfo => {
+                        self.set_final_batch_info(vm);
+                        TracerExecutionStatus::Continue
+                    }
+                    _ => TracerExecutionStatus::Continue,
+                }
+            }
+            _ => TracerExecutionStatus::Stop(TracerExecutionStopReason::Finish),
+        }
     }
 }
 
@@ -183,21 +172,17 @@ impl<S: ReadStorage + 'static> VmTracer<S> for VmTracerManager<S> {
         self.circuits_tracer.before_bootloader_execution(state);
     }
 
-    fn after_bootloader_execution(&mut self, state: &mut Vm<S>, stop_reason: ExecutionResult) {
+    fn after_bootloader_execution(&mut self, state: &mut Vm<S>) {
         // Call the dispatcher to handle all the tracers added to it
-        self.dispatcher
-            .after_bootloader_execution(state, stop_reason.clone());
+        self.dispatcher.after_bootloader_execution(state);
 
         // Individual tracers
-        self.result_tracer
-            .after_bootloader_execution(state, stop_reason.clone());
+        self.result_tracer.after_bootloader_execution(state);
         if let Some(refunds_tracer) = &mut self.refund_tracer {
-            refunds_tracer.after_bootloader_execution(state, stop_reason.clone());
+            refunds_tracer.after_bootloader_execution(state);
         }
-        self.pubdata_tracer
-            .after_bootloader_execution(state, stop_reason.clone());
-        self.circuits_tracer
-            .after_bootloader_execution(state, stop_reason.clone());
+        self.pubdata_tracer.after_bootloader_execution(state);
+        self.circuits_tracer.after_bootloader_execution(state);
     }
 
     fn bootloader_hook_call(
@@ -220,5 +205,31 @@ impl<S: ReadStorage + 'static> VmTracer<S> for VmTracerManager<S> {
             .bootloader_hook_call(state, hook.clone(), hook_params);
         self.circuits_tracer
             .bootloader_hook_call(state, hook.clone(), hook_params);
+    }
+
+    fn after_vm_run(&mut self, vm: &mut Vm<S>, output: ExecutionOutput) -> TracerExecutionStatus {
+        // Call the dispatcher to handle all the tracers added to it
+        let mut result = self.dispatcher.after_vm_run(vm, output.clone());
+
+        // Individual tracers
+        result = self
+            .result_tracer
+            .after_vm_run(vm, output.clone())
+            .stricter(&result);
+        if let Some(refunds_tracer) = &mut self.refund_tracer {
+            result = refunds_tracer
+                .after_vm_run(vm, output.clone())
+                .stricter(&result);
+        }
+        result = self
+            .pubdata_tracer
+            .after_vm_run(vm, output.clone())
+            .stricter(&result);
+        result = self
+            .circuits_tracer
+            .after_vm_run(vm, output.clone())
+            .stricter(&result);
+
+        self.handle_execution_output(vm, output).stricter(&result)
     }
 }

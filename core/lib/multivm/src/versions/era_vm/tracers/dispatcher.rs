@@ -1,8 +1,8 @@
 use era_vm::{state::VMState, tracers::tracer::Tracer, Execution, Opcode};
 use zksync_state::ReadStorage;
 
-use super::traits::{ExecutionResult, VmTracer};
-use crate::era_vm::vm::Vm;
+use super::traits::VmTracer;
+use crate::{era_vm::vm::Vm, interface::tracer::TracerExecutionStatus};
 
 // dispatcher calls to other tracers
 pub struct TracerDispatcher<S: ReadStorage> {
@@ -59,9 +59,32 @@ impl<S: ReadStorage> VmTracer<S> for TracerDispatcher<S> {
         }
     }
 
-    fn after_bootloader_execution(&mut self, state: &mut Vm<S>, stop_reason: ExecutionResult) {
+    fn after_bootloader_execution(&mut self, state: &mut Vm<S>) {
         for tracer in self.tracers.iter_mut() {
-            tracer.after_bootloader_execution(state, stop_reason.clone());
+            tracer.after_bootloader_execution(state);
         }
+    }
+
+    fn bootloader_hook_call(
+        &mut self,
+        state: &mut Vm<S>,
+        hook: crate::era_vm::hook::Hook,
+        hook_params: &[zksync_types::U256; 3],
+    ) {
+        for tracer in self.tracers.iter_mut() {
+            tracer.bootloader_hook_call(state, hook.clone(), &hook_params);
+        }
+    }
+
+    fn after_vm_run(
+        &mut self,
+        vm: &mut Vm<S>,
+        output: era_vm::vm::ExecutionOutput,
+    ) -> crate::interface::tracer::TracerExecutionStatus {
+        let mut result = TracerExecutionStatus::Continue;
+        for tracer in self.tracers.iter_mut() {
+            result = result.stricter(&tracer.after_vm_run(vm, output.clone()));
+        }
+        result
     }
 }

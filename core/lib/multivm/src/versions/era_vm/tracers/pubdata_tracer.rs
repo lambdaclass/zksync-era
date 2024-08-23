@@ -41,11 +41,7 @@ impl<S: ReadStorage + 'static> VmTracer<S> for PubdataTracer {
         self.pubdata_before_run = vm.inner.state.pubdata();
     }
 
-    fn after_bootloader_execution(
-        &mut self,
-        vm: &mut super::traits::Vm<S>,
-        _stop_reason: super::traits::ExecutionResult,
-    ) {
+    fn after_bootloader_execution(&mut self, vm: &mut super::traits::Vm<S>) {
         self.pubdata_published = (vm.inner.state.pubdata() - self.pubdata_before_run).max(0) as u32;
     }
 
