@@ -8,6 +8,7 @@ use zksync_types::{
 };
 use zksync_utils::u256_to_h256;
 
+use super::traits::{Tracer, VmTracer};
 use crate::{
     era_vm::{
         bootloader_state::utils::{apply_pubdata_to_memory, PubdataInput},
@@ -16,8 +17,6 @@ use crate::{
     },
     vm_1_4_1::VmExecutionMode,
 };
-
-use super::traits::{Tracer, VmTracer};
 
 pub struct PubdataTracer {
     execution_mode: VmExecutionMode,

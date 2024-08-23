@@ -4,10 +4,15 @@ use zksync_state::ReadStorage;
 use super::traits::{ExecutionResult, VmTracer};
 use crate::era_vm::vm::Vm;
 
-#[derive(Default)]
 // dispatcher calls to other tracers
 pub struct TracerDispatcher<S: ReadStorage> {
     tracers: Vec<Box<dyn VmTracer<S>>>,
+}
+
+impl<S: ReadStorage> Default for TracerDispatcher<S> {
+    fn default() -> Self {
+        Self { tracers: vec![] }
+    }
 }
 
 impl<S: ReadStorage> TracerDispatcher<S> {

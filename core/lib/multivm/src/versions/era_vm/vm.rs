@@ -300,7 +300,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
 }
 
 impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
-    type TracerDispatcher = ();
+    type TracerDispatcher = TracerDispatcher<S>;
 
     fn push_transaction(&mut self, tx: Transaction) {
         self.push_transaction_inner(tx, 0, true);
@@ -308,7 +308,7 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
 
     fn inspect(
         &mut self,
-        _tracer: Self::TracerDispatcher,
+        tracer: Self::TracerDispatcher,
         execution_mode: VmExecutionMode,
     ) -> VmExecutionResultAndLogs {
         let mut track_refunds = false;
@@ -323,12 +323,8 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
         } else {
             None
         };
-        let mut tracer = VmTracerManager::new(
-            execution_mode,
-            self.storage.clone(),
-            TracerDispatcher::new(vec![]),
-            refund_tracer,
-        );
+        let mut tracer =
+            VmTracerManager::new(execution_mode, self.storage.clone(), tracer, refund_tracer);
         let snapshot = self.inner.state.snapshot();
 
         let result = self.run(&mut tracer);

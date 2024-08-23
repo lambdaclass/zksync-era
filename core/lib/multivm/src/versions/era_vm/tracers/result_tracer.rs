@@ -1,9 +1,8 @@
 use era_vm::value::FatPointer;
 use zksync_state::ReadStorage;
 
-use crate::{era_vm::hook::Hook, interface::VmRevertReason};
-
 use super::traits::{ExecutionResult, Tracer, VmTracer};
+use crate::{era_vm::hook::Hook, interface::VmRevertReason};
 
 pub struct ResultTracer {
     pub last_tx_result: Option<ExecutionResult>,
