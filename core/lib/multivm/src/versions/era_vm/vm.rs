@@ -36,7 +36,6 @@ use super::{
     hook::Hook,
     initial_bootloader_memory::bootloader_initial_memory,
     logs::IntoSystemLog,
-    refunds::compute_refund,
     snapshot::VmSnapshot,
     tracers::{
         dispatcher::TracerDispatcher, manager::VmTracerManager, refunds_tracer::RefundsTracer,
@@ -50,10 +49,9 @@ use crate::{
     },
     vm_latest::{
         constants::{
-            get_vm_hook_position, get_vm_hook_start_position_latest, OPERATOR_REFUNDS_OFFSET,
-            TX_GAS_LIMIT_OFFSET, VM_HOOK_PARAMS_COUNT,
+            get_vm_hook_position, get_vm_hook_start_position_latest, VM_HOOK_PARAMS_COUNT,
         },
-        BootloaderMemory, CurrentExecutionState, ExecutionResult, L1BatchEnv, L2BlockEnv, Refunds,
+        BootloaderMemory, CurrentExecutionState, ExecutionResult, L1BatchEnv, L2BlockEnv,
         SystemEnv, VmExecutionLogs, VmExecutionMode, VmExecutionResultAndLogs,
         VmExecutionStatistics,
     },
@@ -161,53 +159,30 @@ impl<S: ReadStorage + 'static> Vm<S> {
     pub fn run(
         &mut self,
         execution_mode: VmExecutionMode,
-        tracer: TracerDispatcher<S>,
-        track_refunds: bool,
-    ) -> (ExecutionResult, Refunds) {
-        let mut refunds = Refunds {
-            gas_refunded: 0,
-            operator_suggested_refund: 0,
-        };
-        let mut pubdata_before = self.inner.state.pubdata() as u32;
+        tracer: &mut impl VmTracer<S>,
+    ) -> ExecutionResult {
         let mut last_tx_result = None;
 
-        let refund_tracer = if track_refunds {
-            Some(RefundsTracer::new())
-        } else {
-            None
-        };
-
-        let mut tracer = VmTracerManager::new(self.storage.clone(), tracer, refund_tracer);
-
         tracer.before_bootloader_execution(self);
-        let (stop_reason, refunds) = loop {
-            let result = self
-                .inner
-                .run_program_with_custom_bytecode(Some(&mut tracer));
+        let stop_reason = loop {
+            let result = self.inner.run_program_with_custom_bytecode(Some(tracer));
 
             let result = match result {
-                ExecutionOutput::Ok(output) => {
-                    break (ExecutionResult::Success { output }, refunds)
-                }
+                ExecutionOutput::Ok(output) => break (ExecutionResult::Success { output }),
                 ExecutionOutput::Revert(output) => match TxRevertReason::parse_error(&output) {
                     TxRevertReason::TxReverted(output) => {
-                        break (ExecutionResult::Revert { output }, refunds)
+                        break (ExecutionResult::Revert { output })
                     }
-                    TxRevertReason::Halt(reason) => {
-                        break (ExecutionResult::Halt { reason }, refunds)
-                    }
+                    TxRevertReason::Halt(reason) => break (ExecutionResult::Halt { reason }),
                 },
                 ExecutionOutput::Panic => {
-                    break (
-                        ExecutionResult::Halt {
-                            reason: if self.inner.execution.gas_left().unwrap() == 0 {
-                                Halt::BootloaderOutOfGas
-                            } else {
-                                Halt::VMPanic
-                            },
+                    break ExecutionResult::Halt {
+                        reason: if self.inner.execution.gas_left().unwrap() == 0 {
+                            Halt::BootloaderOutOfGas
+                        } else {
+                            Halt::VMPanic
                         },
-                        refunds,
-                    )
+                    }
                 }
                 ExecutionOutput::SuspendedOnHook {
                     hook,
@@ -273,55 +248,10 @@ impl<S: ReadStorage + 'static> Vm<S> {
                         }
                     });
                 }
-                Hook::NotifyAboutRefund => {
-                    if track_refunds {
-                        refunds.gas_refunded = self.get_hook_params()[0].low_u64()
-                    }
-                }
-                Hook::AskOperatorForRefund => {
-                    if track_refunds {
-                        let [bootloader_refund, gas_spent_on_pubdata, gas_per_pubdata_byte] =
-                            self.get_hook_params();
-                        let current_tx_index = self.bootloader_state.current_tx();
-                        let tx_description_offset = self
-                            .bootloader_state
-                            .get_tx_description_offset(current_tx_index);
-                        let tx_gas_limit = self
-                            .read_heap_word(tx_description_offset + TX_GAS_LIMIT_OFFSET)
-                            .as_u64();
-
-                        let pubdata_published = self.inner.state.pubdata() as u32;
-
-                        refunds.operator_suggested_refund = compute_refund(
-                            &self.batch_env,
-                            bootloader_refund.as_u64(),
-                            gas_spent_on_pubdata.as_u64(),
-                            tx_gas_limit,
-                            gas_per_pubdata_byte.low_u32(),
-                            pubdata_published.saturating_sub(pubdata_before),
-                            self.bootloader_state
-                                .last_l2_block()
-                                .txs
-                                .last()
-                                .unwrap()
-                                .hash,
-                        );
-
-                        pubdata_before = pubdata_published;
-                        let refund_value = refunds.operator_suggested_refund;
-                        self.write_to_bootloader_heap([(
-                            OPERATOR_REFUNDS_OFFSET + current_tx_index,
-                            refund_value.into(),
-                        )]);
-                        self.bootloader_state
-                            .set_refund_for_current_tx(refund_value);
-                    }
-                }
                 Hook::DebugLog => {}
                 Hook::TxHasEnded => {
                     if let VmExecutionMode::OneTx = execution_mode {
-                        let tx_result = last_tx_result.take().unwrap();
-                        return (tx_result, refunds);
+                        break last_tx_result.take().unwrap();
                     }
                 }
                 Hook::PubdataRequested => {
@@ -366,12 +296,13 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     apply_pubdata_to_memory(&mut memory_to_apply, pubdata_input);
                     self.write_to_bootloader_heap(memory_to_apply);
                 }
+                _ => {}
             }
         };
 
         tracer.after_bootloader_execution(self, stop_reason.clone());
 
-        (stop_reason, refunds)
+        stop_reason
     }
 
     pub(crate) fn insert_bytecodes<'a>(&mut self, bytecodes: impl IntoIterator<Item = &'a [u8]>) {
@@ -520,19 +451,26 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
         _tracer: Self::TracerDispatcher,
         execution_mode: VmExecutionMode,
     ) -> VmExecutionResultAndLogs {
-        let mut enable_refund_tracer = false;
+        let mut track_refunds = false;
         if let VmExecutionMode::OneTx = execution_mode {
             // Move the pointer to the next transaction
             self.bootloader_state.move_tx_to_execute_pointer();
-            enable_refund_tracer = true;
+            track_refunds = true;
         }
 
-        let snapshot = self.inner.state.snapshot();
-        let (result, refunds) = self.run(
-            execution_mode,
+        let refund_tracer = if track_refunds {
+            Some(RefundsTracer::new())
+        } else {
+            None
+        };
+        let mut tracer = VmTracerManager::new(
+            self.storage.clone(),
             TracerDispatcher::new(vec![]),
-            enable_refund_tracer,
+            refund_tracer,
         );
+        let snapshot = self.inner.state.snapshot();
+
+        let result = self.run(execution_mode, &mut tracer);
 
         let ignore_world_diff = matches!(execution_mode, VmExecutionMode::OneTx)
             && matches!(result, ExecutionResult::Halt { .. });
@@ -604,7 +542,7 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
                 pubdata_published: (self.inner.state.pubdata() - snapshot.pubdata).max(0) as u32,
                 circuit_statistic: Default::default(),
             },
-            refunds,
+            refunds: tracer.refund_tracer.unwrap_or_default().into(),
         }
     }
 

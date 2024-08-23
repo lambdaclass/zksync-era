@@ -4,7 +4,6 @@ mod event;
 mod hook;
 mod initial_bootloader_memory;
 mod logs;
-mod refunds;
 mod snapshot;
 #[cfg(test)]
 mod tests;

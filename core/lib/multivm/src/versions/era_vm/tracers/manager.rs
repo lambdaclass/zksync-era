@@ -13,11 +13,11 @@ use crate::era_vm::vm::Vm;
 
 // this tracer manager is the one that gets called when running the vm
 pub struct VmTracerManager<S: ReadStorage> {
-    dispatcher: TracerDispatcher<S>,
-    result_tracer: ResultTracer,
-    refund_tracer: Option<RefundsTracer>,
-    pubdata_tracer: PubdataTracer,
-    circuits_tracer: CircuitsTracer,
+    pub dispatcher: TracerDispatcher<S>,
+    pub result_tracer: ResultTracer,
+    pub refund_tracer: Option<RefundsTracer>,
+    pub pubdata_tracer: PubdataTracer,
+    pub circuits_tracer: CircuitsTracer,
     storage: StoragePtr<S>,
 }
 
@@ -103,7 +103,7 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
     }
 }
 
-impl<S: ReadStorage> VmTracer<S> for VmTracerManager<S> {
+impl<S: ReadStorage + 'static> VmTracer<S> for VmTracerManager<S> {
     fn before_bootloader_execution(&mut self, state: &mut Vm<S>) {
         // Call the dispatcher to handle all the tracers added to it
         self.dispatcher.before_bootloader_execution(state);
@@ -133,5 +133,27 @@ impl<S: ReadStorage> VmTracer<S> for VmTracerManager<S> {
             .after_bootloader_execution(state, stop_reason.clone());
         self.circuits_tracer
             .after_bootloader_execution(state, stop_reason.clone());
+    }
+
+    fn bootloader_hook_call(
+        &mut self,
+        state: &mut Vm<S>,
+        hook: crate::era_vm::hook::Hook,
+        hook_params: &[zksync_types::U256; 3],
+    ) {
+        // Call the dispatcher to handle all the tracers added to it
+        self.dispatcher
+            .bootloader_hook_call(state, hook.clone(), hook_params);
+
+        // Individual tracers
+        self.result_tracer
+            .bootloader_hook_call(state, hook.clone(), hook_params);
+        if let Some(refunds_tracer) = &mut self.refund_tracer {
+            refunds_tracer.bootloader_hook_call(state, hook.clone(), hook_params);
+        }
+        self.pubdata_tracer
+            .bootloader_hook_call(state, hook.clone(), hook_params);
+        self.circuits_tracer
+            .bootloader_hook_call(state, hook.clone(), hook_params);
     }
 }
