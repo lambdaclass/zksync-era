@@ -7,6 +7,6 @@ mod logs;
 mod snapshot;
 #[cfg(test)]
 mod tests;
-mod tracers;
+pub mod tracers;
 mod transaction_data;
 pub mod vm;
