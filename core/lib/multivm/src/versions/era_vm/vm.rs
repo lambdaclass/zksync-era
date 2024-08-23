@@ -219,6 +219,8 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 }
             };
 
+            tracer.bootloader_hook_call(self, Hook::from_u32(result), &self.get_hook_params());
+
             match Hook::from_u32(result) {
                 Hook::PaymasterValidationEntered => {
                     // unused
@@ -370,15 +372,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
         tracer.after_bootloader_execution(self, stop_reason.clone());
 
         (stop_reason, refunds)
-    }
-
-    fn get_vm_hook_params(&self, heap: &era_vm::execution::Heap) -> Vec<U256> {
-        (get_vm_hook_start_position_latest()..get_vm_hook_start_position_latest() + 2)
-            .map(|word| {
-                let res = heap.read((word * 32) as u32);
-                res
-            })
-            .collect()
     }
 
     pub(crate) fn insert_bytecodes<'a>(&mut self, bytecodes: impl IntoIterator<Item = &'a [u8]>) {

@@ -1,6 +1,6 @@
 #[derive(Debug)]
 
-pub(crate) enum Hook {
+pub enum Hook {
     AccountValidationEntered,
     PaymasterValidationEntered,
     AccountValidationExited,
