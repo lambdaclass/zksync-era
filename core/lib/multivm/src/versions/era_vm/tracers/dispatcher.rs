@@ -1,4 +1,4 @@
-use era_vm::{state::VMState, tracers::tracer::Tracer, vm::ExecutionOutput, Execution, Opcode};
+use era_vm::{state::VMState, tracers::tracer::Tracer, Execution, Opcode};
 use zksync_state::ReadStorage;
 
 use super::traits::{ExecutionResult, VmTracer};

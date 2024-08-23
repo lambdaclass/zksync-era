@@ -9,13 +9,17 @@ use super::{
     result_tracer::ResultTracer,
     traits::{ExecutionResult, VmTracer},
 };
-use crate::era_vm::vm::Vm;
+use crate::{era_vm::vm::Vm, vm_1_4_1::VmExecutionMode};
 
 // this tracer manager is the one that gets called when running the vm
 pub struct VmTracerManager<S: ReadStorage> {
     pub dispatcher: TracerDispatcher<S>,
     pub result_tracer: ResultTracer,
+    // This tracer is designed specifically for calculating refunds and saves the results to `VmResultAndLogs`.
     pub refund_tracer: Option<RefundsTracer>,
+    // The pubdata tracer is responsible for inserting the pubdata packing information into the bootloader
+    // memory at the end of the batch. Its separation from the custom tracer
+    // ensures static dispatch, enhancing performance by avoiding dynamic dispatch overhe
     pub pubdata_tracer: PubdataTracer,
     pub circuits_tracer: CircuitsTracer,
     storage: StoragePtr<S>,
@@ -23,6 +27,7 @@ pub struct VmTracerManager<S: ReadStorage> {
 
 impl<S: ReadStorage> VmTracerManager<S> {
     pub fn new(
+        execution_mode: VmExecutionMode,
         storage: StoragePtr<S>,
         dispatcher: TracerDispatcher<S>,
         refund_tracer: Option<RefundsTracer>,
@@ -32,7 +37,7 @@ impl<S: ReadStorage> VmTracerManager<S> {
             refund_tracer,
             circuits_tracer: CircuitsTracer::new(),
             result_tracer: ResultTracer::new(),
-            pubdata_tracer: PubdataTracer::new(),
+            pubdata_tracer: PubdataTracer::new(execution_mode),
             storage,
         }
     }

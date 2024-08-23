@@ -7,10 +7,7 @@ use era_vm::{
 use itertools::Itertools;
 use zksync_state::{ReadStorage, StoragePtr};
 use zksync_types::{
-    event::{
-        extract_l2tol1logs_from_l1_messenger, extract_long_l2_to_l1_messages,
-        L1_MESSENGER_BYTECODE_PUBLICATION_EVENT_SIGNATURE,
-    },
+    event::extract_l2tol1logs_from_l1_messenger,
     l1::is_l1_tx_type,
     l2_to_l1_log::UserL2ToL1Log,
     utils::key_for_eth_balance,
@@ -28,10 +25,7 @@ use zksync_utils::{
 };
 
 use super::{
-    bootloader_state::{
-        utils::{apply_l2_block, apply_pubdata_to_memory, PubdataInput},
-        BootloaderState,
-    },
+    bootloader_state::{utils::apply_l2_block, BootloaderState},
     event::merge_events,
     hook::Hook,
     initial_bootloader_memory::bootloader_initial_memory,
@@ -197,9 +191,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
             tracer.bootloader_hook_call(self, Hook::from_u32(result), &self.get_hook_params());
 
             match Hook::from_u32(result) {
-                Hook::PaymasterValidationEntered => {
-                    // unused
-                }
                 Hook::FinalBatchInfo => {
                     // set fictive l2 block
                     let txs_index = self.bootloader_state.free_tx_index();
@@ -207,21 +198,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     let mut memory = vec![];
                     apply_l2_block(&mut memory, l2_block, txs_index);
                     self.write_to_bootloader_heap(memory);
-                }
-                Hook::AccountValidationEntered => {
-                    // println!("ACCOUNT VALIDATION ENTERED");
-                }
-                Hook::ValidationStepEnded => {
-                    // println!("VALIDATION STEP ENDED");
-                }
-                Hook::AccountValidationExited => {
-                    // println!("ACCOUNT VALIDATION EXITED");
-                }
-                Hook::DebugReturnData => {
-                    // println!("DEBUG RETURN DATA");
-                }
-                Hook::NearCallCatch => {
-                    // println!("NOTIFY ABOUT NEAR CALL CATCH");
                 }
                 Hook::PostResult => {
                     let result = self.get_hook_params()[0];
@@ -248,53 +224,10 @@ impl<S: ReadStorage + 'static> Vm<S> {
                         }
                     });
                 }
-                Hook::DebugLog => {}
                 Hook::TxHasEnded => {
                     if let VmExecutionMode::OneTx = execution_mode {
                         break last_tx_result.take().unwrap();
                     }
-                }
-                Hook::PubdataRequested => {
-                    if !matches!(execution_mode, VmExecutionMode::Batch) {
-                        unreachable!("We do not provide the pubdata when executing the block tip or a single transaction");
-                    }
-
-                    let events = merge_events(self.inner.state.events(), self.batch_env.number);
-
-                    let published_bytecodes: Vec<Vec<u8>> = events
-                        .iter()
-                        .filter(|event| {
-                            // Filter events from the l1 messenger contract that match the expected signature.
-                            event.address == L1_MESSENGER_ADDRESS
-                                && !event.indexed_topics.is_empty()
-                                && event.indexed_topics[0]
-                                    == *L1_MESSENGER_BYTECODE_PUBLICATION_EVENT_SIGNATURE
-                        })
-                        .map(|event| {
-                            let hash = U256::from_big_endian(&event.value[..32]);
-                            self.storage
-                                .load_factory_dep(u256_to_h256(hash))
-                                .expect("published unknown bytecode")
-                                .clone()
-                        })
-                        .collect();
-
-                    let pubdata_input = PubdataInput {
-                        user_logs: extract_l2tol1logs_from_l1_messenger(&events),
-                        l2_to_l1_messages: extract_long_l2_to_l1_messages(&events),
-                        published_bytecodes,
-                        state_diffs: self.get_storage_diff(),
-                    };
-
-                    // Save the pubdata for the future initial bootloader memory building
-                    self.bootloader_state
-                        .set_pubdata_input(pubdata_input.clone());
-
-                    // Apply the pubdata to the current memory
-                    let mut memory_to_apply = vec![];
-
-                    apply_pubdata_to_memory(&mut memory_to_apply, pubdata_input);
-                    self.write_to_bootloader_heap(memory_to_apply);
                 }
                 _ => {}
             }
@@ -361,7 +294,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
         }
     }
 
-    fn get_storage_diff(&mut self) -> Vec<StateDiffRecord> {
+    pub fn get_storage_diff(&mut self) -> Vec<StateDiffRecord> {
         self.inner
             .state
             .get_storage_changes()
@@ -464,6 +397,7 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
             None
         };
         let mut tracer = VmTracerManager::new(
+            execution_mode,
             self.storage.clone(),
             TracerDispatcher::new(vec![]),
             refund_tracer,
@@ -539,7 +473,7 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
                 gas_remaining: 0,
                 computational_gas_used: 0,
                 total_log_queries: 0,
-                pubdata_published: (self.inner.state.pubdata() - snapshot.pubdata).max(0) as u32,
+                pubdata_published: tracer.pubdata_tracer.pubdata_published,
                 circuit_statistic: Default::default(),
             },
             refunds: tracer.refund_tracer.unwrap_or_default().into(),
