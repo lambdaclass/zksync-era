@@ -1,4 +1,7 @@
-use era_vm::{execution::Execution, opcode::Opcode, state::VMState, tracers::tracer::Tracer};
+use era_vm::{
+    execution::Execution, opcode::Opcode, state::VMState, tracers::tracer::Tracer,
+    vm::ExecutionOutput,
+};
 use zksync_state::{ReadStorage, StoragePtr};
 
 use super::{
@@ -9,10 +12,17 @@ use super::{
     result_tracer::ResultTracer,
     traits::{ExecutionResult, VmTracer},
 };
-use crate::{era_vm::vm::Vm, vm_1_4_1::VmExecutionMode};
+use crate::{
+    era_vm::{bootloader_state::utils::apply_l2_block, hook::Hook, vm::Vm},
+    interface::{Halt, TxRevertReason},
+    vm_1_4_1::VmExecutionMode,
+};
 
 // this tracer manager is the one that gets called when running the vm
+// all the logic of hooks and results parsing is managed from here
+// the most important tracers are: `result_tracer`, `refund_tracer`, `pubdata_tracer`,
 pub struct VmTracerManager<S: ReadStorage> {
+    execution_mode: VmExecutionMode,
     pub dispatcher: TracerDispatcher<S>,
     pub result_tracer: ResultTracer,
     // This tracer is designed specifically for calculating refunds and saves the results to `VmResultAndLogs`.
@@ -25,7 +35,7 @@ pub struct VmTracerManager<S: ReadStorage> {
     storage: StoragePtr<S>,
 }
 
-impl<S: ReadStorage> VmTracerManager<S> {
+impl<S: ReadStorage + 'static> VmTracerManager<S> {
     pub fn new(
         execution_mode: VmExecutionMode,
         storage: StoragePtr<S>,
@@ -33,6 +43,7 @@ impl<S: ReadStorage> VmTracerManager<S> {
         refund_tracer: Option<RefundsTracer>,
     ) -> Self {
         Self {
+            execution_mode,
             dispatcher,
             refund_tracer,
             circuits_tracer: CircuitsTracer::new(),
@@ -40,6 +51,55 @@ impl<S: ReadStorage> VmTracerManager<S> {
             pubdata_tracer: PubdataTracer::new(execution_mode),
             storage,
         }
+    }
+
+    pub fn after_vm_run(
+        &mut self,
+        vm: &mut Vm<S>,
+        output: ExecutionOutput,
+    ) -> Option<ExecutionResult> {
+        match output {
+            ExecutionOutput::Ok(output) => Some(ExecutionResult::Success { output }),
+            ExecutionOutput::Revert(output) => match TxRevertReason::parse_error(&output) {
+                TxRevertReason::TxReverted(output) => (Some(ExecutionResult::Revert { output })),
+                TxRevertReason::Halt(reason) => Some(ExecutionResult::Halt { reason }),
+            },
+            ExecutionOutput::Panic => Some(ExecutionResult::Halt {
+                reason: if vm.inner.execution.gas_left().unwrap() == 0 {
+                    Halt::BootloaderOutOfGas
+                } else {
+                    Halt::VMPanic
+                },
+            }),
+            ExecutionOutput::SuspendedOnHook {
+                hook,
+                pc_to_resume_from,
+            } => {
+                vm.suspended_at = pc_to_resume_from;
+                vm.inner.execution.current_frame_mut().unwrap().pc = vm.suspended_at as u64;
+                let hook = Hook::from_u32(hook);
+                match hook {
+                    Hook::TxHasEnded => {
+                        if let VmExecutionMode::OneTx = self.execution_mode {
+                            return self.result_tracer.last_tx_result.take();
+                        }
+                    }
+                    Hook::FinalBatchInfo => self.set_final_batch_info(vm),
+                    _ => {}
+                }
+                self.bootloader_hook_call(vm, hook, &vm.get_hook_params());
+                None
+            }
+        }
+    }
+
+    fn set_final_batch_info(&self, vm: &mut Vm<S>) {
+        // set fictive l2 block
+        let txs_index = vm.bootloader_state.free_tx_index();
+        let l2_block = vm.bootloader_state.insert_fictive_l2_block();
+        let mut memory = vec![];
+        apply_l2_block(&mut memory, l2_block, txs_index);
+        vm.write_to_bootloader_heap(memory);
     }
 }
 

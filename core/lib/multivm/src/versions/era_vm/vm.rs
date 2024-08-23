@@ -150,92 +150,19 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
 }
 
 impl<S: ReadStorage + 'static> Vm<S> {
-    pub fn run(
-        &mut self,
-        execution_mode: VmExecutionMode,
-        tracer: &mut impl VmTracer<S>,
-    ) -> ExecutionResult {
-        let mut last_tx_result = None;
-
+    pub fn run(&mut self, tracer: &mut VmTracerManager<S>) -> ExecutionResult {
         tracer.before_bootloader_execution(self);
-        let stop_reason = loop {
-            let result = self.inner.run_program_with_custom_bytecode(Some(tracer));
+        loop {
+            let output = self.inner.run_program_with_custom_bytecode(Some(tracer));
 
-            let result = match result {
-                ExecutionOutput::Ok(output) => break (ExecutionResult::Success { output }),
-                ExecutionOutput::Revert(output) => match TxRevertReason::parse_error(&output) {
-                    TxRevertReason::TxReverted(output) => {
-                        break (ExecutionResult::Revert { output })
-                    }
-                    TxRevertReason::Halt(reason) => break (ExecutionResult::Halt { reason }),
-                },
-                ExecutionOutput::Panic => {
-                    break ExecutionResult::Halt {
-                        reason: if self.inner.execution.gas_left().unwrap() == 0 {
-                            Halt::BootloaderOutOfGas
-                        } else {
-                            Halt::VMPanic
-                        },
-                    }
-                }
-                ExecutionOutput::SuspendedOnHook {
-                    hook,
-                    pc_to_resume_from,
-                } => {
-                    self.suspended_at = pc_to_resume_from;
-                    self.inner.execution.current_frame_mut().unwrap().pc = self.suspended_at as u64;
-                    hook
-                }
-            };
+            let result = tracer.after_vm_run(self, output);
 
-            tracer.bootloader_hook_call(self, Hook::from_u32(result), &self.get_hook_params());
-
-            match Hook::from_u32(result) {
-                Hook::FinalBatchInfo => {
-                    // set fictive l2 block
-                    let txs_index = self.bootloader_state.free_tx_index();
-                    let l2_block = self.bootloader_state.insert_fictive_l2_block();
-                    let mut memory = vec![];
-                    apply_l2_block(&mut memory, l2_block, txs_index);
-                    self.write_to_bootloader_heap(memory);
-                }
-                Hook::PostResult => {
-                    let result = self.get_hook_params()[0];
-                    let value = self.get_hook_params()[1];
-                    let pointer = FatPointer::decode(value);
-                    assert_eq!(pointer.offset, 0);
-
-                    let return_data = self
-                        .inner
-                        .execution
-                        .heaps
-                        .get(pointer.page)
-                        .unwrap()
-                        .read_unaligned_from_pointer(&pointer)
-                        .unwrap();
-
-                    last_tx_result = Some(if result.is_zero() {
-                        ExecutionResult::Revert {
-                            output: VmRevertReason::from(return_data.as_slice()),
-                        }
-                    } else {
-                        ExecutionResult::Success {
-                            output: return_data,
-                        }
-                    });
-                }
-                Hook::TxHasEnded => {
-                    if let VmExecutionMode::OneTx = execution_mode {
-                        break last_tx_result.take().unwrap();
-                    }
-                }
-                _ => {}
+            if result.is_some() {
+                let result = result.unwrap();
+                tracer.after_bootloader_execution(self, result.clone());
+                return result;
             }
-        };
-
-        tracer.after_bootloader_execution(self, stop_reason.clone());
-
-        stop_reason
+        }
     }
 
     pub(crate) fn insert_bytecodes<'a>(&mut self, bytecodes: impl IntoIterator<Item = &'a [u8]>) {
@@ -254,7 +181,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
         }
     }
 
-    fn get_hook_params(&self) -> [U256; 3] {
+    pub fn get_hook_params(&self) -> [U256; 3] {
         let vm_hooks_param_start = get_vm_hook_start_position_latest();
         (vm_hooks_param_start..vm_hooks_param_start + VM_HOOK_PARAMS_COUNT)
             .map(|word| {
@@ -404,7 +331,7 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
         );
         let snapshot = self.inner.state.snapshot();
 
-        let result = self.run(execution_mode, &mut tracer);
+        let result = self.run(&mut tracer);
 
         let ignore_world_diff = matches!(execution_mode, VmExecutionMode::OneTx)
             && matches!(result, ExecutionResult::Halt { .. });
