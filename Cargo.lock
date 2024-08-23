@@ -8442,6 +8442,8 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
+ "zksync_config",
+ "zksync_env_config",
  "zksync_utils",
 ]
 
