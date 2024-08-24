@@ -54,7 +54,6 @@ impl<S: ReadStorage + 'static> VmTracer<S> for RefundsTracer {
         match hook {
             Hook::NotifyAboutRefund => self.gas_refunded = hook_params[0].low_u64(),
             Hook::AskOperatorForRefund => {
-                println!("ENTERINg HERE!");
                 let [bootloader_refund, gas_spent_on_pubdata, gas_per_pubdata_byte] = hook_params;
                 let current_tx_index = vm.bootloader_state.current_tx();
                 let tx_description_offset = vm

@@ -38,7 +38,7 @@ impl<S: ReadStorage> VmTracer<S> for ResultTracer {
                     Halt::VMPanic
                 },
             }),
-            _ => None,
+            ExecutionOutput::SuspendedOnHook { .. } => None,
         };
 
         // if the result is none, it means the execution has been suspended

@@ -16,10 +16,12 @@ use crate::{
 
 // this tracer manager is the one that gets called when running the vm
 // all the logic of hooks and results parsing is managed from here
-// the most important tracers are: `result_tracer`, `refund_tracer`, `pubdata_tracer`,
+// the most important tracers are: `result_tracer`, `refund_tracer`, `pubdata_tracer`, and `circuits_tracer`
 pub struct VmTracerManager<S: ReadStorage> {
     execution_mode: VmExecutionMode,
     pub dispatcher: TracerDispatcher<S>,
+    // this tracer collects the vm results for every transaction
+    // when the vm stops, the result would be available here
     pub result_tracer: ResultTracer,
     // This tracer is designed specifically for calculating refunds and saves the results to `VmResultAndLogs`.
     pub refund_tracer: Option<RefundsTracer>,
@@ -27,6 +29,7 @@ pub struct VmTracerManager<S: ReadStorage> {
     // memory at the end of the batch. Its separation from the custom tracer
     // ensures static dispatch, enhancing performance by avoiding dynamic dispatch overhe
     pub pubdata_tracer: PubdataTracer,
+    // This tracers keeps track of opcodes calls and collects circuits statistics
     pub circuits_tracer: CircuitsTracer,
     storage: StoragePtr<S>,
 }
@@ -87,6 +90,7 @@ impl<S: ReadStorage + 'static> VmTracerManager<S> {
                     _ => TracerExecutionStatus::Continue,
                 }
             }
+            // any other output means the vm has finished executing
             _ => TracerExecutionStatus::Stop(TracerExecutionStopReason::Finish),
         }
     }
@@ -207,6 +211,9 @@ impl<S: ReadStorage + 'static> VmTracer<S> for VmTracerManager<S> {
             .bootloader_hook_call(state, hook.clone(), hook_params);
     }
 
+    // here we apply the stricter, to make sure that the stricter output is returned
+    // for example: if one tracer output is Continue and the other Finish, Finish is stricter
+    // so we would return Finish as the final output.
     fn after_vm_run(&mut self, vm: &mut Vm<S>, output: ExecutionOutput) -> TracerExecutionStatus {
         // Call the dispatcher to handle all the tracers added to it
         let mut result = self.dispatcher.after_vm_run(vm, output.clone());
