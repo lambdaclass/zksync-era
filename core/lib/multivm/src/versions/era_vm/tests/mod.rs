@@ -1,3 +1,4 @@
+mod block_tip;
 mod bootloader;
 mod bytecode_publishing;
 mod call_tracer;

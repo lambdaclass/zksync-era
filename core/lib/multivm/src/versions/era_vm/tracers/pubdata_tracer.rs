@@ -1,14 +1,16 @@
+use itertools::Itertools;
 use zksync_state::ReadStorage;
 use zksync_types::{
     event::{
         extract_l2tol1logs_from_l1_messenger, extract_long_l2_to_l1_messages,
         L1_MESSENGER_BYTECODE_PUBLICATION_EVENT_SIGNATURE,
     },
-    L1_MESSENGER_ADDRESS, U256,
+    writes::StateDiffRecord,
+    AccountTreeId, StorageKey, L1_MESSENGER_ADDRESS, U256,
 };
 use zksync_utils::u256_to_h256;
 
-use super::traits::{Tracer, VmTracer};
+use super::traits::{Tracer, Vm, VmTracer};
 use crate::{
     era_vm::{
         bootloader_state::utils::{apply_pubdata_to_memory, PubdataInput},
@@ -22,6 +24,9 @@ pub struct PubdataTracer {
     execution_mode: VmExecutionMode,
     pubdata_before_run: i32,
     pub pubdata_published: u32,
+    // this field is to enforce a custom storage diff when setting the pubdata to the bootloader
+    // this is meant to be used for testing purposes only.
+    enforced_storage_diff: Option<Vec<StateDiffRecord>>,
 }
 
 impl PubdataTracer {
@@ -30,7 +35,58 @@ impl PubdataTracer {
             execution_mode,
             pubdata_before_run: 0,
             pubdata_published: 0,
+            enforced_storage_diff: None,
         }
+    }
+
+    pub fn new_with_forced_state_diffs(
+        execution_mode: VmExecutionMode,
+        diff: Vec<StateDiffRecord>,
+    ) -> Self {
+        Self {
+            enforced_storage_diff: Some(diff),
+            ..Self::new(execution_mode)
+        }
+    }
+
+    fn get_storage_diff<S: ReadStorage>(&mut self, vm: &Vm<S>) -> Vec<StateDiffRecord> {
+        vm.inner
+            .state
+            .get_storage_changes()
+            .iter()
+            .filter_map(|(storage_key, initial_value, value)| {
+                let address = storage_key.address;
+
+                if address == L1_MESSENGER_ADDRESS {
+                    return None;
+                }
+
+                let key = storage_key.key;
+
+                let diff = StateDiffRecord {
+                    key,
+                    address,
+                    derived_key:
+                        zk_evm_1_5_0::aux_structures::LogQuery::derive_final_address_for_params(
+                            &address, &key,
+                        ),
+                    enumeration_index: vm
+                        .storage
+                        .borrow_mut()
+                        .get_enumeration_index(&StorageKey::new(
+                            AccountTreeId::new(address),
+                            u256_to_h256(key),
+                        ))
+                        .unwrap_or_default(),
+                    initial_value: initial_value.unwrap_or_default(),
+                    final_value: value.clone(),
+                };
+
+                Some(diff)
+            })
+            // the compressor expects the storage diff to be sorted
+            .sorted_by(|a, b| a.address.cmp(&b.address).then_with(|| a.key.cmp(&b.key)))
+            .collect()
     }
 }
 
@@ -47,13 +103,19 @@ impl<S: ReadStorage + 'static> VmTracer<S> for PubdataTracer {
 
     fn bootloader_hook_call(
         &mut self,
-        vm: &mut super::traits::Vm<S>,
+        vm: &mut Vm<S>,
         hook: Hook,
         _hook_params: &[zksync_types::U256; 3],
     ) {
         if let Hook::PubdataRequested = hook {
             if !matches!(self.execution_mode, VmExecutionMode::Batch) {
                 unreachable!("We do not provide the pubdata when executing the block tip or a single transaction");
+            };
+
+            let state_diffs = if let Some(diff) = &self.enforced_storage_diff {
+                diff.clone()
+            } else {
+                self.get_storage_diff(&vm)
             };
 
             let events = merge_events(vm.inner.state.events(), vm.batch_env.number);
@@ -80,7 +142,7 @@ impl<S: ReadStorage + 'static> VmTracer<S> for PubdataTracer {
                 user_logs: extract_l2tol1logs_from_l1_messenger(&events),
                 l2_to_l1_messages: extract_long_l2_to_l1_messages(&events),
                 published_bytecodes,
-                state_diffs: vm.get_storage_diff(),
+                state_diffs,
             };
 
             // Save the pubdata for the future initial bootloader memory building

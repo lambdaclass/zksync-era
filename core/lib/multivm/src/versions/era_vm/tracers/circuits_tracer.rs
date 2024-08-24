@@ -88,6 +88,7 @@ impl CircuitsTracer {
             secp255r1_verify_cycles: secp256k1_verify_cycles,
             sha256_cycles,
             storage_application_cycles,
+            ..
         } = *vm_statistics;
 
         CircuitStatistic {

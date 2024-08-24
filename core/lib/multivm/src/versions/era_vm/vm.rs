@@ -28,8 +28,8 @@ use super::{
     logs::IntoSystemLog,
     snapshot::VmSnapshot,
     tracers::{
-        dispatcher::TracerDispatcher, manager::VmTracerManager, refunds_tracer::RefundsTracer,
-        traits::VmTracer,
+        dispatcher::TracerDispatcher, manager::VmTracerManager, pubdata_tracer::PubdataTracer,
+        refunds_tracer::RefundsTracer, traits::VmTracer,
     },
 };
 use crate::{
@@ -214,46 +214,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
         }
     }
 
-    pub fn get_storage_diff(&mut self) -> Vec<StateDiffRecord> {
-        self.inner
-            .state
-            .get_storage_changes()
-            .iter()
-            .filter_map(|(storage_key, initial_value, value)| {
-                let address = storage_key.address;
-
-                if address == L1_MESSENGER_ADDRESS {
-                    return None;
-                }
-
-                let key = storage_key.key;
-
-                let diff = StateDiffRecord {
-                    key,
-                    address,
-                    derived_key:
-                        zk_evm_1_5_0::aux_structures::LogQuery::derive_final_address_for_params(
-                            &address, &key,
-                        ),
-                    enumeration_index: self
-                        .storage
-                        .borrow_mut()
-                        .get_enumeration_index(&StorageKey::new(
-                            AccountTreeId::new(address),
-                            u256_to_h256(key),
-                        ))
-                        .unwrap_or_default(),
-                    initial_value: initial_value.unwrap_or_default(),
-                    final_value: value.clone(),
-                };
-
-                Some(diff)
-            })
-            // the compressor expects the storage diff to be sorted
-            .sorted_by(|a, b| a.address.cmp(&b.address).then_with(|| a.key.cmp(&b.key)))
-            .collect()
-    }
-
     pub fn push_transaction_inner(&mut self, tx: Transaction, refund: u64, with_compression: bool) {
         let tx: TransactionData = tx.into();
         let overhead = tx.overhead_gas();
@@ -290,18 +250,11 @@ impl<S: ReadStorage + 'static> Vm<S> {
 
         self.write_to_bootloader_heap(memory);
     }
-}
 
-impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
-    type TracerDispatcher = TracerDispatcher<S>;
-
-    fn push_transaction(&mut self, tx: Transaction) {
-        self.push_transaction_inner(tx, 0, true);
-    }
-
-    fn inspect(
+    pub fn inspect_inner(
         &mut self,
-        tracer: Self::TracerDispatcher,
+        tracer: TracerDispatcher<S>,
+        custom_pubdata_tracer: Option<PubdataTracer>,
         execution_mode: VmExecutionMode,
     ) -> VmExecutionResultAndLogs {
         let mut track_refunds = false;
@@ -316,14 +269,23 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
         } else {
             None
         };
-        let mut tracer =
-            VmTracerManager::new(execution_mode, self.storage.clone(), tracer, refund_tracer);
+        let mut tracer = VmTracerManager::new(
+            execution_mode,
+            self.storage.clone(),
+            tracer,
+            refund_tracer,
+            custom_pubdata_tracer,
+        );
         let snapshot = self.inner.state.snapshot();
+
+        let ergs_before = self.inner.execution.gas_left().unwrap();
+        let monotonic_counter_before = self.inner.statistics.monotonic_counter;
 
         self.run(&mut tracer);
         // it is actually safe to unwrap here, since we always expect a result
         // the reason we use an option is because we really can't set an initial value in the result tracer
         let result = tracer.result_tracer.result.unwrap();
+        let ergs_after = self.inner.execution.gas_left().unwrap();
 
         let ignore_world_diff = matches!(execution_mode, VmExecutionMode::OneTx)
             && matches!(result, ExecutionResult::Halt { .. });
@@ -386,11 +348,11 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
             result,
             logs,
             statistics: VmExecutionStatistics {
-                contracts_used: 0,
-                cycles_used: 0,
-                gas_used: 0,
-                gas_remaining: 0,
-                computational_gas_used: 0,
+                contracts_used: self.inner.state.decommitted_hashes().len(),
+                cycles_used: self.inner.statistics.monotonic_counter - monotonic_counter_before,
+                gas_used: (ergs_before - ergs_after) as u64,
+                gas_remaining: ergs_after,
+                computational_gas_used: ergs_before - ergs_after,
                 total_log_queries: 0,
                 pubdata_published: tracer.pubdata_tracer.pubdata_published,
                 circuit_statistic: tracer
@@ -399,6 +361,22 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
             },
             refunds: tracer.refund_tracer.unwrap_or_default().into(),
         }
+    }
+}
+
+impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
+    type TracerDispatcher = TracerDispatcher<S>;
+
+    fn push_transaction(&mut self, tx: Transaction) {
+        self.push_transaction_inner(tx, 0, true);
+    }
+
+    fn inspect(
+        &mut self,
+        tracer: Self::TracerDispatcher,
+        execution_mode: VmExecutionMode,
+    ) -> VmExecutionResultAndLogs {
+        self.inspect_inner(tracer, None, execution_mode)
     }
 
     fn get_bootloader_memory(&self) -> BootloaderMemory {

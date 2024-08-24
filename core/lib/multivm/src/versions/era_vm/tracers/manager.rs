@@ -40,6 +40,7 @@ impl<S: ReadStorage + 'static> VmTracerManager<S> {
         storage: StoragePtr<S>,
         dispatcher: TracerDispatcher<S>,
         refund_tracer: Option<RefundsTracer>,
+        pubdata_tracer: Option<PubdataTracer>,
     ) -> Self {
         Self {
             execution_mode,
@@ -47,7 +48,7 @@ impl<S: ReadStorage + 'static> VmTracerManager<S> {
             refund_tracer,
             circuits_tracer: CircuitsTracer::new(),
             result_tracer: ResultTracer::new(),
-            pubdata_tracer: PubdataTracer::new(execution_mode),
+            pubdata_tracer: pubdata_tracer.unwrap_or(PubdataTracer::new(execution_mode)),
             storage,
         }
     }
