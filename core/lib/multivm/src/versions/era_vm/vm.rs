@@ -393,7 +393,9 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
                 computational_gas_used: 0,
                 total_log_queries: 0,
                 pubdata_published: tracer.pubdata_tracer.pubdata_published,
-                circuit_statistic: Default::default(),
+                circuit_statistic: tracer
+                    .circuits_tracer
+                    .circuit_statistics(&self.inner.statistics),
             },
             refunds: tracer.refund_tracer.unwrap_or_default().into(),
         }

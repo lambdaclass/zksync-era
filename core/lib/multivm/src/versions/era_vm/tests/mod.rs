@@ -1,6 +1,7 @@
 mod bootloader;
 mod bytecode_publishing;
 mod call_tracer;
+mod circuits;
 mod code_oracle;
 mod default_aa;
 mod gas_limit;
