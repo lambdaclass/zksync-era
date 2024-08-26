@@ -2,23 +2,18 @@ use era_vm::{
     execution::Execution, opcode::Opcode, state::VMState, tracers::tracer::Tracer,
     vm::ExecutionOutput,
 };
-use zksync_state::{ReadStorage, StoragePtr};
+use zksync_state::ReadStorage;
 
 use super::{
     circuits_tracer::CircuitsTracer, dispatcher::TracerDispatcher, pubdata_tracer::PubdataTracer,
     refunds_tracer::RefundsTracer, traits::VmTracer,
 };
-use crate::{
-    era_vm::{bootloader_state::utils::apply_l2_block, hook::Hook, vm::Vm},
-    interface::tracer::{TracerExecutionStatus, TracerExecutionStopReason},
-    vm_1_4_1::VmExecutionMode,
-};
+use crate::{era_vm::vm::Vm, interface::tracer::TracerExecutionStatus, vm_1_4_1::VmExecutionMode};
 
 // this tracer manager is the one that gets called when running the vm
 // all the logic of hooks and results parsing is managed from here
 // the most important tracers are: `result_tracer`, `refund_tracer`, `pubdata_tracer`, and `circuits_tracer`
 pub struct VmTracerManager<S: ReadStorage> {
-    execution_mode: VmExecutionMode,
     pub dispatcher: TracerDispatcher<S>,
     // This tracer is designed specifically for calculating refunds and saves the results to `VmResultAndLogs`.
     // it is marked as optional, because tipically we want to track refunds when we are in OneTx mode.
@@ -29,24 +24,20 @@ pub struct VmTracerManager<S: ReadStorage> {
     // This tracers keeps track of opcodes calls and collects circuits statistics
     // used later by the prover
     pub circuits_tracer: CircuitsTracer,
-    storage: StoragePtr<S>,
 }
 
-impl<S: ReadStorage + 'static> VmTracerManager<S> {
+impl<S: ReadStorage> VmTracerManager<S> {
     pub fn new(
         execution_mode: VmExecutionMode,
-        storage: StoragePtr<S>,
         dispatcher: TracerDispatcher<S>,
         refund_tracer: Option<RefundsTracer>,
         pubdata_tracer: Option<PubdataTracer>,
     ) -> Self {
         Self {
-            execution_mode,
             dispatcher,
             refund_tracer,
             circuits_tracer: CircuitsTracer::new(),
             pubdata_tracer: pubdata_tracer.unwrap_or(PubdataTracer::new(execution_mode)),
-            storage,
         }
     }
 }

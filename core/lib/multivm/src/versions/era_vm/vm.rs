@@ -4,7 +4,6 @@ use era_vm::{
     rollbacks::Rollbackable, store::StorageKey as EraStorageKey, value::FatPointer,
     vm::ExecutionOutput, EraVM, Execution,
 };
-use itertools::Itertools;
 use zksync_state::{ReadStorage, StoragePtr};
 use zksync_types::{
     event::extract_l2tol1logs_from_l1_messenger,
@@ -12,12 +11,12 @@ use zksync_types::{
     l2_to_l1_log::UserL2ToL1Log,
     utils::key_for_eth_balance,
     writes::{
-        compression::compress_with_best_strategy, StateDiffRecord, BYTES_PER_DERIVED_KEY,
+        compression::compress_with_best_strategy, BYTES_PER_DERIVED_KEY,
         BYTES_PER_ENUMERATION_INDEX,
     },
     AccountTreeId, StorageKey, StorageLog, StorageLogKind, StorageLogWithPreviousValue,
-    Transaction, BOOTLOADER_ADDRESS, H160, KNOWN_CODES_STORAGE_ADDRESS, L1_MESSENGER_ADDRESS,
-    L2_BASE_TOKEN_ADDRESS, U256,
+    Transaction, BOOTLOADER_ADDRESS, H160, KNOWN_CODES_STORAGE_ADDRESS, L2_BASE_TOKEN_ADDRESS,
+    U256,
 };
 use zksync_utils::{
     bytecode::{hash_bytecode, CompressedBytecodeInfo},
@@ -385,13 +384,8 @@ impl<S: ReadStorage + 'static> Vm<S> {
         } else {
             None
         };
-        let mut tracer = VmTracerManager::new(
-            execution_mode,
-            self.storage.clone(),
-            tracer,
-            refund_tracer,
-            custom_pubdata_tracer,
-        );
+        let mut tracer =
+            VmTracerManager::new(execution_mode, tracer, refund_tracer, custom_pubdata_tracer);
         let snapshot = self.inner.state.snapshot();
 
         let ergs_before = self.inner.execution.gas_left().unwrap();
