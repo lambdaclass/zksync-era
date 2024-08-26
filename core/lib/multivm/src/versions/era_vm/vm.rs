@@ -159,7 +159,9 @@ impl<S: ReadStorage + 'static> Vm<S> {
         tracer.before_bootloader_execution(self);
         let mut last_tx_result: Option<ExecutionResult> = None;
         let result = loop {
-            let output = self.inner.run_program_with_custom_bytecode(Some(tracer));
+            let output = self
+                .inner
+                .run_program_with_custom_bytecode_and_tracer(tracer);
             let status = tracer.after_vm_run(self, output.clone());
             let (hook, hook_params) = match output {
                 ExecutionOutput::Ok(output) => break ExecutionResult::Success { output },

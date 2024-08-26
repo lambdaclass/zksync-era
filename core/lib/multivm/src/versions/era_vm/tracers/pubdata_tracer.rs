@@ -17,12 +17,14 @@ use crate::{
         event::merge_events,
         hook::Hook,
     },
+    interface::tracer::{TracerExecutionStatus, TracerExecutionStopReason},
     vm_1_4_1::VmExecutionMode,
 };
 
 pub struct PubdataTracer {
     execution_mode: VmExecutionMode,
     pubdata_before_run: i32,
+    should_stop: bool,
     pub pubdata_published: u32,
     // this field is to enforce a custom storage diff when setting the pubdata to the bootloader
     // this is meant to be used for testing purposes only.
@@ -36,6 +38,7 @@ impl PubdataTracer {
             pubdata_before_run: 0,
             pubdata_published: 0,
             enforced_storage_diff: None,
+            should_stop: false,
         }
     }
 
@@ -49,7 +52,7 @@ impl PubdataTracer {
         }
     }
 
-    fn get_storage_diff<S: ReadStorage>(&mut self, vm: &Vm<S>) -> Vec<StateDiffRecord> {
+    fn get_storage_diff<S: ReadStorage>(&mut self, vm: &mut Vm<S>) -> Vec<StateDiffRecord> {
         vm.inner
             .state
             .get_storage_changes()
@@ -101,6 +104,17 @@ impl<S: ReadStorage + 'static> VmTracer<S> for PubdataTracer {
         self.pubdata_published = (vm.inner.state.pubdata() - self.pubdata_before_run).max(0) as u32;
     }
 
+    fn after_vm_run(
+        &mut self,
+        _vm: &mut Vm<S>,
+        _output: era_vm::vm::ExecutionOutput,
+    ) -> TracerExecutionStatus {
+        if self.should_stop {
+            return TracerExecutionStatus::Stop(TracerExecutionStopReason::Finish);
+        }
+        TracerExecutionStatus::Continue
+    }
+
     fn bootloader_hook_call(
         &mut self,
         vm: &mut Vm<S>,
@@ -109,13 +123,13 @@ impl<S: ReadStorage + 'static> VmTracer<S> for PubdataTracer {
     ) {
         if let Hook::PubdataRequested = hook {
             if !matches!(self.execution_mode, VmExecutionMode::Batch) {
-                unreachable!("We do not provide the pubdata when executing the block tip or a single transaction");
+                self.should_stop = true;
             };
 
             let state_diffs = if let Some(diff) = &self.enforced_storage_diff {
                 diff.clone()
             } else {
-                self.get_storage_diff(&vm)
+                self.get_storage_diff(vm)
             };
 
             let events = merge_events(vm.inner.state.events(), vm.batch_env.number);
