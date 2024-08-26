@@ -16,7 +16,10 @@ use ethabi::{
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use zksync_config::configs::house_keeper::HouseKeeperConfig;
+use zksync_config::configs::{
+    house_keeper::HouseKeeperConfig,
+    use_evm_simulator::{self, UseEvmSimulator},
+};
 use zksync_env_config::FromEnv;
 use zksync_utils::{bytecode::hash_bytecode, bytes_to_be_words, workspace_dir_or_current_dir};
 
@@ -340,15 +343,9 @@ impl BaseSystemContracts {
             read_sys_contract_bytecode("", "EvmInterpreter", ContractLanguage::Yul);
         let evm_simulator_hash = hash_bytecode(&evm_simulator_bytecode);
 
-        let house_config = HouseKeeperConfig::from_env(); // Change this for the real config
-
-        println!(
-            "HouseKeeperConfig aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: {:?}",
-            house_config
-        );
-
-        let use_evm_simulator: bool = false;
-        if !use_evm_simulator {
+        let use_evm_simulator =
+            UseEvmSimulator::from_env().expect("USE EVM SIMULATOR FLAG SHOULD BE SET");
+        if !use_evm_simulator.use_evm_simulator {
             evm_simulator_bytecode = vec![];
         }
 
