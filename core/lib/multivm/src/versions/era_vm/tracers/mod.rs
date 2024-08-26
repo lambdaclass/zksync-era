@@ -3,5 +3,4 @@ pub mod dispatcher;
 pub mod manager;
 pub mod pubdata_tracer;
 pub mod refunds_tracer;
-pub mod result_tracer;
 pub mod traits;

@@ -8,7 +8,6 @@ use zksync_types::{
 };
 
 use super::CallTracer;
-
 use crate::{
     era_vm::tracers::traits::{Tracer, VmTracer},
     interface::VmRevertReason,

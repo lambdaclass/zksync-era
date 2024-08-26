@@ -1,6 +1,9 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use era_vm::{rollbacks::Rollbackable, store::StorageKey as EraStorageKey, EraVM, Execution};
+use era_vm::{
+    rollbacks::Rollbackable, store::StorageKey as EraStorageKey, value::FatPointer,
+    vm::ExecutionOutput, EraVM, Execution,
+};
 use itertools::Itertools;
 use zksync_state::{ReadStorage, StoragePtr};
 use zksync_types::{
@@ -22,8 +25,9 @@ use zksync_utils::{
 };
 
 use super::{
-    bootloader_state::BootloaderState,
+    bootloader_state::{utils::apply_l2_block, BootloaderState},
     event::merge_events,
+    hook::Hook,
     initial_bootloader_memory::bootloader_initial_memory,
     logs::IntoSystemLog,
     snapshot::VmSnapshot,
@@ -34,10 +38,14 @@ use super::{
 };
 use crate::{
     era_vm::{bytecode::compress_bytecodes, transaction_data::TransactionData},
-    interface::{tracer::TracerExecutionStatus, VmFactory, VmInterface, VmInterfaceHistoryEnabled},
+    interface::{
+        tracer::{TracerExecutionStatus, TracerExecutionStopReason},
+        Halt, TxRevertReason, VmFactory, VmInterface, VmInterfaceHistoryEnabled, VmRevertReason,
+    },
     vm_latest::{
         constants::{
-            get_vm_hook_position, get_vm_hook_start_position_latest, VM_HOOK_PARAMS_COUNT,
+            get_result_success_first_slot, get_vm_hook_position, get_vm_hook_start_position_latest,
+            VM_HOOK_PARAMS_COUNT,
         },
         BootloaderMemory, CurrentExecutionState, ExecutionResult, L1BatchEnv, L2BlockEnv,
         SystemEnv, VmExecutionLogs, VmExecutionMode, VmExecutionResultAndLogs,
@@ -144,18 +152,126 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
 }
 
 impl<S: ReadStorage + 'static> Vm<S> {
-    pub fn run(&mut self, tracer: &mut impl VmTracer<S>) {
+    pub fn run(
+        &mut self,
+        execution_mode: VmExecutionMode,
+        tracer: &mut impl VmTracer<S>,
+    ) -> ExecutionResult {
         tracer.before_bootloader_execution(self);
-        loop {
+        let mut last_tx_result: Option<ExecutionResult> = None;
+        let result = loop {
             let output = self.inner.run_program_with_custom_bytecode(Some(tracer));
+            let status = tracer.after_vm_run(self, output.clone());
+            let (hook, hook_params) = match output {
+                ExecutionOutput::Ok(output) => break ExecutionResult::Success { output },
+                ExecutionOutput::Revert(output) => match TxRevertReason::parse_error(&output) {
+                    TxRevertReason::TxReverted(output) => break ExecutionResult::Revert { output },
+                    TxRevertReason::Halt(reason) => break ExecutionResult::Halt { reason },
+                },
+                ExecutionOutput::Panic => {
+                    break ExecutionResult::Halt {
+                        reason: if self.inner.execution.gas_left().unwrap() == 0 {
+                            Halt::BootloaderOutOfGas
+                        } else {
+                            Halt::VMPanic
+                        },
+                    }
+                }
+                ExecutionOutput::SuspendedOnHook {
+                    hook,
+                    pc_to_resume_from,
+                } => {
+                    self.suspended_at = pc_to_resume_from;
+                    self.inner.execution.current_frame_mut().unwrap().pc = self.suspended_at as u64;
+                    (Hook::from_u32(hook), self.get_hook_params())
+                }
+            };
 
-            let status = tracer.after_vm_run(self, output);
+            tracer.bootloader_hook_call(self, hook.clone(), &self.get_hook_params());
 
-            if let TracerExecutionStatus::Stop(_) = status {
-                break;
+            match hook {
+                Hook::PostResult => {
+                    let result = hook_params[0];
+                    let value = hook_params[1];
+                    let pointer = FatPointer::decode(value);
+                    assert_eq!(pointer.offset, 0);
+
+                    let return_data = self
+                        .inner
+                        .execution
+                        .heaps
+                        .get(pointer.page)
+                        .unwrap()
+                        .read_unaligned_from_pointer(&pointer)
+                        .unwrap();
+
+                    last_tx_result = Some(if result.is_zero() {
+                        ExecutionResult::Revert {
+                            output: VmRevertReason::from(return_data.as_slice()),
+                        }
+                    } else {
+                        ExecutionResult::Success {
+                            output: return_data,
+                        }
+                    });
+                }
+                Hook::TxHasEnded => {
+                    if let VmExecutionMode::OneTx = execution_mode {
+                        break last_tx_result
+                            .expect("There should always be a result if we got this hook");
+                    }
+                }
+                Hook::FinalBatchInfo => {
+                    // set fictive l2 block
+                    let txs_index = self.bootloader_state.free_tx_index();
+                    let l2_block = self.bootloader_state.insert_fictive_l2_block();
+                    let mut memory = vec![];
+                    apply_l2_block(&mut memory, l2_block, txs_index);
+                    self.write_to_bootloader_heap(memory);
+                }
+                _ => {}
             }
-        }
+
+            if let TracerExecutionStatus::Stop(reason) = status {
+                match reason {
+                    TracerExecutionStopReason::Abort(halt) => {
+                        break ExecutionResult::Halt { reason: halt }
+                    }
+                    TracerExecutionStopReason::Finish => {
+                        if self.inner.execution.gas_left().unwrap() == 0 {
+                            break ExecutionResult::Halt {
+                                reason: Halt::BootloaderOutOfGas,
+                            };
+                        }
+                        if last_tx_result.is_some() {
+                            break last_tx_result.unwrap();
+                        }
+                        let has_failed =
+                            self.tx_has_failed(self.bootloader_state.current_tx() as u32);
+                        if has_failed {
+                            break ExecutionResult::Revert {
+                                output: crate::interface::VmRevertReason::General {
+                                    msg: "Transaction reverted with empty reason. Possibly out of gas".to_string(),
+                                    data: vec![],
+                                },
+                            };
+                        } else {
+                            break ExecutionResult::Success { output: vec![] };
+                        }
+                    }
+                }
+            }
+        };
         tracer.after_bootloader_execution(self);
+        result
+    }
+
+    fn tx_has_failed(&self, tx_id: u32) -> bool {
+        let mem_slot = get_result_success_first_slot(
+            crate::vm_latest::MultiVMSubversion::IncreasedBootloaderMemory,
+        ) + tx_id;
+        let mem_value = self.read_heap_word(mem_slot as usize);
+        mem_value == U256::zero()
     }
 
     pub(crate) fn insert_bytecodes<'a>(&mut self, bytecodes: impl IntoIterator<Item = &'a [u8]>) {
@@ -281,10 +397,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
         let ergs_before = self.inner.execution.gas_left().unwrap();
         let monotonic_counter_before = self.inner.statistics.monotonic_counter;
 
-        self.run(&mut tracer);
-        // it is actually safe to unwrap here, since we always expect a result
-        // the reason we use an option is because we really can't set an initial value in the result tracer
-        let result = tracer.result_tracer.result.unwrap();
+        let result = self.run(execution_mode, &mut tracer);
         let ergs_after = self.inner.execution.gas_left().unwrap();
 
         let ignore_world_diff = matches!(execution_mode, VmExecutionMode::OneTx)
