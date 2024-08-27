@@ -84,12 +84,14 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
                 .base_system_smart_contracts
                 .default_aa
                 .hash
-                .to_fixed_bytes(),
+                .to_fixed_bytes()
+                .into(),
             system_env
                 .base_system_smart_contracts
                 .default_aa //TODO: Add real evm interpreter
                 .hash
-                .to_fixed_bytes(),
+                .to_fixed_bytes()
+                .into(),
             vm_hook_position,
             true,
             u32::MAX - 0x80000000, //TODO: Maybe we want to pass in a parameter
