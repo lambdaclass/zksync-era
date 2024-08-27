@@ -1,5 +1,8 @@
-use era_vm::{value::FatPointer, Execution, Opcode};
-use zkevm_opcode_defs::{Opcode as Variant, RetOpcode};
+use era_vm::{
+    opcode::{RetOpcode, Variant},
+    value::FatPointer,
+    Execution, Opcode,
+};
 use zksync_state::ReadStorage;
 use zksync_types::{
     vm_trace::{Call, CallType},
@@ -18,7 +21,7 @@ impl Tracer for CallTracer {
         &mut self,
         opcode: &Opcode,
         execution: &mut era_vm::Execution,
-        state: &mut era_vm::state::VMState,
+        _state: &mut era_vm::state::VMState,
     ) {
         match opcode.variant {
             Variant::NearCall(_) => {

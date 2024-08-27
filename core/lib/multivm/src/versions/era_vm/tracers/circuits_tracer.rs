@@ -1,9 +1,8 @@
 use circuit_sequencer_api_1_5_0::{geometry_config::get_geometry_config, toolset::GeometryConfig};
 use era_vm::{
-    opcode::{Opcode, Variant},
+    opcode::{LogOpcode, Opcode, UMAOpcode, Variant},
     statistics::VmStatistics,
 };
-use zkevm_opcode_defs::{LogOpcode, UMAOpcode};
 use zksync_state::ReadStorage;
 use zksync_types::circuit::CircuitStatistic;
 
