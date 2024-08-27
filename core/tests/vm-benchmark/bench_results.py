@@ -39,12 +39,17 @@ def main():
     for machine, total_time in results.items():
         print(f"Total {machine} time: {total_time:.3f} ms")
 
+    if not "lambda" in results:
+        return
+
     print("")
 
-    lambda_vs_legacy = round(results["lambda"] / results["legacy"], 1)
-    lambda_vs_fast = round(results["lambda"] / results["fast"], 1)
-    print(f"lambda_vm took x{lambda_vs_legacy} more than legacy_vm")
-    print(f"lambda_vm took x{lambda_vs_fast} more than fast_vm")
+    if "legacy" in results:
+        lambda_vs_legacy = round(results["lambda"] / results["legacy"], 1)
+        print(f"lambda_vm took x{lambda_vs_legacy} more than legacy_vm")
+    if "fast" in results:
+        lambda_vs_fast = round(results["lambda"] / results["fast"], 1)
+        print(f"lambda_vm took x{lambda_vs_fast} more than fast_vm")
 
 if __name__ == "__main__":
     main()
