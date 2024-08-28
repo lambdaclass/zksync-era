@@ -12,18 +12,20 @@ use zksync_vm_benchmark_harness::{
 };
 
 const SAMPLE_SIZE: usize = 20;
-const ZKSYNC_HOME: &str = std::env::var("ZKSYNC_HOME");
-const BENCH_PATH: &str = format!(
-    "{}/core/tests/vm-benchmark/deployment_bechmarks",
-    ZKSYNC_HOME
-);
+const ZKSYNC_HOME: &str = std::env!("ZKSYNC_HOME");
+
 fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
     let mut group = c.benchmark_group(VM::LABEL.as_str());
     group
         .sample_size(SAMPLE_SIZE)
         .measurement_time(Duration::from_secs(10));
 
-    for path in std::fs::read_dir(BENCH_PATH).unwrap() {
+    let bench_path = format!(
+        "{}/core/tests/vm-benchmark/deployment_benchmarks",
+        ZKSYNC_HOME
+    );
+
+    for path in std::fs::read_dir(bench_path).unwrap() {
         let path = path.unwrap().path();
 
         let test_contract = std::fs::read(&path).expect("failed to read file");
