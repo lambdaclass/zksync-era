@@ -5,8 +5,8 @@ use era_vm::{
 use zksync_state::ReadStorage;
 
 use super::{
-    circuits_tracer::CircuitsTracer, dispatcher::TracerDispatcher, pubdata_tracer::PubdataTracer,
-    refunds_tracer::RefundsTracer, traits::VmTracer,
+    circuits_tracer::CircuitsTracer, debug_tracer::DebugTracer, dispatcher::TracerDispatcher,
+    pubdata_tracer::PubdataTracer, refunds_tracer::RefundsTracer, traits::VmTracer,
 };
 use crate::{era_vm::vm::Vm, interface::tracer::TracerExecutionStatus, vm_1_4_1::VmExecutionMode};
 
@@ -24,6 +24,8 @@ pub struct VmTracerManager<S: ReadStorage> {
     // This tracers keeps track of opcodes calls and collects circuits statistics
     // used later by the prover
     pub circuits_tracer: CircuitsTracer,
+    // Tracer used for debugging purposes
+    pub debug_tracer: Option<DebugTracer>,
 }
 
 impl<S: ReadStorage> VmTracerManager<S> {
@@ -38,6 +40,7 @@ impl<S: ReadStorage> VmTracerManager<S> {
             refund_tracer,
             circuits_tracer: CircuitsTracer::new(),
             pubdata_tracer: pubdata_tracer.unwrap_or(PubdataTracer::new(execution_mode)),
+            debug_tracer: None, // or Some(DebugTracer) to enable debugger
         }
     }
 }
@@ -51,6 +54,9 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.before_decoding(execution, state);
         }
+        if let Some(debug_tracer) = &mut self.debug_tracer {
+            debug_tracer.before_decoding(execution, state);
+        }
         self.pubdata_tracer.before_decoding(execution, state);
         self.circuits_tracer.before_decoding(execution, state);
     }
@@ -62,6 +68,9 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
         // Individual tracers
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.after_decoding(opcode, execution, state);
+        }
+        if let Some(debug_tracer) = &mut self.debug_tracer {
+            debug_tracer.after_decoding(opcode, execution, state);
         }
         self.pubdata_tracer.after_decoding(opcode, execution, state);
         self.circuits_tracer
@@ -81,6 +90,9 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.before_execution(opcode, execution, state);
         }
+        if let Some(debug_tracer) = &mut self.debug_tracer {
+            debug_tracer.before_execution(opcode, execution, state);
+        }
         self.pubdata_tracer
             .before_execution(opcode, execution, state);
         self.circuits_tracer
@@ -94,6 +106,9 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
         // Individual tracers
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.after_execution(opcode, execution, state);
+        }
+        if let Some(debug_tracer) = &mut self.debug_tracer {
+            debug_tracer.after_execution(opcode, execution, state);
         }
         self.pubdata_tracer
             .after_execution(opcode, execution, state);
@@ -111,6 +126,9 @@ impl<S: ReadStorage + 'static> VmTracer<S> for VmTracerManager<S> {
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.before_bootloader_execution(state);
         }
+        if let Some(debug_tracer) = &mut self.debug_tracer {
+            debug_tracer.before_bootloader_execution(state);
+        }
         self.pubdata_tracer.before_bootloader_execution(state);
         self.circuits_tracer.before_bootloader_execution(state);
     }
@@ -122,6 +140,9 @@ impl<S: ReadStorage + 'static> VmTracer<S> for VmTracerManager<S> {
         // Individual tracers
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.after_bootloader_execution(state);
+        }
+        if let Some(debug_tracer) = &mut self.debug_tracer {
+            debug_tracer.after_bootloader_execution(state);
         }
         self.pubdata_tracer.after_bootloader_execution(state);
         self.circuits_tracer.after_bootloader_execution(state);
@@ -141,6 +162,9 @@ impl<S: ReadStorage + 'static> VmTracer<S> for VmTracerManager<S> {
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             refunds_tracer.bootloader_hook_call(state, hook.clone(), hook_params);
         }
+        if let Some(debug_tracer) = &mut self.debug_tracer {
+            debug_tracer.bootloader_hook_call(state, hook.clone(), hook_params);
+        }
         self.pubdata_tracer
             .bootloader_hook_call(state, hook.clone(), hook_params);
         self.circuits_tracer
@@ -157,6 +181,11 @@ impl<S: ReadStorage + 'static> VmTracer<S> for VmTracerManager<S> {
         // Individual tracers
         if let Some(refunds_tracer) = &mut self.refund_tracer {
             result = refunds_tracer
+                .after_vm_run(vm, output.clone())
+                .stricter(&result);
+        }
+        if let Some(debug_tracer) = &mut self.debug_tracer {
+            result = debug_tracer
                 .after_vm_run(vm, output.clone())
                 .stricter(&result);
         }
