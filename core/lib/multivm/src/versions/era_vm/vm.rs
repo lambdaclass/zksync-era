@@ -33,11 +33,8 @@ use super::{
     logs::IntoSystemLog,
     snapshot::VmSnapshot,
     tracers::{
-        dispatcher::TracerDispatcher,
-        manager::VmTracerManager,
-        pubdata_tracer::PubdataTracer,
-        refunds_tracer::{Refunds, RefundsTracer},
-        traits::VmTracer,
+        dispatcher::TracerDispatcher, manager::VmTracerManager, pubdata_tracer::PubdataTracer,
+        refunds_tracer::RefundsTracer, traits::VmTracer,
     },
     transaction::ParallelTransaction,
 };
@@ -47,7 +44,6 @@ use crate::{
         tracer::{TracerExecutionStatus, TracerExecutionStopReason},
         Halt, TxRevertReason, VmFactory, VmInterface, VmInterfaceHistoryEnabled, VmRevertReason,
     },
-    vm_1_4_1::FinishedL1Batch,
     vm_latest::{
         constants::{
             get_result_success_first_slot, get_vm_hook_position, get_vm_hook_start_position_latest,
@@ -700,30 +696,6 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
 
     fn gas_remaining(&self) -> u32 {
         self.inner.execution.current_frame().unwrap().gas_left.0
-    }
-
-    fn finish_batch(&mut self) -> FinishedL1Batch {
-        let result = self.execute(VmExecutionMode::Batch);
-        let execution_state = self.get_current_execution_state();
-        let bootloader_memory = self.get_bootloader_memory();
-
-        FinishedL1Batch {
-            block_tip_execution_result: result,
-            final_execution_state: execution_state,
-            final_bootloader_memory: Some(bootloader_memory),
-            pubdata_input: Some(
-                self.bootloader_state
-                    .get_pubdata_information()
-                    .clone()
-                    .build_pubdata(false),
-            ),
-            state_diffs: Some(
-                self.bootloader_state
-                    .get_pubdata_information()
-                    .state_diffs
-                    .to_vec(),
-            ),
-        }
     }
 }
 
