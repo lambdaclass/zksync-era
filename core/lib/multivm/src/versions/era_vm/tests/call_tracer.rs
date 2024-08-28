@@ -18,7 +18,6 @@ use crate::{
 
 // This test is ultra slow, so it's ignored by default.
 #[test]
-#[ignore]
 fn test_max_depth() {
     let contarct = read_max_depth_contract();
     let address = Address::random();
