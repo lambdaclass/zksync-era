@@ -226,7 +226,7 @@ async fn get_updates_manager_witness_input_data(
         .factory_deps_dal()
         .get_sealed_factory_dep(evm_simulator)
         .await?
-        .ok_or_else(|| anyhow!("Default account bytecode should exist"))?;
+        .ok_or_else(|| anyhow!("EVM Simulator bytecode should exist"))?;
     let evm_simulator_bytecode = bytes_to_chunks(&simulator_bytecode_bytes);
 
     let hashes: HashSet<H256> = finished_batch
