@@ -27,7 +27,7 @@ pub enum VmInstance<S: ReadStorage, H: HistoryMode> {
     Vm1_4_2(crate::vm_1_4_2::Vm<StorageView<S>, H>),
     Vm1_5_0(crate::vm_latest::Vm<StorageView<S>, H>),
     VmFast(crate::vm_fast::Vm<ImmutableStorageView<S>>),
-    Lambda(crate::era_vm::vm::Vm<zksync_state::InMemoryStorage>),
+    Lambda(crate::era_vm::vm::Vm<StorageView<S>>),
     ShadowedVmFast(ShadowedFastVm<S, H>),
 }
 
@@ -264,8 +264,7 @@ impl<S: ReadStorage, H: HistoryMode> VmInstance<S, H> {
                 FastVmMode::New => {
                     // let storage = ImmutableStorageView::new(storage_view);
                     // Self::VmFast(crate::vm_fast::Vm::new(l1_batch_env, system_env, storage))
-                    let vm =
-                        crate::era_vm::vm::Vm::new(l1_batch_env, system_env, Default::default());
+                    let vm = crate::era_vm::vm::Vm::new(l1_batch_env, system_env, storage_view);
                     Self::Lambda(vm)
                 }
                 FastVmMode::Shadow => {

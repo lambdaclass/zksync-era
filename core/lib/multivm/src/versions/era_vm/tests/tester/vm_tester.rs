@@ -54,11 +54,7 @@ impl VmTester {
     }
     pub(crate) fn reset_with_empty_storage(&mut self) {
         self.storage = Rc::new(RefCell::new(get_empty_storage()));
-        let world_storage = Rc::new(RefCell::new(World::new(
-            self.storage.clone(),
-            self.vm.program_cache.clone(),
-        )));
-        self.vm.inner.state.storage = world_storage;
+        self.vm.storage = Default::default();
         self.vm.inner.state.reset();
         self.reset_state(false);
     }

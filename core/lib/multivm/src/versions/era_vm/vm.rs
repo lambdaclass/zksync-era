@@ -5,7 +5,7 @@ use era_vm::{
     vm::ExecutionOutput, EraVM, Execution,
 };
 use itertools::Itertools;
-use zksync_state::{InMemoryStorage, ReadStorage, StoragePtr};
+use zksync_state::{ReadStorage, StoragePtr};
 use zksync_types::{
     event::{
         extract_l2tol1logs_from_l1_messenger, extract_long_l2_to_l1_messages,
@@ -46,6 +46,7 @@ use crate::{
         BytecodeCompressionError, Halt, TxRevertReason, VmFactory, VmInterface,
         VmInterfaceHistoryEnabled, VmRevertReason,
     },
+    vm_1_4_1::FinishedL1Batch,
     vm_latest::{
         constants::{
             get_vm_hook_position, get_vm_hook_start_position_latest, OPERATOR_REFUNDS_OFFSET,
@@ -57,8 +58,9 @@ use crate::{
     },
 };
 
-pub struct Vm<S> {
+pub struct Vm<S: ReadStorage> {
     pub(crate) inner: EraVM,
+    pub world: World<S>,
     pub suspended_at: u16,
     pub gas_for_account_validation: u32,
 
@@ -76,13 +78,9 @@ pub struct Vm<S> {
 }
 
 /// Encapsulates creating VM instance based on the provided environment.
-impl VmFactory<InMemoryStorage> for Vm<InMemoryStorage> {
+impl<S: ReadStorage> VmFactory<S> for Vm<S> {
     /// Creates a new VM instance.
-    fn new(
-        batch_env: L1BatchEnv,
-        system_env: SystemEnv,
-        storage: StoragePtr<InMemoryStorage>,
-    ) -> Self {
+    fn new(batch_env: L1BatchEnv, system_env: SystemEnv, storage: StoragePtr<S>) -> Self {
         let bootloader_code = system_env
             .base_system_smart_contracts
             .bootloader
@@ -120,26 +118,34 @@ impl VmFactory<InMemoryStorage> for Vm<InMemoryStorage> {
                 .code
                 .clone(),
         );
-        let world_storage = World::new(storage.clone(), pre_contract_storage.clone());
-        let mut vm = EraVM::new(vm_execution, Rc::new(RefCell::new(world_storage)));
+        let world = World::new(storage.clone(), pre_contract_storage.clone());
+        let mut inner = EraVM::new(vm_execution);
         let bootloader_memory = bootloader_initial_memory(&batch_env);
 
         // The bootloader shouldn't pay for growing memory and it writes results
         // to the end of its heap, so it makes sense to preallocate it in its entirety.
-        const BOOTLOADER_MAX_MEMORY_SIZE: u32 = 59000000;
-        vm.execution
+        const BOOTLOADER_MAX_MEMORY_SIZE: u32 = u32::MAX;
+        inner
+            .execution
             .heaps
             .get_mut(era_vm::execution::FIRST_HEAP)
             .unwrap()
             .expand_memory(BOOTLOADER_MAX_MEMORY_SIZE);
-        vm.execution
+        inner
+            .execution
             .heaps
             .get_mut(era_vm::execution::FIRST_HEAP + 1)
             .unwrap()
             .expand_memory(BOOTLOADER_MAX_MEMORY_SIZE);
+        inner
+            .execution
+            .current_frame_mut()
+            .unwrap()
+            .exception_handler = 65535;
 
-        let mut mv = Self {
-            inner: vm,
+        let mut vm = Self {
+            inner,
+            world,
             suspended_at: 0,
             gas_for_account_validation: system_env.default_validation_computational_gas_limit,
             bootloader_state: BootloaderState::new(
@@ -154,8 +160,8 @@ impl VmFactory<InMemoryStorage> for Vm<InMemoryStorage> {
             snapshot: None,
         };
 
-        mv.write_to_bootloader_heap(bootloader_memory);
-        mv
+        vm.write_to_bootloader_heap(bootloader_memory);
+        vm
     }
 }
 
@@ -173,7 +179,8 @@ impl<S: ReadStorage> Vm<S> {
         let mut last_tx_result = None;
 
         loop {
-            let (result, _blob_tracer) = self.inner.run_program_with_custom_bytecode();
+            let (result, _blob_tracer) =
+                self.inner.run_program_with_custom_bytecode(&mut self.world);
 
             let result = match result {
                 ExecutionOutput::Ok(output) => {
@@ -509,16 +516,7 @@ impl<S: ReadStorage> Vm<S> {
             .any(|info| {
                 let hash_bytecode = hash_bytecode(&info.original);
                 let code_key = get_known_code_key(&hash_bytecode);
-                let is_bytecode_known =
-                    self.storage.borrow_mut().read_value(&code_key) != H256::zero();
-                // = self.inner.state.storage.is_bytecode_known(&hash_bytecode);
-
-                // let is_bytecode_known_cache = self
-                //     .world
-                //     .bytecode_cache
-                //     .contains_key(&h256_to_u256(hash_bytecode));
-                // !(is_bytecode_known || is_bytecode_known_cache)
-                true
+                self.storage.borrow_mut().read_value(&code_key) != H256::zero()
             })
     }
 }
@@ -570,7 +568,7 @@ impl<S: ReadStorage> VmInterface for Vm<S> {
             let storage_logs: Vec<StorageLogWithPreviousValue> = self
                 .inner
                 .state
-                .get_storage_changes_from_snapshot(snapshot.storage_changes)
+                .get_storage_changes_from_snapshot(snapshot.storage_changes, &mut self.world)
                 .iter()
                 .map(|(storage_key, previos_value, value, is_initial)| {
                     let key = StorageKey::new(
@@ -644,15 +642,18 @@ impl<S: ReadStorage> VmInterface for Vm<S> {
         CurrentExecutionState {
             events,
             deduplicated_storage_logs: state
-                .storage_changes()
-                .iter()
-                .map(|(storage_key, value)| StorageLog {
-                    key: StorageKey::new(
-                        AccountTreeId::new(storage_key.address),
-                        u256_to_h256(storage_key.key),
-                    ),
-                    value: u256_to_h256(*value),
+                .get_storage_changes()
+                .into_iter()
+                .map(|(key, _, value)| StorageLog {
+                    key: StorageKey::new(AccountTreeId::new(key.address), u256_to_h256(key.key)),
+                    value: u256_to_h256(value),
                     kind: StorageLogKind::RepeatedWrite,
+                })
+                .sorted_by(|a, b| {
+                    a.key
+                        .address()
+                        .cmp(&b.key.address())
+                        .then_with(|| a.key.key().cmp(&b.key.key()))
                 })
                 .collect(),
             used_contract_hashes: state.decommitted_hashes().iter().cloned().collect(),
@@ -669,7 +670,7 @@ impl<S: ReadStorage> VmInterface for Vm<S> {
 
     fn inspect_transaction_with_bytecode_compression(
         &mut self,
-        tracer: Self::TracerDispatcher,
+        (): Self::TracerDispatcher,
         tx: zksync_types::Transaction,
         with_compression: bool,
     ) -> (
@@ -685,6 +686,29 @@ impl<S: ReadStorage> VmInterface for Vm<S> {
             Ok(())
         };
         (compression_result, result)
+    }
+
+    fn finish_batch(&mut self) -> FinishedL1Batch {
+        let result = self.execute(VmExecutionMode::Batch);
+        let execution_state = self.get_current_execution_state();
+        let bootloader_memory = self.get_bootloader_memory();
+        FinishedL1Batch {
+            block_tip_execution_result: result,
+            final_execution_state: execution_state,
+            final_bootloader_memory: Some(bootloader_memory),
+            pubdata_input: Some(
+                self.bootloader_state
+                    .get_pubdata_information()
+                    .clone()
+                    .build_pubdata(false),
+            ),
+            state_diffs: Some(
+                self.bootloader_state
+                    .get_pubdata_information()
+                    .state_diffs
+                    .to_vec(),
+            ),
+        }
     }
 
     fn record_vm_memory_metrics(&self) -> crate::vm_1_4_1::VmMemoryMetrics {
