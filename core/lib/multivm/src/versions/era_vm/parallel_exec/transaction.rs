@@ -1,5 +1,6 @@
 use zksync_types::Transaction;
 
+#[derive(Clone)]
 pub struct ParallelTransaction {
     pub tx: Transaction,
     pub refund: u64,
