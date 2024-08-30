@@ -364,12 +364,10 @@ impl From<StorageTransactionReceipt> for TransactionReceipt {
             to: storage_receipt
                 .transfer_to
                 .or(storage_receipt.execute_contract_address)
-                .map(|addr| {
+                .and_then(|addr| {
                     serde_json::from_value::<Option<Address>>(addr)
                         .expect("invalid address value in the database")
-                })
-                // For better compatibility with various clients, we never return null.
-                .flatten(),
+                }),
             cumulative_gas_used: Default::default(), // TODO: Should be actually calculated (SMA-1183).
             gas_used: {
                 let refunded_gas: U256 = storage_receipt.refunded_gas.into();
@@ -514,6 +512,19 @@ impl StorageApiTransaction {
             Some(Address::zero())
         };
 
+        // For legacy and EIP-2930 transactions it is gas price willing to be paid by the sender in wei.
+        // For other transactions it should be the effective gas price if transaction is included in block,
+        // otherwise this value should be set equal to the max fee per gas.
+        let gas_price = match self.tx_format {
+            None | Some(0) | Some(1) => self
+                .max_fee_per_gas
+                .clone()
+                .unwrap_or_else(BigDecimal::zero),
+            _ => self
+                .effective_gas_price
+                .or_else(|| self.max_fee_per_gas.clone())
+                .unwrap_or_else(BigDecimal::zero),
+        };
         let mut tx = api::Transaction {
             hash: H256::from_slice(&self.tx_hash),
             nonce: U256::from(self.nonce.unwrap_or(0) as u64),
@@ -523,11 +534,7 @@ impl StorageApiTransaction {
             from: Some(Address::from_slice(&self.initiator_address)),
             to,
             value: bigdecimal_to_u256(self.value),
-            gas_price: Some(bigdecimal_to_u256(
-                self.effective_gas_price
-                    .or_else(|| self.max_fee_per_gas.clone())
-                    .unwrap_or_else(BigDecimal::zero),
-            )),
+            gas_price: Some(bigdecimal_to_u256(gas_price)),
             gas: bigdecimal_to_u256(self.gas_limit.unwrap_or_else(BigDecimal::zero)),
             input: serde_json::from_value(self.calldata).expect("incorrect calldata in Postgres"),
             v: signature.as_ref().map(|s| U64::from(s.v())),

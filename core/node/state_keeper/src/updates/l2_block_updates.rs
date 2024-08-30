@@ -13,8 +13,7 @@ use zksync_types::{
     block::{BlockGasCount, L2BlockHasher},
     ethabi,
     l2_to_l1_log::{SystemL2ToL1Log, UserL2ToL1Log},
-    L2BlockNumber, ProtocolVersionId, StorageLogKind, StorageLogQuery, StorageLogWithPreviousValue,
-    Transaction, H256,
+    L2BlockNumber, ProtocolVersionId, StorageLogWithPreviousValue, Transaction, H256,
 };
 use zksync_utils::bytecode::hash_bytecode;
 
@@ -105,6 +104,7 @@ impl L2BlockUpdates {
         self.block_execution_metrics += execution_metrics;
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn extend_from_executed_transaction(
         &mut self,
         tx: Transaction,
