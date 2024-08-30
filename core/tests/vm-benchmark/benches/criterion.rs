@@ -7,8 +7,8 @@ use criterion::{
 use zksync_types::Transaction;
 use zksync_vm_benchmark_harness::{
     cut_to_allowed_bytecode_size, get_deploy_tx, get_heavy_load_test_tx, get_load_test_deploy_tx,
-    get_load_test_tx, get_realistic_load_test_tx, BenchmarkingVm, BenchmarkingVmFactory, Fast, Lambda,
-    Legacy, LoadTestParams,
+    get_load_test_tx, get_realistic_load_test_tx, BenchmarkingVm, BenchmarkingVmFactory, Fast,
+    Lambda, Legacy, LoadTestParams,
 };
 
 const SAMPLE_SIZE: usize = 20;
@@ -20,7 +20,10 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
         .sample_size(SAMPLE_SIZE)
         .measurement_time(Duration::from_secs(10));
 
-    let benches = format!("{}/core/tests/vm-benchmark/deployment_benchmarks", ZKSYNC_HOME);
+    let benches = format!(
+        "{}/core/tests/vm-benchmark/deployment_benchmarks",
+        ZKSYNC_HOME
+    );
 
     for path in std::fs::read_dir(&benches).unwrap() {
         let path = path.unwrap().path();
@@ -48,6 +51,32 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
             }
         });
     }
+}
+
+pub fn program_from_file(bin_path: &str) -> Vec<u8> {
+    let program = std::fs::read(bin_path).unwrap();
+    let encoded = String::from_utf8(program).unwrap();
+
+    if &encoded[..2] != "0x" {
+        panic!("Wrong hex");
+    }
+
+    let bin = hex::decode(&encoded[2..]).unwrap();
+
+    bin
+}
+// Simpler version
+fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
+    let bench = format!(
+        "{}/core/tests/vm-benchmark/deployment_benchmarks/send",
+        ZKSYNC_HOME
+    );
+
+    let mut vm = BenchmarkingVm::<Fast>::default();
+    let code = program_from_file(&bench);
+    let tx = get_deploy_tx(&code[..]);
+    let result = vm.run_transaction(&tx);
+    dbg!(&result.result.is_failed());
 }
 
 fn bench_load_test<VM: BenchmarkingVmFactory>(c: &mut Criterion) {
