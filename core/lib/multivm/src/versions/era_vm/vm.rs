@@ -31,12 +31,12 @@ use super::{
     hook::Hook,
     initial_bootloader_memory::bootloader_initial_memory,
     logs::IntoSystemLog,
+    parallel_exec::ParallelTransaction,
     snapshot::VmSnapshot,
     tracers::{
         dispatcher::TracerDispatcher, manager::VmTracerManager, pubdata_tracer::PubdataTracer,
         refunds_tracer::RefundsTracer, traits::VmTracer,
     },
-    transaction::ParallelTransaction,
 };
 use crate::{
     era_vm::{bytecode::compress_bytecodes, transaction_data::TransactionData},
@@ -73,6 +73,9 @@ pub struct Vm<S: ReadStorage> {
     pub snapshot: Option<VmSnapshot>,
 
     pub transaction_to_execute: Vec<ParallelTransaction>,
+
+    pub current_tx: usize,
+    pub is_parallel: bool,
 }
 
 /// Encapsulates creating VM instance based on the provided environment.
@@ -149,6 +152,8 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
             system_env,
             snapshot: None,
             transaction_to_execute: vec![],
+            is_parallel: false,
+            current_tx: 0,
         };
 
         mv.write_to_bootloader_heap(bootloader_memory);
@@ -236,6 +241,23 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     apply_l2_block(&mut memory, l2_block, txs_index);
                     self.write_to_bootloader_heap(memory);
                 }
+                Hook::LoadParallel => {
+                    let mut memory: Vec<(usize, U256)> = vec![];
+                    let is_parallel = if self.is_parallel {
+                        U256::one()
+                    } else {
+                        U256::zero()
+                    };
+                    println!("IS PARALLEL {}", self.is_parallel);
+                    memory.push((100, is_parallel));
+                    self.write_to_bootloader_heap(memory);
+                }
+                Hook::TxIndex => {
+                    println!("CURRENT TX {}", self.current_tx);
+                    let mut memory: Vec<(usize, U256)> = vec![];
+                    memory.push((102, (self.current_tx).into()));
+                    self.write_to_bootloader_heap(memory);
+                }
                 _ => {}
             }
 
@@ -270,6 +292,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
             }
         };
         tracer.after_bootloader_execution(self);
+        println!("\n\n\n ===== FINISH EXECUTION ===== \n\n\n");
         result
     }
 
@@ -384,6 +407,87 @@ impl<S: ReadStorage + 'static> Vm<S> {
         self.write_to_bootloader_heap(memory);
     }
 
+    pub fn push_transaction_inner_parallel(
+        &mut self,
+        tx: Transaction,
+        refund: u64,
+        with_compression: bool,
+    ) {
+        let tx: TransactionData = tx.into();
+        let overhead = tx.overhead_gas();
+
+        self.insert_bytecodes(tx.factory_deps.iter().map(|dep| &dep[..]));
+
+        let compressed_bytecodes = if is_l1_tx_type(tx.tx_type) || !with_compression {
+            // L1 transactions do not need compression
+            vec![]
+        } else {
+            compress_bytecodes(&tx.factory_deps, |hash| {
+                self.inner
+                    .state
+                    .storage_changes()
+                    .get(&EraStorageKey::new(
+                        KNOWN_CODES_STORAGE_ADDRESS,
+                        h256_to_u256(hash),
+                    ))
+                    .map(|x| !x.is_zero())
+                    .unwrap_or_else(|| self.storage.is_bytecode_known(&hash))
+            })
+        };
+
+        let trusted_ergs_limit = tx.trusted_ergs_limit();
+
+        let memory = self.bootloader_state.push_tx_parallel(
+            tx,
+            overhead,
+            refund,
+            compressed_bytecodes,
+            trusted_ergs_limit,
+            self.system_env.chain_id,
+        );
+
+        self.write_to_bootloader_heap(memory);
+    }
+
+    /// pushes transaction to the current l2 block but doesn't write to the bootloader memory
+    /// this is used in the context of parallel execution, since we wan't to update the L2 rolling hash
+    /// but we don't necessary want to write the transaction to the bootloader memory to execute them
+    pub fn write_block_to_mem(&mut self, tx: Transaction, refund: u64, with_compression: bool) {
+        let tx: TransactionData = tx.into();
+        let overhead = tx.overhead_gas();
+
+        self.insert_bytecodes(tx.factory_deps.iter().map(|dep| &dep[..]));
+
+        let compressed_bytecodes = if is_l1_tx_type(tx.tx_type) || !with_compression {
+            // L1 transactions do not need compression
+            vec![]
+        } else {
+            compress_bytecodes(&tx.factory_deps, |hash| {
+                self.inner
+                    .state
+                    .storage_changes()
+                    .get(&EraStorageKey::new(
+                        KNOWN_CODES_STORAGE_ADDRESS,
+                        h256_to_u256(hash),
+                    ))
+                    .map(|x| !x.is_zero())
+                    .unwrap_or_else(|| self.storage.is_bytecode_known(&hash))
+            })
+        };
+
+        let trusted_ergs_limit = tx.trusted_ergs_limit();
+
+        // this sets the rolling hash
+        self.bootloader_state.push_tx(
+            tx,
+            overhead,
+            refund,
+            compressed_bytecodes,
+            trusted_ergs_limit,
+            self.system_env.chain_id,
+        );
+    }
+
     pub fn inspect_inner(
         &mut self,
         tracer: TracerDispatcher<S>,
@@ -438,7 +542,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
     }
 
     fn get_execution_logs(&self, snapshot: era_vm::state::StateSnapshot) -> VmExecutionLogs {
-        dbg!(&snapshot);
         let events = merge_events(
             self.inner.state.get_events_after_snapshot(snapshot.events),
             self.batch_env.number,
@@ -517,39 +620,65 @@ impl<S: ReadStorage + 'static> Vm<S> {
         }
     }
 
-    // Very basic parallel execution model, basically, we are spawning a new vm per transactions and then mergint the results
+    // Very basic parallel execution model, basically, we are spawning a new vm per transactions and then merging the results
     // and creating the batch from the final merged state. We are not accounting for gas sharing, transactions that depend upon each other, etc
     // in the future, this would become a new mode of execution (i.e VmExecutionMode::Parallel)
     pub fn execute_parallel(&mut self) -> VmExecutionResultAndLogs {
         let transactions: Vec<ParallelTransaction> =
             self.transaction_to_execute.drain(..).collect();
+        let last_tx_number = transactions.len();
+        self.current_tx = last_tx_number;
+        self.is_parallel = true;
 
         // we only care about the final VMState, since that is where the pubdata and L2 changes reside
         // we will merge this results later
         let mut final_states: Vec<era_vm::state::VMState> = vec![self.inner.state.clone()];
+        let mut final_execution: era_vm::execution::Execution = self.inner.execution.clone();
+
+        // push the transactions to the main vm, which holds the actual L2 block
+        for tx in transactions.iter() {
+            self.write_block_to_mem(tx.tx.clone(), tx.refund, tx.with_compression);
+        }
 
         // to run in parallel, we spin up new vms to process and run the transaction in their own bootloader
-        for tx in transactions {
+        for (idx, tx) in transactions.iter().enumerate() {
+            // the idea now is to spawn an era_vm and pass the transaction bytecode and let the rest be handled by the parallel executor
+            // let mut vm = EraVM::new();
             let mut vm = Vm::new(
                 self.batch_env.clone(),
                 self.system_env.clone(),
                 self.storage.clone(),
             );
 
-            vm.push_transaction_inner(tx.tx, tx.refund, tx.with_compression);
+            // storage writes are necessary
+            for (key, value) in final_states.last().unwrap().storage_changes().iter() {
+                vm.inner.state.storage_write(key.clone(), value.clone());
+            }
+
+            vm.is_parallel = true;
+            vm.current_tx = idx;
+            vm.inner.execution.tx_number = idx as u64;
+
+            if idx == 0 {
+                // since the first transaction starts the batch, we want to push it normally so that
+                // it create the virtual block at the beginnig
+                vm.push_transaction_inner(tx.tx.clone(), tx.refund, tx.with_compression);
+            } else {
+                vm.push_transaction_inner_parallel(tx.tx.clone(), tx.refund, tx.with_compression);
+            }
 
             // in the future we don't want to call the bootloader for this, and instead crate a new era_vm and pass the
             // transaction bytecode directly, that would require to build all the validation logic for processing the transaction
             // in rust
-            let result =
+            let result: VmExecutionResultAndLogs =
                 vm.inspect_inner(TracerDispatcher::default(), None, VmExecutionMode::OneTx);
 
             // if one transaction fails, the whole batch fails
             if result.result.is_failed() {
                 return result;
             }
-
             final_states.push(vm.inner.state);
+            final_execution = vm.inner.execution;
         }
 
         // since no transactions have been pushed onto the bootloader, here it will only call the SetFictiveBlock and request the pubdata
@@ -563,6 +692,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
         let monotonic_counter_before = self.inner.statistics.monotonic_counter;
 
         let snapshot = self.inner.state.snapshot();
+
         // finally, we need to merge the results to the current vm
         self.inner.state = self.merge_vm_states(final_states);
         let result = self.run(VmExecutionMode::Batch, &mut tracer);

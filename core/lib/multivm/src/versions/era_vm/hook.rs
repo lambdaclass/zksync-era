@@ -14,6 +14,8 @@ pub enum Hook {
     PostResult,
     FinalBatchInfo,
     PubdataRequested,
+    LoadParallel,
+    TxIndex,
 }
 
 impl Hook {
@@ -34,6 +36,8 @@ impl Hook {
             10 => Hook::PostResult,
             11 => Hook::FinalBatchInfo,
             12 => Hook::PubdataRequested,
+            13 => Hook::LoadParallel,
+            14 => Hook::TxIndex,
             _ => panic!("Unknown hook {}", hook),
         }
     }

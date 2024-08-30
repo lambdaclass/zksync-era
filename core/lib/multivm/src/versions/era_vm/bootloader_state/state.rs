@@ -130,23 +130,61 @@ impl BootloaderState {
         memory
     }
 
+    pub(crate) fn push_tx_parallel(
+        &mut self,
+        tx: TransactionData,
+        predefined_overhead: u32,
+        predefined_refund: u64,
+        compressed_bytecodes: Vec<CompressedBytecodeInfo>,
+        trusted_ergs_limit: U256,
+        chain_id: L2ChainId,
+    ) -> BootloaderMemory {
+        let tx_offset = self.free_tx_offset();
+        let bootloader_tx = BootloaderTx::new(
+            tx,
+            predefined_refund,
+            predefined_overhead,
+            trusted_ergs_limit,
+            compressed_bytecodes,
+            tx_offset,
+            chain_id,
+        );
+
+        let mut memory = vec![];
+        let compressed_bytecode_size = apply_tx_to_memory(
+            &mut memory,
+            &bootloader_tx,
+            self.last_l2_block(),
+            self.free_tx_index(),
+            self.free_tx_offset(),
+            self.compressed_bytecodes_encoding,
+            self.execution_mode,
+            false,
+        );
+        self.compressed_bytecodes_encoding += compressed_bytecode_size;
+        self.free_tx_offset = tx_offset + bootloader_tx.encoded_len();
+        self.last_mut_l2_block().push_tx(bootloader_tx);
+        memory
+    }
+
     pub(crate) fn last_l2_block(&self) -> &BootloaderL2Block {
         self.l2_blocks.last().unwrap()
     }
+
     pub(crate) fn get_pubdata_information(&self) -> &PubdataInput {
         self.pubdata_information
             .get()
             .expect("Pubdata information is not set")
     }
 
-    fn last_mut_l2_block(&mut self) -> &mut BootloaderL2Block {
+    pub(crate) fn last_mut_l2_block(&mut self) -> &mut BootloaderL2Block {
         self.l2_blocks.last_mut().unwrap()
     }
 
     /// Apply all bootloader transaction to the initial memory
     pub(crate) fn bootloader_memory(&self) -> BootloaderMemory {
         let mut initial_memory = self.initial_memory.clone();
-        let mut offset = 0;
+        let mut offset: usize = 0;
         let mut compressed_bytecodes_offset = 0;
         let mut tx_index = 0;
         for l2_block in &self.l2_blocks {
