@@ -633,7 +633,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
         // we only care about the final VMState, since that is where the pubdata and L2 changes reside
         // we will merge this results later
         let mut final_states: Vec<era_vm::state::VMState> = vec![self.inner.state.clone()];
-        let mut final_execution: era_vm::execution::Execution = self.inner.execution.clone();
 
         // push the transactions to the main vm, which holds the actual L2 block
         for tx in transactions.iter() {
@@ -678,7 +677,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 return result;
             }
             final_states.push(vm.inner.state);
-            final_execution = vm.inner.execution;
         }
 
         // since no transactions have been pushed onto the bootloader, here it will only call the SetFictiveBlock and request the pubdata
@@ -695,6 +693,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
 
         // finally, we need to merge the results to the current vm
         self.inner.state = self.merge_vm_states(final_states);
+        self.inner.execution.tx_number = last_tx_number as u64;
         let result = self.run(VmExecutionMode::Batch, &mut tracer);
         let ergs_after = self.inner.execution.gas_left().unwrap();
 
