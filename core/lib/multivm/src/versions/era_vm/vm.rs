@@ -51,8 +51,8 @@ use crate::{
             get_vm_hook_position, get_vm_hook_start_position_latest, OPERATOR_REFUNDS_OFFSET,
             TX_GAS_LIMIT_OFFSET, VM_HOOK_PARAMS_COUNT,
         },
-        BootloaderMemory, CurrentExecutionState, ExecutionResult, L1BatchEnv, L2BlockEnv, Refunds,
-        SystemEnv, VmExecutionLogs, VmExecutionMode, VmExecutionResultAndLogs,
+        BootloaderMemory, CurrentExecutionState, ExecutionResult, FinishedL1Batch, L1BatchEnv,
+        L2BlockEnv, Refunds, SystemEnv, VmExecutionLogs, VmExecutionMode, VmExecutionResultAndLogs,
         VmExecutionStatistics,
     },
 };
@@ -80,7 +80,6 @@ pub struct Vm<S: ReadStorage> {
 impl<S: ReadStorage> VmFactory<S> for Vm<S> {
     /// Creates a new VM instance.
     fn new(batch_env: L1BatchEnv, system_env: SystemEnv, storage: StoragePtr<S>) -> Self {
-        todo!();
         let bootloader_code = system_env
             .base_system_smart_contracts
             .bootloader
@@ -580,6 +579,13 @@ impl<S: ReadStorage> VmInterface for Vm<S> {
                         previous_value: u256_to_h256(previos_value.unwrap_or_default()),
                     }
                 })
+                .sorted_by(|a, b| {
+                    a.log
+                        .key
+                        .address()
+                        .cmp(&b.log.key.address())
+                        .then_with(|| a.log.key.key().cmp(&b.log.key.key()))
+                })
                 .collect();
 
             VmExecutionLogs {
@@ -682,6 +688,29 @@ impl<S: ReadStorage> VmInterface for Vm<S> {
 
     fn gas_remaining(&self) -> u32 {
         self.inner.execution.current_frame().unwrap().gas_left.0
+    }
+
+    fn finish_batch(&mut self) -> FinishedL1Batch {
+        let result = self.execute(VmExecutionMode::Batch);
+        let execution_state = self.get_current_execution_state();
+        let bootloader_memory = self.get_bootloader_memory();
+        FinishedL1Batch {
+            block_tip_execution_result: result,
+            final_execution_state: execution_state,
+            final_bootloader_memory: Some(bootloader_memory),
+            pubdata_input: Some(
+                self.bootloader_state
+                    .get_pubdata_information()
+                    .clone()
+                    .build_pubdata(false),
+            ),
+            state_diffs: Some(
+                self.bootloader_state
+                    .get_pubdata_information()
+                    .state_diffs
+                    .to_vec(),
+            ),
+        }
     }
 }
 
