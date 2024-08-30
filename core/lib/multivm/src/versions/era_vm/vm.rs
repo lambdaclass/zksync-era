@@ -167,7 +167,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
         let mut last_tx_result = None;
 
         loop {
-            let (result, _blob_tracer) = self.inner.run_program_with_custom_bytecode();
+            let result = self.inner.run_program_with_custom_bytecode();
 
             let result = match result {
                 ExecutionOutput::Ok(output) => {
