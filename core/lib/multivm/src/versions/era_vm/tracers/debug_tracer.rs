@@ -9,10 +9,16 @@ pub struct DebugTracer {}
 
 impl Tracer for DebugTracer {}
 
-impl<S: ReadStorage> VmTracer<S> for DebugTracer {
+impl DebugTracer {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl<S: ReadStorage + 'static> VmTracer<S> for DebugTracer {
     fn bootloader_hook_call(
         &mut self,
-        _vm: &mut super::traits::Vm<S>,
+        vm: &mut super::traits::Vm<S>,
         hook: crate::era_vm::hook::Hook,
         hook_params: &[U256; 3],
     ) {
