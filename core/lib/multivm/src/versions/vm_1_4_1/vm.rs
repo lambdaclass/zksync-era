@@ -23,6 +23,8 @@ use crate::{
     HistoryMode,
 };
 
+use zksync_types::{H160, H256, U256};
+
 /// Main entry point for Virtual Machine integration.
 /// The instance should process only one l1 batch
 #[derive(Debug)]
@@ -40,6 +42,10 @@ pub struct Vm<S: WriteStorage, H: HistoryMode> {
 
 impl<S: WriteStorage, H: HistoryMode> VmInterface for Vm<S, H> {
     type TracerDispatcher = TracerDispatcher<S, H::Vm1_4_1>;
+
+    fn read_storage(&mut self, _address: H160, _key: H256) -> U256 {
+        todo!();
+    }
 
     /// Push tx into memory for the future execution
     fn push_transaction(&mut self, tx: Transaction) {

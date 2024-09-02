@@ -23,7 +23,7 @@ use zksync_types::{
     l2::L2Tx,
     utils::{deployed_address_create, storage_key_for_eth_balance},
     Address, K256PrivateKey, L1BatchNumber, L2BlockNumber, L2ChainId, Nonce, ProtocolVersionId,
-    Transaction, CONTRACT_DEPLOYER_ADDRESS, H256, U256,
+    Transaction, CONTRACT_DEPLOYER_ADDRESS, H160, H256, U256,
 };
 use zksync_utils::bytecode::hash_bytecode;
 
@@ -237,6 +237,10 @@ impl<VM: BenchmarkingVmFactory> BenchmarkingVm<VM> {
         let count = Rc::new(RefCell::new(0));
         self.0.inspect(Default::default(), VmExecutionMode::OneTx); // FIXME: re-enable instruction counting once new tracers are merged
         count.take()
+    }
+
+    pub fn read_storage(&mut self, address: H160, key: H256) -> U256 {
+        self.0.read_storage(address, key)
     }
 }
 

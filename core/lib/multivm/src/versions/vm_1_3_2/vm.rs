@@ -31,8 +31,14 @@ pub struct Vm<S: WriteStorage, H: HistoryMode> {
     pub(crate) last_tx_compressed_bytecodes: Vec<CompressedBytecodeInfo>,
 }
 
+use zksync_types::{H160, H256, U256};
+
 impl<S: WriteStorage, H: HistoryMode> VmInterface for Vm<S, H> {
     type TracerDispatcher = TracerDispatcher;
+
+    fn read_storage(&mut self, _address: H160, _key: H256) -> U256 {
+        todo!();
+    }
 
     fn push_transaction(&mut self, tx: Transaction) {
         crate::vm_1_3_2::vm_with_bootloader::push_transaction_to_bootloader_memory(

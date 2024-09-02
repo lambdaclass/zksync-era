@@ -48,7 +48,7 @@
 //! ```
 
 use zksync_state::StoragePtr;
-use zksync_types::Transaction;
+use zksync_types::{Transaction, H160, H256, U256};
 use zksync_utils::bytecode::CompressedBytecodeInfo;
 
 use crate::interface::{
@@ -62,6 +62,9 @@ use crate::interface::{
 
 pub trait VmInterface {
     type TracerDispatcher: Default;
+
+    /// Push transaction to bootloader memory.
+    fn read_storage(&mut self, address: H160, key: H256) -> U256;
 
     /// Push transaction to bootloader memory.
     fn push_transaction(&mut self, tx: Transaction);

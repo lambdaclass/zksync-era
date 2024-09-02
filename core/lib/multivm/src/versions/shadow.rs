@@ -40,12 +40,18 @@ where
     }
 }
 
+use zksync_types::{H160, H256, U256};
+
 impl<S, T> VmInterface for ShadowVm<S, T>
 where
     S: ReadStorage,
     T: VmInterface,
 {
     type TracerDispatcher = T::TracerDispatcher;
+
+    fn read_storage(&mut self, _address: H160, _key: H256) -> U256 {
+        todo!();
+    }
 
     fn push_transaction(&mut self, tx: Transaction) {
         self.shadow.push_transaction(tx.clone());

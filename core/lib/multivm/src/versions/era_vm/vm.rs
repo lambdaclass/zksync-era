@@ -10,17 +10,10 @@ use zksync_types::{
     event::{
         extract_l2tol1logs_from_l1_messenger, extract_long_l2_to_l1_messages,
         L1_MESSENGER_BYTECODE_PUBLICATION_EVENT_SIGNATURE,
-    },
-    l1::is_l1_tx_type,
-    l2_to_l1_log::UserL2ToL1Log,
-    utils::key_for_eth_balance,
-    writes::{
+    }, l1::is_l1_tx_type, l2_to_l1_log::UserL2ToL1Log, utils::key_for_eth_balance, writes::{
         compression::compress_with_best_strategy, StateDiffRecord, BYTES_PER_DERIVED_KEY,
         BYTES_PER_ENUMERATION_INDEX,
-    },
-    AccountTreeId, StorageKey, StorageLog, StorageLogKind, StorageLogWithPreviousValue,
-    Transaction, BOOTLOADER_ADDRESS, H160, KNOWN_CODES_STORAGE_ADDRESS, L1_MESSENGER_ADDRESS,
-    L2_BASE_TOKEN_ADDRESS, U256,
+    }, AccountTreeId, StorageKey, StorageLog, StorageLogKind, StorageLogWithPreviousValue, Transaction, BOOTLOADER_ADDRESS, H160, H256, KNOWN_CODES_STORAGE_ADDRESS, L1_MESSENGER_ADDRESS, L2_BASE_TOKEN_ADDRESS, U256
 };
 use zksync_utils::{
     bytecode::{hash_bytecode, CompressedBytecodeInfo},
@@ -497,6 +490,13 @@ impl<S: ReadStorage + 'static> Vm<S> {
 
 impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
     type TracerDispatcher = ();
+
+    fn read_storage(&mut self, address: H160, key: H256) -> U256 {
+        let key = U256::from_big_endian(key.as_bytes());
+        let key = EraStorageKey::new(address, key);
+        let (r, _) = self.inner.state.storage_read(key);
+        r
+    }
 
     fn push_transaction(&mut self, tx: Transaction) {
         self.push_transaction_inner(tx, 0, true);

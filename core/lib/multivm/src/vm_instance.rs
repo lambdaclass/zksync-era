@@ -48,8 +48,14 @@ macro_rules! dispatch_vm {
     };
 }
 
+use zksync_types::{H160, H256, U256};
+
 impl<S: ReadStorage, H: HistoryMode> VmInterface for VmInstance<S, H> {
     type TracerDispatcher = TracerDispatcher<StorageView<S>, H>;
+
+    fn read_storage(&mut self, _address: H160, _key: H256) -> U256 {
+        todo!();
+    }
 
     /// Push tx into memory for the future execution
     fn push_transaction(&mut self, tx: zksync_types::Transaction) {

@@ -4,7 +4,7 @@ use criterion::{
     black_box, criterion_group, criterion_main, measurement::WallTime, BatchSize, BenchmarkGroup,
     Criterion,
 };
-use zksync_types::Transaction;
+use zksync_types::{Transaction, H160, H256};
 use zksync_vm_benchmark_harness::{
     cut_to_allowed_bytecode_size, get_deploy_tx, get_heavy_load_test_tx, get_load_test_deploy_tx,
     get_load_test_tx, get_realistic_load_test_tx, BenchmarkingVm, BenchmarkingVmFactory, Fast,
@@ -67,16 +67,32 @@ pub fn program_from_file(bin_path: &str) -> Vec<u8> {
 }
 // Simpler version
 fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
+    bench_fibonacci::<VM, FULL>(c);
+    // let bench = format!(
+    //     "{}/core/tests/vm-benchmark/deployment_benchmarks/send",
+    //     ZKSYNC_HOME
+    // );
+    //
+    // let mut vm = BenchmarkingVm::<Fast>::default();
+    // let code = program_from_file(&bench);
+    // let tx = get_deploy_tx(&code[..]);
+    // let result = vm.run_transaction(&tx);
+    // dbg!(&result.result.is_failed());
+}
+
+// Hardcoded fibonacci benchmark
+fn bench_fibonacci<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
     let bench = format!(
-        "{}/core/tests/vm-benchmark/deployment_benchmarks/send",
+        "{}/core/tests/vm-benchmark/deployment_benchmarks/fibonacci",
         ZKSYNC_HOME
     );
 
-    let mut vm = BenchmarkingVm::<Fast>::default();
+    let mut vm = BenchmarkingVm::<Lambda>::default();
     let code = program_from_file(&bench);
     let tx = get_deploy_tx(&code[..]);
     let result = vm.run_transaction(&tx);
-    dbg!(&result.result.is_failed());
+    dbg!(vm.read_storage(H160::zero(), H256::zero()));
+    dbg!(&result.result);
 }
 
 fn bench_load_test<VM: BenchmarkingVmFactory>(c: &mut Criterion) {
