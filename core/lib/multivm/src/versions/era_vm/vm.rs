@@ -4,6 +4,7 @@ use era_vm::{
     rollbacks::Rollbackable, store::StorageKey as EraStorageKey, value::FatPointer,
     vm::ExecutionOutput, EraVM, Execution,
 };
+use itertools::Itertools;
 use zksync_state::{ReadStorage, StoragePtr};
 use zksync_types::{
     event::{
@@ -19,8 +20,8 @@ use zksync_types::{
         BYTES_PER_ENUMERATION_INDEX,
     },
     AccountTreeId, StorageKey, StorageLog, StorageLogKind, StorageLogWithPreviousValue,
-    Transaction, BOOTLOADER_ADDRESS, H160, KNOWN_CODES_STORAGE_ADDRESS, L2_BASE_TOKEN_ADDRESS,
-    U256,
+    Transaction, BOOTLOADER_ADDRESS, H160, H256, KNOWN_CODES_STORAGE_ADDRESS,
+    L2_BASE_TOKEN_ADDRESS, U256,
 };
 use zksync_utils::{
     bytecode::{hash_bytecode, CompressedBytecodeInfo},
@@ -42,9 +43,9 @@ use super::{
 use crate::{
     era_vm::{bytecode::compress_bytecodes, transaction_data::TransactionData},
     interface::{
+        tracer::{TracerExecutionStatus, TracerExecutionStopReason},
         BytecodeCompressionError, Halt, TxRevertReason, VmFactory, VmInterface,
         VmInterfaceHistoryEnabled, VmRevertReason,
-        tracer::{TracerExecutionStatus, TracerExecutionStopReason}
     },
     vm_latest::{
         constants::{
@@ -168,7 +169,7 @@ impl<S: ReadStorage> Vm<S> {
         let result = loop {
             let output = self
                 .inner
-                .run_program_with_custom_bytecode_and_tracer(tracer,&mut self.world);
+                .run_program_with_custom_bytecode_and_tracer(tracer, &mut self.world);
             let status = tracer.after_vm_run(self, output.clone());
             let (hook, hook_params) = match output {
                 ExecutionOutput::Ok(output) => break ExecutionResult::Success { output },
@@ -267,8 +268,8 @@ impl<S: ReadStorage> Vm<S> {
                             break ExecutionResult::Success { output: vec![] };
                         }
                     }
+                    _ => {}
                 }
-                _ => {}
             }
         };
         tracer.after_bootloader_execution(self);
@@ -339,46 +340,6 @@ impl<S: ReadStorage> Vm<S> {
         }
     }
 
-    fn get_storage_diff(&mut self) -> Vec<StateDiffRecord> {
-        self.inner
-            .state
-            .get_storage_changes(&mut self.world)
-            .iter()
-            .filter_map(|(storage_key, initial_value, value)| {
-                let address = storage_key.address;
-
-                if address == L1_MESSENGER_ADDRESS {
-                    return None;
-                }
-
-                let key = storage_key.key;
-
-                let diff = StateDiffRecord {
-                    key,
-                    address,
-                    derived_key:
-                        zk_evm_1_5_0::aux_structures::LogQuery::derive_final_address_for_params(
-                            &address, &key,
-                        ),
-                    enumeration_index: self
-                        .storage
-                        .borrow_mut()
-                        .get_enumeration_index(&StorageKey::new(
-                            AccountTreeId::new(address),
-                            u256_to_h256(key),
-                        ))
-                        .unwrap_or_default(),
-                    initial_value: initial_value.unwrap_or_default(),
-                    final_value: value.clone(),
-                };
-
-                Some(diff)
-            })
-            // the compressor expects the storage diff to be sorted
-            .sorted_by(|a, b| a.address.cmp(&b.address).then_with(|| a.key.cmp(&b.key)))
-            .collect()
-    }
-
     pub fn push_transaction_inner(&mut self, tx: Transaction, refund: u64, with_compression: bool) {
         let tx: TransactionData = tx.into();
         let overhead = tx.overhead_gas();
@@ -428,6 +389,7 @@ impl<S: ReadStorage> Vm<S> {
     }
 }
 
+impl<S: ReadStorage + 'static> Vm<S> {
     pub fn inspect_inner(
         &mut self,
         tracer: TracerDispatcher<S>,
@@ -613,7 +575,7 @@ impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
         VmExecutionResultAndLogs,
     ) {
         self.push_transaction_inner(tx, 0, with_compression);
-        let result = self.inspect((), VmExecutionMode::OneTx);
+        let result = self.inspect(tracer, VmExecutionMode::OneTx);
 
         let compression_result = if self.has_unpublished_bytecodes() {
             Err(BytecodeCompressionError::BytecodeCompressionFailed)
