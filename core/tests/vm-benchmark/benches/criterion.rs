@@ -107,7 +107,7 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
                 BenchmarkingVm::<VM>::default,
                 |mut vm| {
                     let result = vm.run_transaction(black_box(&tx));
-                    if bench_name == "fibonacci_rec" {
+                    if bench_name.contains("fibonacci_rec") {
                         assert!(
                             vm.read_storage(expected_address, H256::zero())
                                 == U256::from_dec_str("75025").unwrap()
