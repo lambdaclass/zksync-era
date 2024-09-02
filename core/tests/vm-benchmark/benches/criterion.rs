@@ -72,27 +72,36 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
     group
         .sample_size(SAMPLE_SIZE)
         .measurement_time(Duration::from_secs(10));
-
+    let send_bench_tag = "send";
     let send_bench = format!(
-        "{}/core/tests/vm-benchmark/deployment_benchmarks/send",
-        ZKSYNC_HOME
+        "{}/core/tests/vm-benchmark/deployment_benchmarks/{}",
+        ZKSYNC_HOME, send_bench_tag
     );
 
+    let fibonacci_bench_tag = "fibonacci_rec";
     let fibonacci_bench = format!(
-        "{}/core/tests/vm-benchmark/deployment_benchmarks/fibonacci_rec",
-        ZKSYNC_HOME
+        "{}/core/tests/vm-benchmark/deployment_benchmarks/{}",
+        ZKSYNC_HOME, fibonacci_bench_tag
     );
 
-    let benches: Vec<String> = vec![send_bench, fibonacci_bench];
-    for bench in benches {
-        let bench_name = format!("{bench}/full");
+    let benches: Vec<(&str, String)> = vec![
+        (send_bench_tag, send_bench),
+        (fibonacci_bench_tag, fibonacci_bench),
+    ];
+    for (bench_tag, bench_path) in benches {
+        let bench_name = format!("{bench_tag}/full");
         // Only benchmark the tx execution itself
-        let mut vm = BenchmarkingVm::<VM>::default();
-        let code = program_from_file(&bench);
+        let code = program_from_file(&bench_path);
         let tx = get_deploy_tx(&code[..]);
-        let result = vm.run_transaction(&tx);
-        group.bench_function(bench, |bencher| {
-            bencher.iter(|| vm.run_transaction(black_box(&tx)));
+        group.bench_function(bench_name, |bencher| {
+            bencher.iter_batched(
+                BenchmarkingVm::<VM>::default,
+                |mut vm| {
+                    let result = vm.run_transaction(black_box(&tx));
+                    (vm, result)
+                },
+                BatchSize::LargeInput,
+            );
         });
     }
 }
