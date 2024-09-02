@@ -10,7 +10,7 @@ use crate::{
 fn prepare_test(is_parallel: bool) -> (VmTester, [Transaction; 3]) {
     let bytes = [1; 32];
     let account = Account::new(K256PrivateKey::from_bytes(bytes.into()).unwrap());
-    dbg!(&account);
+
     let mut vm_tester = VmTesterBuilder::new()
         .with_empty_in_memory_storage()
         .with_deployer()
@@ -18,7 +18,7 @@ fn prepare_test(is_parallel: bool) -> (VmTester, [Transaction; 3]) {
         .build();
 
     if is_parallel {
-        vm_tester.deploy_test_contract();
+        vm_tester.deploy_test_contract_parallel();
     } else {
         vm_tester.deploy_test_contract();
     }

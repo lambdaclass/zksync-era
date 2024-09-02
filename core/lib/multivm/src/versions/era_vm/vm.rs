@@ -577,6 +577,58 @@ impl<S: ReadStorage + 'static> Vm<S> {
         }
     }
 
+    pub fn inspect_inner_with_custom_snapshot(
+        &mut self,
+        tracer: TracerDispatcher<S>,
+        custom_pubdata_tracer: Option<PubdataTracer>,
+        execution_mode: VmExecutionMode,
+        snapshot: era_vm::state::StateSnapshot,
+    ) -> VmExecutionResultAndLogs {
+        let mut track_refunds = false;
+        if let VmExecutionMode::OneTx = execution_mode {
+            // Move the pointer to the next transaction
+            self.bootloader_state.move_tx_to_execute_pointer();
+            track_refunds = true;
+        }
+
+        let refund_tracer = if track_refunds {
+            Some(RefundsTracer::new())
+        } else {
+            None
+        };
+        let mut tracer =
+            VmTracerManager::new(execution_mode, tracer, refund_tracer, custom_pubdata_tracer);
+        let ergs_before = self.inner.execution.gas_left().unwrap();
+        let monotonic_counter_before = self.inner.statistics.monotonic_counter;
+
+        let result = self.run(execution_mode, &mut tracer);
+        let ergs_after = self.inner.execution.gas_left().unwrap();
+
+        let ignore_world_diff = matches!(execution_mode, VmExecutionMode::OneTx)
+            && matches!(result, ExecutionResult::Halt { .. });
+
+        let logs = if ignore_world_diff {
+            VmExecutionLogs::default()
+        } else {
+            self.get_execution_logs(snapshot)
+        };
+
+        VmExecutionResultAndLogs {
+            result,
+            logs,
+            statistics: self.get_execution_statistics(
+                monotonic_counter_before,
+                tracer.pubdata_tracer.pubdata_published,
+                ergs_before,
+                ergs_after,
+                tracer
+                    .circuits_tracer
+                    .circuit_statistics(&self.inner.statistics),
+            ),
+            refunds: tracer.refund_tracer.unwrap_or_default().into(),
+        }
+    }
+
     fn get_execution_logs(&self, snapshot: era_vm::state::StateSnapshot) -> VmExecutionLogs {
         let events = merge_events(
             self.inner.state.get_events_after_snapshot(snapshot.events),
@@ -660,7 +712,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
     // and sealing the batch from the final merged state.
     pub fn execute_parallel_inner(&mut self, one_tx: bool) -> VmExecutionResultAndLogs {
         let txs_to_process = if one_tx {
-            1
+            self.transaction_to_execute.len()
         } else {
             self.transaction_to_execute.len()
         };
@@ -671,6 +723,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
 
         // we only care about the final VMState, since that is where the pubdata and L2 changes reside
         // we will merge this results later
+        let snapshot = self.inner.state.snapshot();
         let mut state: era_vm::state::VMState = self.inner.state.clone();
 
         // to run in parallel, we spin up new vms to process and run the transaction in their own bootloader
@@ -681,7 +734,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 self.storage.clone(),
             );
             // set the last block to what the main vm has
-            vm.bootloader_state.l2_blocks.push(BootloaderL2Block {
+            vm.bootloader_state.l2_blocks[0] = BootloaderL2Block {
                 number: self.bootloader_state.last_l2_block().number,
                 timestamp: self.bootloader_state.last_l2_block().timestamp,
                 txs_rolling_hash: self.bootloader_state.last_l2_block().txs_rolling_hash,
@@ -692,7 +745,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     .last_l2_block()
                     .max_virtual_blocks_to_create,
                 txs: vec![],
-            });
+            };
             vm.inner.state = state;
             vm.is_parallel = true;
             vm.current_tx = self.current_tx;
@@ -705,6 +758,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
             if vm.current_tx == 0 {
                 // since the first transaction starts the batch, we want to push it normally so that
                 // it create the virtual block at the beginning
+                vm.is_parallel = false;
                 vm.push_transaction_inner_no_bytecode(
                     tx.tx.clone(),
                     tx.refund,
@@ -740,7 +794,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
         let ergs_before = self.inner.execution.gas_left().unwrap();
         let monotonic_counter_before = self.inner.statistics.monotonic_counter;
 
-        let snapshot = self.inner.state.snapshot();
         self.inner.state = state;
         self.is_parallel = true;
 

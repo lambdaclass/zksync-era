@@ -57,7 +57,6 @@ impl BootloaderL2Block {
     pub(crate) fn interim_version(&self) -> BootloaderL2Block {
         let mut interim = self.clone();
         interim.max_virtual_blocks_to_create = 0;
-        println!("IN INTERIM VERSION");
         interim
     }
 
