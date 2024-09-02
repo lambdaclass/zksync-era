@@ -117,7 +117,7 @@ impl<S: ReadStorage> Tracer for VmTracerManager<S> {
     }
 }
 
-impl<S: ReadStorage + 'static> VmTracer<S> for VmTracerManager<S> {
+impl<S: ReadStorage> VmTracer<S> for VmTracerManager<S> {
     fn before_bootloader_execution(&mut self, state: &mut Vm<S>) {
         // Call the dispatcher to handle all the tracers added to it
         self.dispatcher.before_bootloader_execution(state);

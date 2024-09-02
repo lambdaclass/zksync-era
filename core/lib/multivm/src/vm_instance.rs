@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use zksync_state::{ImmutableStorageView, ReadStorage, StoragePtr, StorageView};
 use zksync_types::vm::{FastVmMode, VmVersion};
 use zksync_utils::bytecode::CompressedBytecodeInfo;
@@ -263,8 +265,8 @@ impl<S: ReadStorage, H: HistoryMode> VmInstance<S, H> {
             VmVersion::Vm1_5_0IncreasedBootloaderMemory => match mode {
                 FastVmMode::Old => Self::new(l1_batch_env, system_env, storage_view),
                 FastVmMode::New => {
-                    // let storage = ImmutableStorageView::new(storage_view);
-                    // Self::VmFast(crate::vm_fast::Vm::new(l1_batch_env, system_env, storage))
+                    //let storage = ImmutableStorageView::new(storage_view);
+                    //Self::VmFast(crate::vm_fast::Vm::new(l1_batch_env, system_env, storage))
 
                     Self::LambdaVm(crate::era_vm::vm::Vm::new(
                         l1_batch_env,

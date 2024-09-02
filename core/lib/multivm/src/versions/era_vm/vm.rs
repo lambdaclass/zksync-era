@@ -389,7 +389,7 @@ impl<S: ReadStorage> Vm<S> {
     }
 }
 
-impl<S: ReadStorage + 'static> Vm<S> {
+impl<S: ReadStorage> Vm<S> {
     pub fn inspect_inner(
         &mut self,
         tracer: TracerDispatcher<S>,
@@ -502,7 +502,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
     }
 }
 
-impl<S: ReadStorage + 'static> VmInterface for Vm<S> {
+impl<S: ReadStorage> VmInterface for Vm<S> {
     type TracerDispatcher = TracerDispatcher<S>;
 
     fn push_transaction(&mut self, tx: Transaction) {

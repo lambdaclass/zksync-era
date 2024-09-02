@@ -40,7 +40,7 @@ impl Into<Refunds> for RefundsTracer {
 
 impl Tracer for RefundsTracer {}
 
-impl<S: ReadStorage + 'static> VmTracer<S> for RefundsTracer {
+impl<S: ReadStorage> VmTracer<S> for RefundsTracer {
     fn before_bootloader_execution(&mut self, vm: &mut super::traits::Vm<S>) {
         self.pubdata_before = vm.inner.state.pubdata() as u32;
     }

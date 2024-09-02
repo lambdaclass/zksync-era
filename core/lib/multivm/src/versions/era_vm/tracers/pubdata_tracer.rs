@@ -55,7 +55,7 @@ impl PubdataTracer {
     fn get_storage_diff<S: ReadStorage>(&mut self, vm: &mut Vm<S>) -> Vec<StateDiffRecord> {
         vm.inner
             .state
-            .get_storage_changes()
+            .get_storage_changes(&mut vm.world)
             .iter()
             .filter_map(|(storage_key, initial_value, value)| {
                 let address = storage_key.address;
@@ -95,7 +95,7 @@ impl PubdataTracer {
 
 impl Tracer for PubdataTracer {}
 
-impl<S: ReadStorage + 'static> VmTracer<S> for PubdataTracer {
+impl<S: ReadStorage> VmTracer<S> for PubdataTracer {
     fn before_bootloader_execution(&mut self, vm: &mut super::traits::Vm<S>) {
         self.pubdata_before_run = vm.inner.state.pubdata();
     }
