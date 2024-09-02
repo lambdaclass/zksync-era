@@ -4,7 +4,10 @@ use criterion::{
     black_box, criterion_group, criterion_main, measurement::WallTime, BatchSize, BenchmarkGroup,
     Criterion,
 };
-use zksync_types::{utils::deployed_address_create, Transaction, H160, H256, U256};
+use zksync_types::{
+    utils::{deployed_address_create, storage_key_for_eth_balance},
+    Transaction, H160, H256, U256
+};
 use zksync_vm_benchmark_harness::{
     cut_to_allowed_bytecode_size, get_deploy_tx, get_heavy_load_test_tx, get_load_test_deploy_tx,
     get_load_test_tx, get_realistic_load_test_tx, pre_calc_address, BenchmarkingVm,
@@ -14,45 +17,6 @@ use zksync_vm_benchmark_harness::{
 const SAMPLE_SIZE: usize = 20;
 const ZKSYNC_HOME: &str = std::env!("ZKSYNC_HOME");
 
-// fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
-//     let mut group = c.benchmark_group(VM::LABEL.as_str());
-//     group
-//         .sample_size(SAMPLE_SIZE)
-//         .measurement_time(Duration::from_secs(10));
-//
-//     let benches = format!(
-//         "{}/core/tests/vm-benchmark/deployment_benchmarks",
-//         ZKSYNC_HOME
-//     );
-//
-//     for path in std::fs::read_dir(&benches).unwrap() {
-//         let path = path.unwrap().path();
-//
-//         let test_contract = std::fs::read(&path).expect("failed to read file");
-//
-//         let code = cut_to_allowed_bytecode_size(&test_contract).unwrap();
-//         let tx = get_deploy_tx(code);
-//         let file_name = path.file_name().unwrap().to_str().unwrap();
-//         let full_suffix = if FULL { "/full" } else { "" };
-//         let bench_name = format!("{file_name}{full_suffix}");
-//         group.bench_function(bench_name, |bencher| {
-//             if FULL {
-//                 // Include VM initialization / drop into the measured time
-//                 bencher.iter(|| BenchmarkingVm::<VM>::default().run_transaction(black_box(&tx)));
-//             } else {
-//                 bencher.iter_batched(
-//                     BenchmarkingVm::<VM>::default,
-//                     |mut vm| {
-//                         let result = vm.run_transaction(black_box(&tx));
-//                         (vm, result)
-//                     },
-//                     BatchSize::LargeInput, // VM can consume significant amount of RAM, especially the new one
-//                 );
-//             }
-//         });
-//     }
-// }
-//
 pub fn program_from_file(bin_path: &str) -> Vec<u8> {
     let program = std::fs::read(bin_path).unwrap();
     let encoded = String::from_utf8(program).unwrap();
@@ -97,11 +61,6 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
         let code = program_from_file(&bench_path);
         let tx = get_deploy_tx(&code[..]);
         let expected_address = pre_calc_address(&code[..]);
-        let mut vm = BenchmarkingVm::<Lambda>::default();
-        let result = vm.run_transaction(black_box(&tx));
-        if result.result.is_failed() {
-            panic!("Failed!");
-        }
         group.bench_function(bench_name.clone(), |bencher| {
             bencher.iter_batched(
                 BenchmarkingVm::<VM>::default,
@@ -112,6 +71,9 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
                             vm.read_storage(expected_address, H256::zero())
                                 == U256::from_dec_str("75025").unwrap()
                         );
+                    } else if bench_name.contains("send") {
+                        // dbg!(vm.read_storage(*balance.address(), *balance.key()));
+                        dbg!(result.result.is_failed());
                     }
                     (vm, result)
                 },
