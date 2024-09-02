@@ -1,4 +1,5 @@
-use zksync_types::Transaction;
+use zksync_test_account::Account;
+use zksync_types::{K256PrivateKey, Transaction};
 
 use super::tester::VmTester;
 use crate::{
@@ -7,23 +8,17 @@ use crate::{
 };
 
 fn prepare_test(is_parallel: bool) -> (VmTester, [Transaction; 3]) {
+    let bytes = [1; 32];
+    let account = Account::new(K256PrivateKey::from_bytes(bytes.into()).unwrap());
+    dbg!(&account);
     let mut vm_tester = VmTesterBuilder::new()
         .with_empty_in_memory_storage()
         .with_deployer()
-        .with_random_rich_accounts(1)
+        .with_custom_account(account)
         .build();
 
     if is_parallel {
-        let mut vm_tester_2 = VmTesterBuilder::new()
-            .with_empty_in_memory_storage()
-            .with_deployer()
-            .with_random_rich_accounts(1)
-            .build();
-        vm_tester_2.deploy_test_contract();
-
-        vm_tester.test_contract = vm_tester_2.test_contract;
-
-        vm_tester.deploy_test_contract_parallel()
+        vm_tester.deploy_test_contract();
     } else {
         vm_tester.deploy_test_contract();
     }
@@ -59,14 +54,14 @@ fn prepare_test(is_parallel: bool) -> (VmTester, [Transaction; 3]) {
 
 #[test]
 fn parallel_execution() {
-    // let normal_execution = {
-    //     let (mut vm, txs) = prepare_test(false);
-    //     let vm = &mut vm.vm;
-    //     for tx in &txs {
-    //         vm.push_transaction_inner(tx.clone(), 0, true);
-    //     }
-    //     vm.execute(VmExecutionMode::Batch)
-    // };
+    let normal_execution = {
+        let (mut vm, txs) = prepare_test(false);
+        let vm = &mut vm.vm;
+        for tx in &txs {
+            vm.push_transaction_inner(tx.clone(), 0, true);
+        }
+        vm.execute(VmExecutionMode::Batch)
+    };
 
     let parallel_execution = {
         let (mut vm, txs) = prepare_test(true);
@@ -74,17 +69,13 @@ fn parallel_execution() {
         for tx in txs {
             vm.push_parallel_transaction(tx, 0, true);
         }
-        vm.execute_parallel()
+        vm.execute_parallel(VmExecutionMode::Batch)
     };
-    println!("RESULT {:?}", parallel_execution.result);
 
-    // we don't assert if statistics are equal since that would require
-    // sharing the gas in parallel,
-    assert!(1 == 2);
-    // assert_eq!(
-    //     normal_execution.logs.storage_logs,
-    //     parallel_execution.logs.storage_logs
-    // );
-    // assert_eq!(normal_execution.result, parallel_execution.result);
-    // assert_eq!(normal_execution.refunds, parallel_execution.refunds);
+    assert_eq!(
+        normal_execution.logs.storage_logs,
+        parallel_execution.logs.storage_logs
+    );
+    assert_eq!(normal_execution.result, parallel_execution.result);
+    assert_eq!(normal_execution.refunds, parallel_execution.refunds);
 }
