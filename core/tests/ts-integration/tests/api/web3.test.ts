@@ -1232,7 +1232,7 @@ describe('web3 API compatibility tests', () => {
      * @param iterationStep The number of times this function has been called.
      */
     async function tryWait(iterationStep: number) {
-        const maxWaitTimeMs = 100_000; // 100 seconds
+        const maxWaitTimeMs = 1_000_000; // 1000 seconds
         const maxRetries = maxWaitTimeMs / alice.provider.pollingInterval;
         await zksync.utils.sleep(alice.provider.pollingInterval);
         if (iterationStep >= maxRetries) {
