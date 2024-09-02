@@ -1,4 +1,4 @@
-mod l2_block;
+pub mod l2_block;
 mod snapshot;
 mod state;
 mod tx;

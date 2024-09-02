@@ -32,11 +32,11 @@ pub struct BootloaderState {
     /// See the structure doc-comment for a better explanation of purpose.
     tx_to_execute: usize,
     /// Stored txs in bootloader memory
-    l2_blocks: Vec<BootloaderL2Block>,
+    pub l2_blocks: Vec<BootloaderL2Block>,
     /// The number of 32-byte words spent on the already included compressed bytecodes.
     compressed_bytecodes_encoding: usize,
     /// Initial memory of bootloader
-    initial_memory: BootloaderMemory,
+    pub initial_memory: BootloaderMemory,
     /// Mode of txs for execution, it can be changed once per vm lunch
     execution_mode: TxExecutionMode,
     /// Current offset of the free space in the bootloader memory.
@@ -88,7 +88,7 @@ impl BootloaderState {
     }
 
     /// This method bypass sanity checks and should be used carefully.
-    pub(crate) fn push_l2_block(&mut self, l2_block: L2BlockEnv) {
+    pub fn push_l2_block(&mut self, l2_block: L2BlockEnv) {
         self.l2_blocks
             .push(BootloaderL2Block::new(l2_block, self.free_tx_index()))
     }
@@ -167,7 +167,7 @@ impl BootloaderState {
         memory
     }
 
-    pub(crate) fn last_l2_block(&self) -> &BootloaderL2Block {
+    pub fn last_l2_block(&self) -> &BootloaderL2Block {
         self.l2_blocks.last().unwrap()
     }
 

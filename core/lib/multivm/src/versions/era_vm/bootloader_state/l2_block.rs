@@ -12,7 +12,7 @@ use crate::{
 const EMPTY_TXS_ROLLING_HASH: H256 = H256::zero();
 
 #[derive(Debug, Clone)]
-pub(crate) struct BootloaderL2Block {
+pub struct BootloaderL2Block {
     pub(crate) number: u32,
     pub(crate) timestamp: u64,
     pub(crate) txs_rolling_hash: H256, // The rolling hash of all the transactions in the miniblock
@@ -57,6 +57,7 @@ impl BootloaderL2Block {
     pub(crate) fn interim_version(&self) -> BootloaderL2Block {
         let mut interim = self.clone();
         interim.max_virtual_blocks_to_create = 0;
+        println!("IN INTERIM VERSION");
         interim
     }
 
