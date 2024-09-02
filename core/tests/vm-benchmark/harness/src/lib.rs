@@ -259,7 +259,9 @@ impl BenchmarkingVm<Legacy> {
 pub fn get_deploy_tx(code: &[u8]) -> Transaction {
     get_deploy_tx_with_gas_limit(code, 30_000_000, 0)
 }
-
+pub fn pre_calc_address(code: &[u8]) -> Address {
+    deployed_address_create(PRIVATE_KEY.address(), U256::zero())
+}
 pub fn get_deploy_tx_with_gas_limit(code: &[u8], gas_limit: u32, nonce: u32) -> Transaction {
     let mut salt = vec![0_u8; 32];
     salt[28..32].copy_from_slice(&nonce.to_be_bytes());

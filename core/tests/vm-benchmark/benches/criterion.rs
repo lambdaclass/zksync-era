@@ -4,11 +4,11 @@ use criterion::{
     black_box, criterion_group, criterion_main, measurement::WallTime, BatchSize, BenchmarkGroup,
     Criterion,
 };
-use zksync_types::{Transaction, H160, H256};
+use zksync_types::{utils::deployed_address_create, Transaction, H160, H256, U256};
 use zksync_vm_benchmark_harness::{
     cut_to_allowed_bytecode_size, get_deploy_tx, get_heavy_load_test_tx, get_load_test_deploy_tx,
-    get_load_test_tx, get_realistic_load_test_tx, BenchmarkingVm, BenchmarkingVmFactory, Fast,
-    Lambda, Legacy, LoadTestParams,
+    get_load_test_tx, get_realistic_load_test_tx, pre_calc_address, BenchmarkingVm,
+    BenchmarkingVmFactory, Fast, Lambda, Legacy, LoadTestParams,
 };
 
 const SAMPLE_SIZE: usize = 20;
@@ -72,7 +72,9 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
     group
         .sample_size(SAMPLE_SIZE)
         .measurement_time(Duration::from_secs(10));
+
     let send_bench_tag = "send";
+
     let send_bench = format!(
         "{}/core/tests/vm-benchmark/deployment_benchmarks/{}",
         ZKSYNC_HOME, send_bench_tag
@@ -88,17 +90,29 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
         (send_bench_tag, send_bench),
         (fibonacci_bench_tag, fibonacci_bench),
     ];
+
     for (bench_tag, bench_path) in benches {
         let bench_name = format!("{bench_tag}/full");
         // Only benchmark the tx execution itself
         let code = program_from_file(&bench_path);
         let tx = get_deploy_tx(&code[..]);
-        group.bench_function(bench_name, |bencher| {
+        let expected_address = pre_calc_address(&code[..]);
+        let mut vm = BenchmarkingVm::<Lambda>::default();
+        let result = vm.run_transaction(black_box(&tx));
+        if result.result.is_failed() {
+            panic!("Failed!");
+        }
+        group.bench_function(bench_name.clone(), |bencher| {
             bencher.iter_batched(
                 BenchmarkingVm::<VM>::default,
                 |mut vm| {
                     let result = vm.run_transaction(black_box(&tx));
-                    dbg!(vm.read_storage(H160::zero(), H256::zero()));
+                    if bench_name == "fibonacci_rec" {
+                        assert!(
+                            vm.read_storage(expected_address, H256::zero())
+                                == U256::from_dec_str("75025").unwrap()
+                        );
+                    }
                     (vm, result)
                 },
                 BatchSize::LargeInput,
