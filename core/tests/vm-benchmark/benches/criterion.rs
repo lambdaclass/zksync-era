@@ -67,16 +67,34 @@ pub fn program_from_file(bin_path: &str) -> Vec<u8> {
 }
 // Simpler version
 fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
-    let bench = format!(
+    let mut group = c.benchmark_group(VM::LABEL.as_str());
+
+    group
+        .sample_size(SAMPLE_SIZE)
+        .measurement_time(Duration::from_secs(10));
+
+    let send_bench = format!(
         "{}/core/tests/vm-benchmark/deployment_benchmarks/send",
         ZKSYNC_HOME
     );
 
-    let mut vm = BenchmarkingVm::<Fast>::default();
-    let code = program_from_file(&bench);
-    let tx = get_deploy_tx(&code[..]);
-    let result = vm.run_transaction(&tx);
-    dbg!(&result.result.is_failed());
+    let fibonacci_bench = format!(
+        "{}/core/tests/vm-benchmark/deployment_benchmarks/fibonacci_rec",
+        ZKSYNC_HOME
+    );
+
+    let benches: Vec<String> = vec![send_bench, fibonacci_bench];
+    for bench in benches {
+        let bench_name = format!("{bench}/full");
+        // Only benchmark the tx execution itself
+        let mut vm = BenchmarkingVm::<VM>::default();
+        let code = program_from_file(&bench);
+        let tx = get_deploy_tx(&code[..]);
+        let result = vm.run_transaction(&tx);
+        group.bench_function(bench, |bencher| {
+            bencher.iter(|| vm.run_transaction(black_box(&tx)));
+        });
+    }
 }
 
 fn bench_load_test<VM: BenchmarkingVmFactory>(c: &mut Criterion) {
