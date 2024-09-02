@@ -67,32 +67,44 @@ pub fn program_from_file(bin_path: &str) -> Vec<u8> {
 }
 // Simpler version
 fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
-    bench_fibonacci::<VM, FULL>(c);
-    // let bench = format!(
-    //     "{}/core/tests/vm-benchmark/deployment_benchmarks/send",
-    //     ZKSYNC_HOME
-    // );
-    //
-    // let mut vm = BenchmarkingVm::<Fast>::default();
-    // let code = program_from_file(&bench);
-    // let tx = get_deploy_tx(&code[..]);
-    // let result = vm.run_transaction(&tx);
-    // dbg!(&result.result.is_failed());
-}
+    let mut group = c.benchmark_group(VM::LABEL.as_str());
 
-// Hardcoded fibonacci benchmark
-fn bench_fibonacci<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
-    let bench = format!(
-        "{}/core/tests/vm-benchmark/deployment_benchmarks/fibonacci",
-        ZKSYNC_HOME
+    group
+        .sample_size(SAMPLE_SIZE)
+        .measurement_time(Duration::from_secs(10));
+    let send_bench_tag = "send";
+    let send_bench = format!(
+        "{}/core/tests/vm-benchmark/deployment_benchmarks/{}",
+        ZKSYNC_HOME, send_bench_tag
     );
 
-    let mut vm = BenchmarkingVm::<Lambda>::default();
-    let code = program_from_file(&bench);
-    let tx = get_deploy_tx(&code[..]);
-    let result = vm.run_transaction(&tx);
-    dbg!(vm.read_storage(H160::zero(), H256::zero()));
-    dbg!(&result.result);
+    let fibonacci_bench_tag = "fibonacci_rec";
+    let fibonacci_bench = format!(
+        "{}/core/tests/vm-benchmark/deployment_benchmarks/{}",
+        ZKSYNC_HOME, fibonacci_bench_tag
+    );
+
+    let benches: Vec<(&str, String)> = vec![
+        (send_bench_tag, send_bench),
+        (fibonacci_bench_tag, fibonacci_bench),
+    ];
+    for (bench_tag, bench_path) in benches {
+        let bench_name = format!("{bench_tag}/full");
+        // Only benchmark the tx execution itself
+        let code = program_from_file(&bench_path);
+        let tx = get_deploy_tx(&code[..]);
+        group.bench_function(bench_name, |bencher| {
+            bencher.iter_batched(
+                BenchmarkingVm::<VM>::default,
+                |mut vm| {
+                    let result = vm.run_transaction(black_box(&tx));
+                    dbg!(vm.read_storage(H160::zero(), H256::zero()));
+                    (vm, result)
+                },
+                BatchSize::LargeInput,
+            );
+        });
+    }
 }
 
 fn bench_load_test<VM: BenchmarkingVmFactory>(c: &mut Criterion) {
