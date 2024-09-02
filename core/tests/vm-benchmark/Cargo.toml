@@ -13,6 +13,7 @@ zksync_vm_benchmark_harness.workspace = true
 rand.workspace = true
 vise.workspace = true
 tokio.workspace = true
+hex.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
