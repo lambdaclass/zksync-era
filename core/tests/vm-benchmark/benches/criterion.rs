@@ -90,10 +90,6 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
                             *receiver_balance_key.address(),
                             *receiver_balance_key.key(),
                         );
-                        let receiver_balance = vm.read_storage(
-                            *receiver_balance_key.address(),
-                            *receiver_balance_key.key(),
-                        );
                         assert_eq!(receiver_balance, expected_receiver_balance);
                     }
                     (vm, result)
