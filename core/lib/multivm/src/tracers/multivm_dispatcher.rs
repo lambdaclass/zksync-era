@@ -41,7 +41,7 @@ impl<S: WriteStorage, H: HistoryMode> From<TracerDispatcher<S, H>>
     for crate::era_vm::tracers::dispatcher::TracerDispatcher<S>
 {
     fn from(value: TracerDispatcher<S, H>) -> Self {
-        Self::new(value.tracers.into_iter().map(|x| x.era_vm()).collect())
+        Self::new(value.tracers.into_iter().map(|x| x.into_era_vm()).collect())
     }
 }
 
