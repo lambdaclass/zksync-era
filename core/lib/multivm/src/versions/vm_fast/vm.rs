@@ -420,8 +420,10 @@ impl<S: ReadStorage> Vm<S> {
 impl<S: ReadStorage> VmInterface for Vm<S> {
     type TracerDispatcher = ();
 
-    fn read_storage(&mut self, _address: H160, _key: H256) -> U256 {
-        panic!("Not implemented")
+    fn read_storage(&mut self, address: H160, key: H256) -> U256 {
+        let key = U256::from_big_endian(key.as_bytes());
+        let state = self.inner.world_diff.get_storage_state();
+        state.get(&(address, key)).cloned().unwrap_or_default()
     }
 
     fn push_transaction(&mut self, tx: zksync_types::Transaction) {

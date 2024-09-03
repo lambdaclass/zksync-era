@@ -1,10 +1,10 @@
 use circuit_sequencer_api_1_5_0::sort_storage_access::sort_storage_access_queries;
-use zksync_state::{StoragePtr, WriteStorage};
+use zksync_state::{ReadStorage, StoragePtr, WriteStorage};
 use zksync_types::{
     event::extract_l2tol1logs_from_l1_messenger,
     l2_to_l1_log::{SystemL2ToL1Log, UserL2ToL1Log},
     vm::VmVersion,
-    Transaction,
+    AccountTreeId, StorageKey, Transaction,
 };
 use zksync_utils::bytecode::CompressedBytecodeInfo;
 
@@ -78,8 +78,10 @@ use zksync_types::{H160, H256, U256};
 impl<S: WriteStorage, H: HistoryMode> VmInterface for Vm<S, H> {
     type TracerDispatcher = TracerDispatcher<S, H::Vm1_5_0>;
 
-    fn read_storage(&mut self, _address: H160, _key: H256) -> U256 {
-        todo!();
+    fn read_storage(&mut self, address: H160, key: H256) -> U256 {
+        let key = StorageKey::new(AccountTreeId::new(address), key);
+        let value = self.storage.read_value(&key);
+        U256::from_big_endian(value.as_bytes())
     }
     /// Push tx into memory for the future execution
     fn push_transaction(&mut self, tx: Transaction) {

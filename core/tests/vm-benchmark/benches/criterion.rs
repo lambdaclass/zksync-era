@@ -30,6 +30,7 @@ pub fn program_from_file(bin_path: &str) -> Vec<u8> {
 
     bin
 }
+
 // Simpler version
 fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criterion) {
     let mut group = c.benchmark_group(VM::LABEL.as_str());
