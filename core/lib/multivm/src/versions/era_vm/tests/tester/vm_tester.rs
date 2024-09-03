@@ -276,6 +276,8 @@ impl VmTesterBuilder {
 
 pub(crate) fn default_l1_batch(number: L1BatchNumber) -> L1BatchEnv {
     let timestamp = 0xabcd;
+    let bytes = [4; 32];
+    let fee_account = Account::new(K256PrivateKey::from_bytes(bytes.into()).unwrap());
     L1BatchEnv {
         previous_batch_hash: None,
         number,
@@ -284,7 +286,7 @@ pub(crate) fn default_l1_batch(number: L1BatchNumber) -> L1BatchEnv {
             50_000_000_000, // 50 gwei
             250_000_000,    // 0.25 gwei
         ),
-        fee_account: Address::random(),
+        fee_account: fee_account.address(),
         enforced_base_fee: None,
         first_l2_block: L2BlockEnv {
             number: 1,
