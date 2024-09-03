@@ -567,9 +567,9 @@ impl<S: ReadStorage> VmInterface for Vm<S> {
 
     fn inspect_transaction_with_bytecode_compression(
         &mut self,
-        _tracer: Self::TracerDispatcher,
-        _tx: zksync_types::Transaction,
-        _with_compression: bool,
+        tracer: Self::TracerDispatcher,
+        tx: zksync_types::Transaction,
+        with_compression: bool,
     ) -> (
         Result<(), crate::interface::BytecodeCompressionError>,
         VmExecutionResultAndLogs,
