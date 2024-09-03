@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::time::Duration;
 
 use criterion::{
@@ -6,12 +7,12 @@ use criterion::{
 };
 use zksync_types::{
     utils::{deployed_address_create, storage_key_for_eth_balance},
-    Transaction, H160, H256, U256
+    Transaction, H160, H256, U256,
 };
 use zksync_vm_benchmark_harness::{
-    cut_to_allowed_bytecode_size, get_deploy_tx, get_heavy_load_test_tx, get_load_test_deploy_tx,
-    get_load_test_tx, get_realistic_load_test_tx, pre_calc_address, BenchmarkingVm,
-    BenchmarkingVmFactory, Fast, Lambda, Legacy, LoadTestParams,
+    cut_to_allowed_bytecode_size, get_deploy_tx, get_deploy_tx_with_value, get_heavy_load_test_tx,
+    get_load_test_deploy_tx, get_load_test_tx, get_realistic_load_test_tx, get_sender_address,
+    pre_calc_address, BenchmarkingVm, BenchmarkingVmFactory, Fast, Lambda, Legacy, LoadTestParams,
 };
 
 const SAMPLE_SIZE: usize = 20;
@@ -55,25 +56,44 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
         (fibonacci_bench_tag, fibonacci_bench),
     ];
 
+    let receiver_addr = H160::from_str("0x888888CfAebbEd5554c3F36BfBD233f822e9455f").unwrap();
+    let receiver_balance_key = storage_key_for_eth_balance(&receiver_addr);
+    let sent_value = 100_u32;
+    let expected_receiver_balance: U256 = sent_value.into();
+    let expected_fibonacci_result = U256::from_dec_str("75025").unwrap();
+
     for (bench_tag, bench_path) in benches {
         let bench_name = format!("{bench_tag}/full");
         // Only benchmark the tx execution itself
         let code = program_from_file(&bench_path);
-        let tx = get_deploy_tx(&code[..]);
-        let expected_address = pre_calc_address(&code[..]);
+        let sent_value = if bench_name.contains("fibonacci_rec") {
+            0
+        } else {
+            sent_value
+        };
+        let tx = get_deploy_tx_with_value(&code[..], sent_value);
+        let contract_addr = pre_calc_address(&code[..]);
         group.bench_function(bench_name.clone(), |bencher| {
             bencher.iter_batched(
                 BenchmarkingVm::<VM>::default,
                 |mut vm| {
                     let result = vm.run_transaction(black_box(&tx));
+                    assert!(!result.result.is_failed());
                     if bench_name.contains("fibonacci_rec") {
-                        assert!(
-                            vm.read_storage(expected_address, H256::zero())
-                                == U256::from_dec_str("75025").unwrap()
+                        assert_eq!(
+                            vm.read_storage(contract_addr, H256::zero()),
+                            expected_fibonacci_result
                         );
                     } else if bench_name.contains("send") {
-                        // dbg!(vm.read_storage(*balance.address(), *balance.key()));
-                        dbg!(result.result.is_failed());
+                        let receiver_balance = vm.read_storage(
+                            *receiver_balance_key.address(),
+                            *receiver_balance_key.key(),
+                        );
+                        let receiver_balance = vm.read_storage(
+                            *receiver_balance_key.address(),
+                            *receiver_balance_key.key(),
+                        );
+                        assert_eq!(receiver_balance, expected_receiver_balance);
                     }
                     (vm, result)
                 },

@@ -257,12 +257,26 @@ impl BenchmarkingVm<Legacy> {
 }
 
 pub fn get_deploy_tx(code: &[u8]) -> Transaction {
-    get_deploy_tx_with_gas_limit(code, 30_000_000, 0)
+    get_deploy_tx_with_gas_limit_and_value(code, 30_000_000, 0, 0)
+}
+
+pub fn get_deploy_tx_with_value(code: &[u8], value: u32) -> Transaction {
+    get_deploy_tx_with_gas_limit_and_value(code, 30_000_000, 0, value)
 }
 pub fn pre_calc_address(code: &[u8]) -> Address {
     deployed_address_create(PRIVATE_KEY.address(), U256::zero())
 }
-pub fn get_deploy_tx_with_gas_limit(code: &[u8], gas_limit: u32, nonce: u32) -> Transaction {
+
+pub fn get_sender_address() -> Address {
+    PRIVATE_KEY.address()
+}
+
+pub fn get_deploy_tx_with_gas_limit_and_value(
+    code: &[u8],
+    gas_limit: u32,
+    nonce: u32,
+    value: u32,
+) -> Transaction {
     let mut salt = vec![0_u8; 32];
     salt[28..32].copy_from_slice(&nonce.to_be_bytes());
     let params = [
@@ -281,7 +295,7 @@ pub fn get_deploy_tx_with_gas_limit(code: &[u8], gas_limit: u32, nonce: u32) -> 
         calldata,
         Nonce(nonce),
         tx_fee(gas_limit),
-        U256::zero(),
+        value.into(),
         L2ChainId::from(270),
         &PRIVATE_KEY,
         vec![code.to_vec()], // maybe not needed?
