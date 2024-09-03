@@ -18,10 +18,10 @@ first_processed_batch = 0
 
 [experimental_vm]
 # Mode in which to run the new fast VM in the state keeper. Don't set to "new" / "shadow" in production yet!
-state_keeper_fast_vm_mode = "old" # default value
+state_keeper_fast_vm_mode = "new" # default value
 
 [experimental_vm.playground]
 # Path to the directory that contains RocksDB with protective reads writer cache.
 db_path = "./db/main/vm_playground"
 # Mode in which to run the new fast VM
-fast_vm_mode = "shadow"
+fast_vm_mode = "new"

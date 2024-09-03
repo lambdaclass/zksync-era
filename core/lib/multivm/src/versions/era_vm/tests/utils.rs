@@ -167,3 +167,9 @@ pub(crate) fn read_expensive_contract() -> (Vec<u8>, Contract) {
         "etc/contracts-test-data/artifacts-zk/contracts/expensive/expensive.sol/Expensive.json";
     (read_bytecode(PATH), load_contract(PATH))
 }
+
+pub(crate) fn read_max_depth_contract() -> Vec<u8> {
+    read_zbin_bytecode(
+        "core/tests/ts-integration/contracts/zkasm/artifacts/deep_stak.zkasm/deep_stak.zkasm.zbin",
+    )
+}

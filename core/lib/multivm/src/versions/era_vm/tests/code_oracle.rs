@@ -211,7 +211,7 @@ fn refunds_in_code_oracle() {
                 .vm
                 .inner
                 .state
-                .decommit(h256_to_u256(normal_zkevm_bytecode_hash));
+                .decommit(h256_to_u256(normal_zkevm_bytecode_hash), &mut vm.vm.world);
 
             assert!(!was_decommited);
         }
