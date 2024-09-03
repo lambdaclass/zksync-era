@@ -80,12 +80,12 @@ fn benches_in_folder<VM: BenchmarkingVmFactory, const FULL: bool>(c: &mut Criter
                 |mut vm| {
                     let result = vm.run_transaction(black_box(&tx));
                     assert!(!result.result.is_failed());
-                    if bench_name.contains("fibonacci_rec") {
+                    if bench_name.starts_with("fibonacci_rec") {
                         assert_eq!(
                             vm.read_storage(contract_addr, H256::zero()),
                             expected_fibonacci_result
                         );
-                    } else if bench_name.contains("send") {
+                    } else if bench_name.starts_with("send") {
                         let receiver_balance = vm.read_storage(
                             *receiver_balance_key.address(),
                             *receiver_balance_key.key(),
