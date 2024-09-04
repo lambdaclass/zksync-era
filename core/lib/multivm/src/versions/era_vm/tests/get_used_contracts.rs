@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use itertools::Itertools;
 use zksync_state::ReadStorage;
 use zksync_system_constants::CONTRACT_DEPLOYER_ADDRESS;
 use zksync_test_account::Account;
