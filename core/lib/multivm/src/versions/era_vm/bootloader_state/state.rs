@@ -93,6 +93,44 @@ impl BootloaderState {
             .push(BootloaderL2Block::new(l2_block, self.free_tx_index()))
     }
 
+    pub(crate) fn push_tx_inner(
+        &mut self,
+        tx: TransactionData,
+        predefined_overhead: u32,
+        predefined_refund: u64,
+        compressed_bytecodes: Vec<CompressedBytecodeInfo>,
+        trusted_ergs_limit: U256,
+        chain_id: L2ChainId,
+        start_new_l2_block: bool,
+    ) -> BootloaderMemory {
+        let tx_offset = self.free_tx_offset();
+        let bootloader_tx = BootloaderTx::new(
+            tx,
+            predefined_refund,
+            predefined_overhead,
+            trusted_ergs_limit,
+            compressed_bytecodes,
+            tx_offset,
+            chain_id,
+        );
+
+        let mut memory = vec![];
+        let compressed_bytecode_size = apply_tx_to_memory(
+            &mut memory,
+            &bootloader_tx,
+            self.last_l2_block(),
+            self.free_tx_index(),
+            self.free_tx_offset(),
+            self.compressed_bytecodes_encoding,
+            self.execution_mode,
+            start_new_l2_block,
+        );
+        self.compressed_bytecodes_encoding += compressed_bytecode_size;
+        self.free_tx_offset = tx_offset + bootloader_tx.encoded_len();
+        self.last_mut_l2_block().push_tx(bootloader_tx);
+        memory
+    }
+
     pub(crate) fn push_tx(
         &mut self,
         tx: TransactionData,
@@ -102,73 +140,23 @@ impl BootloaderState {
         trusted_ergs_limit: U256,
         chain_id: L2ChainId,
     ) -> BootloaderMemory {
-        let tx_offset = self.free_tx_offset();
-        let bootloader_tx = BootloaderTx::new(
+        self.push_tx_inner(
             tx,
-            predefined_refund,
             predefined_overhead,
-            trusted_ergs_limit,
+            predefined_refund,
             compressed_bytecodes,
-            tx_offset,
+            trusted_ergs_limit,
             chain_id,
-        );
-
-        let mut memory = vec![];
-        let compressed_bytecode_size = apply_tx_to_memory(
-            &mut memory,
-            &bootloader_tx,
-            self.last_l2_block(),
-            self.free_tx_index(),
-            self.free_tx_offset(),
-            self.compressed_bytecodes_encoding,
-            self.execution_mode,
             self.last_l2_block().txs.is_empty(),
-        );
-        self.compressed_bytecodes_encoding += compressed_bytecode_size;
-        self.free_tx_offset = tx_offset + bootloader_tx.encoded_len();
-        self.last_mut_l2_block().push_tx(bootloader_tx);
-        memory
-    }
-
-    pub(crate) fn push_tx_parallel(
-        &mut self,
-        tx: TransactionData,
-        predefined_overhead: u32,
-        predefined_refund: u64,
-        compressed_bytecodes: Vec<CompressedBytecodeInfo>,
-        trusted_ergs_limit: U256,
-        chain_id: L2ChainId,
-    ) -> BootloaderMemory {
-        let tx_offset = self.free_tx_offset();
-        let bootloader_tx = BootloaderTx::new(
-            tx,
-            predefined_refund,
-            predefined_overhead,
-            trusted_ergs_limit,
-            compressed_bytecodes,
-            tx_offset,
-            chain_id,
-        );
-
-        let mut memory = vec![];
-        let compressed_bytecode_size = apply_tx_to_memory(
-            &mut memory,
-            &bootloader_tx,
-            self.last_l2_block(),
-            self.free_tx_index(),
-            self.free_tx_offset(),
-            self.compressed_bytecodes_encoding,
-            self.execution_mode,
-            false,
-        );
-        self.compressed_bytecodes_encoding += compressed_bytecode_size;
-        self.free_tx_offset = tx_offset + bootloader_tx.encoded_len();
-        self.last_mut_l2_block().push_tx(bootloader_tx);
-        memory
+        )
     }
 
     pub fn last_l2_block(&self) -> &BootloaderL2Block {
         self.l2_blocks.last().unwrap()
+    }
+
+    pub fn last_l2_block_mut(&mut self) -> &mut BootloaderL2Block {
+        self.l2_blocks.last_mut().unwrap()
     }
 
     pub(crate) fn get_pubdata_information(&self) -> &PubdataInput {
@@ -263,14 +251,14 @@ impl BootloaderState {
 
     pub(crate) fn insert_fictive_l2_block(&mut self) -> &BootloaderL2Block {
         let block = self.last_l2_block();
-        if !block.txs.is_empty() {
-            self.start_new_l2_block(L2BlockEnv {
-                timestamp: block.timestamp + 1,
-                number: block.number + 1,
-                prev_block_hash: block.get_hash(),
-                max_virtual_blocks_to_create: 1,
-            });
-        }
+        // if !block.txs.is_empty() {
+        self.start_new_l2_block(L2BlockEnv {
+            timestamp: block.timestamp + 1,
+            number: block.number + 1,
+            prev_block_hash: block.get_hash(),
+            max_virtual_blocks_to_create: 1,
+        });
+        // }
         self.last_l2_block()
     }
 

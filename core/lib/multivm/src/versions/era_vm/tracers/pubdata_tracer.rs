@@ -159,8 +159,6 @@ impl<S: ReadStorage + 'static> VmTracer<S> for PubdataTracer {
                 state_diffs,
             };
 
-            println!("PUBDATA INPUT {:?}", pubdata_input);
-
             // Save the pubdata for the future initial bootloader memory building
             vm.bootloader_state.set_pubdata_input(pubdata_input.clone());
 

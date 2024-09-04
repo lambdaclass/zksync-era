@@ -36,7 +36,7 @@ impl BootloaderL2Block {
         }
     }
 
-    pub(super) fn push_tx(&mut self, tx: BootloaderTx) {
+    pub(crate) fn push_tx(&mut self, tx: BootloaderTx) {
         self.update_rolling_hash(tx.hash);
         self.txs.push(tx)
     }
@@ -50,7 +50,7 @@ impl BootloaderL2Block {
         )
     }
 
-    fn update_rolling_hash(&mut self, tx_hash: H256) {
+    pub(crate) fn update_rolling_hash(&mut self, tx_hash: H256) {
         self.txs_rolling_hash = concat_and_hash(self.txs_rolling_hash, tx_hash)
     }
 

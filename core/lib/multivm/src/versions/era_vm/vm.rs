@@ -26,7 +26,9 @@ use zksync_utils::{
 };
 
 use super::{
-    bootloader_state::{l2_block::BootloaderL2Block, utils::apply_l2_block, BootloaderState},
+    bootloader_state::{
+        l2_block::BootloaderL2Block, tx::BootloaderTx, utils::apply_l2_block, BootloaderState,
+    },
     event::merge_events,
     hook::Hook,
     initial_bootloader_memory::bootloader_initial_memory,
@@ -356,18 +358,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
         }
     }
 
-    pub fn push_parallel_transaction(
-        &mut self,
-        tx: Transaction,
-        refund: u64,
-        with_compression: bool,
-    ) {
-        // push the transactions to the main vm, which holds the actual L2 block
-        self.write_block_to_mem(tx.clone(), refund, with_compression);
-        self.transaction_to_execute
-            .push(ParallelTransaction::new(tx, refund, with_compression));
-    }
-
     pub fn push_transaction_inner(&mut self, tx: Transaction, refund: u64, with_compression: bool) {
         let tx: TransactionData = tx.into();
         let overhead = tx.overhead_gas();
@@ -405,13 +395,48 @@ impl<S: ReadStorage + 'static> Vm<S> {
         self.write_to_bootloader_heap(memory);
     }
 
-    pub fn push_transaction_inner_no_bytecode(
+    /// updates the rolling hash of the current l2 block
+    /// this functions would be used in the context of parallel execution
+    fn update_l2_block(&mut self, tx: &TransactionData) {
+        self.bootloader_state
+            .last_l2_block_mut()
+            .update_rolling_hash(tx.tx_hash(self.system_env.chain_id));
+        // finally, push a default transaction to pass empty block assertions when setting the final fictive block
+        self.bootloader_state
+            .last_l2_block_mut()
+            .txs
+            .push(BootloaderTx::default());
+    }
+
+    pub fn push_parallel_transaction(
         &mut self,
         tx: Transaction,
         refund: u64,
         with_compression: bool,
     ) {
-        let tx: TransactionData = tx.into();
+        let tx_data: &TransactionData = &tx.clone().into();
+        self.update_l2_block(tx_data);
+        self.insert_bytecodes(tx_data.factory_deps.iter().map(|dep| &dep[..]));
+        self.transaction_to_execute.push(ParallelTransaction::new(
+            tx,
+            refund,
+            with_compression,
+            BootloaderL2Block {
+                txs: vec![],
+                first_tx_index: 0,
+                ..self.bootloader_state.last_l2_block().clone()
+            },
+        ));
+    }
+
+    pub fn write_parallel_tx_to_mem(&mut self, tx: &ParallelTransaction, is_first_in_block: bool) {
+        let ParallelTransaction {
+            tx,
+            refund,
+            with_compression,
+            ..
+        } = tx;
+        let tx: TransactionData = tx.clone().into();
         let overhead = tx.overhead_gas();
 
         let compressed_bytecodes = if is_l1_tx_type(tx.tx_type) || !with_compression {
@@ -433,95 +458,17 @@ impl<S: ReadStorage + 'static> Vm<S> {
 
         let trusted_ergs_limit = tx.trusted_ergs_limit();
 
-        let memory = self.bootloader_state.push_tx(
+        let memory = self.bootloader_state.push_tx_inner(
             tx,
             overhead,
-            refund,
+            *refund,
             compressed_bytecodes,
             trusted_ergs_limit,
             self.system_env.chain_id,
+            is_first_in_block,
         );
 
         self.write_to_bootloader_heap(memory);
-    }
-
-    pub fn push_transaction_inner_parallel(
-        &mut self,
-        tx: Transaction,
-        refund: u64,
-        with_compression: bool,
-    ) {
-        let tx: TransactionData = tx.into();
-        let overhead = tx.overhead_gas();
-
-        let compressed_bytecodes = if is_l1_tx_type(tx.tx_type) || !with_compression {
-            // L1 transactions do not need compression
-            vec![]
-        } else {
-            compress_bytecodes(&tx.factory_deps, |hash| {
-                self.inner
-                    .state
-                    .storage_changes()
-                    .get(&EraStorageKey::new(
-                        KNOWN_CODES_STORAGE_ADDRESS,
-                        h256_to_u256(hash),
-                    ))
-                    .map(|x| !x.is_zero())
-                    .unwrap_or_else(|| self.storage.is_bytecode_known(&hash))
-            })
-        };
-
-        let trusted_ergs_limit = tx.trusted_ergs_limit();
-
-        let memory = self.bootloader_state.push_tx_parallel(
-            tx,
-            overhead,
-            refund,
-            compressed_bytecodes,
-            trusted_ergs_limit,
-            self.system_env.chain_id,
-        );
-
-        self.write_to_bootloader_heap(memory);
-    }
-
-    /// pushes transaction to the current l2 block but doesn't write to the bootloader memory
-    /// this is used in the context of parallel execution, since we wan't to update the L2 rolling hash
-    /// but we don't necessary want to write the transaction to the bootloader memory to execute them
-    pub fn write_block_to_mem(&mut self, tx: Transaction, refund: u64, with_compression: bool) {
-        let tx: TransactionData = tx.into();
-        let overhead = tx.overhead_gas();
-
-        self.insert_bytecodes(tx.factory_deps.iter().map(|dep| &dep[..]));
-
-        let compressed_bytecodes = if is_l1_tx_type(tx.tx_type) || !with_compression {
-            // L1 transactions do not need compression
-            vec![]
-        } else {
-            compress_bytecodes(&tx.factory_deps, |hash| {
-                self.inner
-                    .state
-                    .storage_changes()
-                    .get(&EraStorageKey::new(
-                        KNOWN_CODES_STORAGE_ADDRESS,
-                        h256_to_u256(hash),
-                    ))
-                    .map(|x| !x.is_zero())
-                    .unwrap_or_else(|| self.storage.is_bytecode_known(&hash))
-            })
-        };
-
-        let trusted_ergs_limit = tx.trusted_ergs_limit();
-
-        // this sets the rolling hash
-        self.bootloader_state.push_tx(
-            tx,
-            overhead,
-            refund,
-            compressed_bytecodes,
-            trusted_ergs_limit,
-            self.system_env.chain_id,
-        );
     }
 
     pub fn inspect_inner(
@@ -733,19 +680,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 self.system_env.clone(),
                 self.storage.clone(),
             );
-            // set the last block to what the main vm has
-            vm.bootloader_state.l2_blocks[0] = BootloaderL2Block {
-                number: self.bootloader_state.last_l2_block().number,
-                timestamp: self.bootloader_state.last_l2_block().timestamp,
-                txs_rolling_hash: self.bootloader_state.last_l2_block().txs_rolling_hash,
-                prev_block_hash: self.bootloader_state.last_l2_block().prev_block_hash,
-                first_tx_index: 0,
-                max_virtual_blocks_to_create: self
-                    .bootloader_state
-                    .last_l2_block()
-                    .max_virtual_blocks_to_create,
-                txs: vec![],
-            };
+            vm.bootloader_state.l2_blocks[0] = tx.l2_block.clone();
             vm.inner.state = state;
             vm.is_parallel = true;
             vm.current_tx = self.current_tx;
@@ -759,13 +694,9 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 // since the first transaction starts the batch, we want to push it normally so that
                 // it create the virtual block at the beginning
                 vm.is_parallel = false;
-                vm.push_transaction_inner_no_bytecode(
-                    tx.tx.clone(),
-                    tx.refund,
-                    tx.with_compression,
-                );
+                vm.write_parallel_tx_to_mem(tx, true);
             } else {
-                vm.push_transaction_inner_parallel(tx.tx.clone(), tx.refund, tx.with_compression);
+                vm.write_parallel_tx_to_mem(tx, false);
             }
 
             let result: VmExecutionResultAndLogs =
