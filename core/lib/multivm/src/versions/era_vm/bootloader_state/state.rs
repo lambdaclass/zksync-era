@@ -32,11 +32,11 @@ pub struct BootloaderState {
     /// See the structure doc-comment for a better explanation of purpose.
     tx_to_execute: usize,
     /// Stored txs in bootloader memory
-    l2_blocks: Vec<BootloaderL2Block>,
+    pub l2_blocks: Vec<BootloaderL2Block>,
     /// The number of 32-byte words spent on the already included compressed bytecodes.
     compressed_bytecodes_encoding: usize,
     /// Initial memory of bootloader
-    initial_memory: BootloaderMemory,
+    pub initial_memory: BootloaderMemory,
     /// Mode of txs for execution, it can be changed once per vm lunch
     execution_mode: TxExecutionMode,
     /// Current offset of the free space in the bootloader memory.
@@ -88,12 +88,12 @@ impl BootloaderState {
     }
 
     /// This method bypass sanity checks and should be used carefully.
-    pub(crate) fn push_l2_block(&mut self, l2_block: L2BlockEnv) {
+    pub fn push_l2_block(&mut self, l2_block: L2BlockEnv) {
         self.l2_blocks
             .push(BootloaderL2Block::new(l2_block, self.free_tx_index()))
     }
 
-    pub(crate) fn push_tx(
+    pub(crate) fn push_tx_inner(
         &mut self,
         tx: TransactionData,
         predefined_overhead: u32,
@@ -101,6 +101,7 @@ impl BootloaderState {
         compressed_bytecodes: Vec<CompressedBytecodeInfo>,
         trusted_ergs_limit: U256,
         chain_id: L2ChainId,
+        start_new_l2_block: bool,
     ) -> BootloaderMemory {
         let tx_offset = self.free_tx_offset();
         let bootloader_tx = BootloaderTx::new(
@@ -122,7 +123,7 @@ impl BootloaderState {
             self.free_tx_offset(),
             self.compressed_bytecodes_encoding,
             self.execution_mode,
-            self.last_l2_block().txs.is_empty(),
+            start_new_l2_block,
         );
         self.compressed_bytecodes_encoding += compressed_bytecode_size;
         self.free_tx_offset = tx_offset + bootloader_tx.encoded_len();
@@ -130,23 +131,48 @@ impl BootloaderState {
         memory
     }
 
-    pub(crate) fn last_l2_block(&self) -> &BootloaderL2Block {
+    pub(crate) fn push_tx(
+        &mut self,
+        tx: TransactionData,
+        predefined_overhead: u32,
+        predefined_refund: u64,
+        compressed_bytecodes: Vec<CompressedBytecodeInfo>,
+        trusted_ergs_limit: U256,
+        chain_id: L2ChainId,
+    ) -> BootloaderMemory {
+        self.push_tx_inner(
+            tx,
+            predefined_overhead,
+            predefined_refund,
+            compressed_bytecodes,
+            trusted_ergs_limit,
+            chain_id,
+            self.last_l2_block().txs.is_empty(),
+        )
+    }
+
+    pub fn last_l2_block(&self) -> &BootloaderL2Block {
         self.l2_blocks.last().unwrap()
     }
+
+    pub fn last_l2_block_mut(&mut self) -> &mut BootloaderL2Block {
+        self.l2_blocks.last_mut().unwrap()
+    }
+
     pub(crate) fn get_pubdata_information(&self) -> &PubdataInput {
         self.pubdata_information
             .get()
             .expect("Pubdata information is not set")
     }
 
-    fn last_mut_l2_block(&mut self) -> &mut BootloaderL2Block {
+    pub(crate) fn last_mut_l2_block(&mut self) -> &mut BootloaderL2Block {
         self.l2_blocks.last_mut().unwrap()
     }
 
     /// Apply all bootloader transaction to the initial memory
     pub(crate) fn bootloader_memory(&self) -> BootloaderMemory {
         let mut initial_memory = self.initial_memory.clone();
-        let mut offset = 0;
+        let mut offset: usize = 0;
         let mut compressed_bytecodes_offset = 0;
         let mut tx_index = 0;
         for l2_block in &self.l2_blocks {

@@ -40,7 +40,7 @@ impl<S: ReadStorage> VmTracerManager<S> {
             refund_tracer,
             circuits_tracer: CircuitsTracer::new(),
             pubdata_tracer: pubdata_tracer.unwrap_or(PubdataTracer::new(execution_mode)),
-            debug_tracer: None, // or Some(DebugTracer) to enable debugger
+            debug_tracer: Some(DebugTracer::new()), // or Some(DebugTracer) to enable debugger
         }
     }
 }

@@ -4,8 +4,10 @@ use era_vm::{
     rollbacks::Rollbackable, store::StorageKey as EraStorageKey, value::FatPointer,
     vm::ExecutionOutput, EraVM, Execution,
 };
+use itertools::Itertools;
 use zksync_state::{ReadStorage, StoragePtr};
 use zksync_types::{
+    circuit::CircuitStatistic,
     event::extract_l2tol1logs_from_l1_messenger,
     l1::is_l1_tx_type,
     l2_to_l1_log::UserL2ToL1Log,
@@ -24,11 +26,14 @@ use zksync_utils::{
 };
 
 use super::{
-    bootloader_state::{utils::apply_l2_block, BootloaderState},
+    bootloader_state::{
+        l2_block::BootloaderL2Block, tx::BootloaderTx, utils::apply_l2_block, BootloaderState,
+    },
     event::merge_events,
     hook::Hook,
     initial_bootloader_memory::bootloader_initial_memory,
     logs::IntoSystemLog,
+    parallel_exec::ParallelTransaction,
     snapshot::VmSnapshot,
     tracers::{
         dispatcher::TracerDispatcher, manager::VmTracerManager, pubdata_tracer::PubdataTracer,
@@ -68,6 +73,11 @@ pub struct Vm<S: ReadStorage> {
     pub(crate) system_env: SystemEnv,
 
     pub snapshot: Option<VmSnapshot>,
+
+    pub transaction_to_execute: Vec<ParallelTransaction>,
+    pub current_tx: usize,
+    pub is_parallel: bool,
+    pub batch_has_failed: bool,
 }
 
 /// Encapsulates creating VM instance based on the provided environment.
@@ -143,6 +153,10 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
             batch_env,
             system_env,
             snapshot: None,
+            transaction_to_execute: vec![],
+            is_parallel: false,
+            current_tx: 0,
+            batch_has_failed: false,
         };
 
         mv.write_to_bootloader_heap(bootloader_memory);
@@ -165,18 +179,24 @@ impl<S: ReadStorage + 'static> Vm<S> {
             let status = tracer.after_vm_run(self, output.clone());
             let (hook, hook_params) = match output {
                 ExecutionOutput::Ok(output) => break ExecutionResult::Success { output },
-                ExecutionOutput::Revert(output) => match TxRevertReason::parse_error(&output) {
-                    TxRevertReason::TxReverted(output) => break ExecutionResult::Revert { output },
-                    TxRevertReason::Halt(reason) => break ExecutionResult::Halt { reason },
-                },
+                ExecutionOutput::Revert(output) => {
+                    self.batch_has_failed = true;
+                    match TxRevertReason::parse_error(&output) {
+                        TxRevertReason::TxReverted(output) => {
+                            break ExecutionResult::Revert { output }
+                        }
+                        TxRevertReason::Halt(reason) => break ExecutionResult::Halt { reason },
+                    }
+                }
                 ExecutionOutput::Panic => {
+                    self.batch_has_failed = true;
                     break ExecutionResult::Halt {
                         reason: if self.inner.execution.gas_left().unwrap() == 0 {
                             Halt::BootloaderOutOfGas
                         } else {
                             Halt::VMPanic
                         },
-                    }
+                    };
                 }
                 ExecutionOutput::SuspendedOnHook {
                     hook,
@@ -217,6 +237,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     });
                 }
                 Hook::TxHasEnded => {
+                    self.current_tx += 1;
                     if let VmExecutionMode::OneTx = execution_mode {
                         break last_tx_result
                             .expect("There should always be a result if we got this hook");
@@ -230,16 +251,33 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     apply_l2_block(&mut memory, l2_block, txs_index);
                     self.write_to_bootloader_heap(memory);
                 }
+                Hook::LoadParallel => {
+                    let mut memory: Vec<(usize, U256)> = vec![];
+                    let is_parallel = if self.is_parallel {
+                        U256::one()
+                    } else {
+                        U256::zero()
+                    };
+                    memory.push((100, is_parallel));
+                    self.write_to_bootloader_heap(memory);
+                }
+                Hook::TxIndex => {
+                    let mut memory: Vec<(usize, U256)> = vec![];
+                    memory.push((102, (self.current_tx).into()));
+                    self.write_to_bootloader_heap(memory);
+                }
                 _ => {}
             }
 
             if let TracerExecutionStatus::Stop(reason) = status {
                 match reason {
                     TracerExecutionStopReason::Abort(halt) => {
-                        break ExecutionResult::Halt { reason: halt }
+                        self.batch_has_failed = true;
+                        break ExecutionResult::Halt { reason: halt };
                     }
                     TracerExecutionStopReason::Finish => {
                         if self.inner.execution.gas_left().unwrap() == 0 {
+                            self.batch_has_failed = true;
                             break ExecutionResult::Halt {
                                 reason: Halt::BootloaderOutOfGas,
                             };
@@ -250,12 +288,12 @@ impl<S: ReadStorage + 'static> Vm<S> {
                         let has_failed =
                             self.tx_has_failed(self.bootloader_state.current_tx() as u32);
                         if has_failed {
+                            self.batch_has_failed = true;
                             break ExecutionResult::Revert {
                                 output: crate::interface::VmRevertReason::General {
                                     msg: "Transaction reverted with empty reason. Possibly out of gas".to_string(),
                                     data: vec![],
-                                },
-                            };
+                                }};
                         } else {
                             break ExecutionResult::Success { output: vec![] };
                         }
@@ -264,6 +302,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
             }
         };
         tracer.after_bootloader_execution(self);
+        println!("\n\n\n ===== FINISH EXECUTION ===== \n\n\n");
         result
     }
 
@@ -332,10 +371,90 @@ impl<S: ReadStorage + 'static> Vm<S> {
     }
 
     pub fn push_transaction_inner(&mut self, tx: Transaction, refund: u64, with_compression: bool) {
-        let tx: TransactionData = tx.into();
-        let overhead = tx.overhead_gas();
+        let tx_data: TransactionData = tx.clone().into();
+        let overhead = tx_data.overhead_gas();
 
-        self.insert_bytecodes(tx.factory_deps.iter().map(|dep| &dep[..]));
+        self.insert_bytecodes(tx_data.factory_deps.iter().map(|dep| &dep[..]));
+
+        let compressed_bytecodes = if is_l1_tx_type(tx_data.tx_type) || !with_compression {
+            // L1 transactions do not need compression
+            vec![]
+        } else {
+            compress_bytecodes(&tx_data.factory_deps, |hash| {
+                self.inner
+                    .state
+                    .storage_changes()
+                    .get(&EraStorageKey::new(
+                        KNOWN_CODES_STORAGE_ADDRESS,
+                        h256_to_u256(hash),
+                    ))
+                    .map(|x| !x.is_zero())
+                    .unwrap_or_else(|| self.storage.is_bytecode_known(&hash))
+            })
+        };
+
+        let trusted_ergs_limit = tx_data.trusted_ergs_limit();
+
+        let memory = self.bootloader_state.push_tx(
+            tx_data,
+            overhead,
+            refund,
+            compressed_bytecodes,
+            trusted_ergs_limit,
+            self.system_env.chain_id,
+        );
+
+        self.write_to_bootloader_heap(memory);
+    }
+
+    /// updates the rolling hash of the current l2 block
+    /// this functions would be used in the context of parallel execution
+    fn update_l2_block(&mut self, tx: &TransactionData) {
+        self.bootloader_state
+            .last_l2_block_mut()
+            .update_rolling_hash(tx.tx_hash(self.system_env.chain_id));
+        // finally, push a default transaction to pass empty block assertions when setting the final fictive block
+        self.bootloader_state
+            .last_l2_block_mut()
+            .txs
+            .push(BootloaderTx::default());
+    }
+
+    pub fn push_parallel_transaction(
+        &mut self,
+        tx: Transaction,
+        refund: u64,
+        with_compression: bool,
+    ) {
+        let tx_data: &TransactionData = &tx.clone().into();
+        self.insert_bytecodes(tx_data.factory_deps.iter().map(|dep| &dep[..]));
+        self.update_l2_block(tx_data);
+        let l2_block = self.bootloader_state.last_l2_block();
+        self.transaction_to_execute.push(ParallelTransaction::new(
+            tx,
+            refund,
+            with_compression,
+            BootloaderL2Block {
+                txs: vec![],
+                first_tx_index: 0,
+                number: l2_block.number,
+                max_virtual_blocks_to_create: l2_block.max_virtual_blocks_to_create,
+                prev_block_hash: l2_block.prev_block_hash,
+                timestamp: l2_block.timestamp,
+                txs_rolling_hash: l2_block.txs_rolling_hash,
+            },
+        ));
+    }
+
+    pub fn write_parallel_tx_to_mem(&mut self, tx: &ParallelTransaction, is_first_in_block: bool) {
+        let ParallelTransaction {
+            tx,
+            refund,
+            with_compression,
+            ..
+        } = tx;
+        let tx: TransactionData = tx.clone().into();
+        let overhead = tx.overhead_gas();
 
         let compressed_bytecodes = if is_l1_tx_type(tx.tx_type) || !with_compression {
             // L1 transactions do not need compression
@@ -356,13 +475,14 @@ impl<S: ReadStorage + 'static> Vm<S> {
 
         let trusted_ergs_limit = tx.trusted_ergs_limit();
 
-        let memory = self.bootloader_state.push_tx(
+        let memory = self.bootloader_state.push_tx_inner(
             tx,
             overhead,
-            refund,
+            *refund,
             compressed_bytecodes,
             trusted_ergs_limit,
             self.system_env.chain_id,
+            is_first_in_block,
         );
 
         self.write_to_bootloader_heap(memory);
@@ -402,72 +522,239 @@ impl<S: ReadStorage + 'static> Vm<S> {
         let logs = if ignore_world_diff {
             VmExecutionLogs::default()
         } else {
-            let events = merge_events(
-                self.inner.state.get_events_after_snapshot(snapshot.events),
-                self.batch_env.number,
-            );
-            let user_l2_to_l1_logs = extract_l2tol1logs_from_l1_messenger(&events)
-                .into_iter()
-                .map(Into::into)
-                .map(UserL2ToL1Log)
-                .collect();
-            let system_l2_to_l1_logs = self
-                .inner
-                .state
-                .get_l2_to_l1_logs_after_snapshot(snapshot.l2_to_l1_logs)
-                .iter()
-                .map(|log| log.into_system_log())
-                .collect();
-            let storage_logs: Vec<StorageLogWithPreviousValue> = self
-                .inner
-                .state
-                .get_storage_changes_from_snapshot(snapshot.storage_changes)
-                .iter()
-                .map(|(storage_key, previos_value, value, is_initial)| {
-                    let key = StorageKey::new(
-                        AccountTreeId::new(storage_key.address),
-                        u256_to_h256(storage_key.key),
-                    );
-
-                    StorageLogWithPreviousValue {
-                        log: StorageLog {
-                            key,
-                            value: u256_to_h256(*value),
-                            kind: if *is_initial {
-                                StorageLogKind::InitialWrite
-                            } else {
-                                StorageLogKind::RepeatedWrite
-                            },
-                        },
-                        previous_value: u256_to_h256(previos_value.unwrap_or_default()),
-                    }
-                })
-                .collect();
-
-            VmExecutionLogs {
-                storage_logs,
-                events,
-                user_l2_to_l1_logs,
-                system_l2_to_l1_logs,
-                total_log_queries_count: 0, // This field is unused
-            }
+            self.get_execution_logs(snapshot)
         };
 
         VmExecutionResultAndLogs {
             result,
             logs,
-            statistics: VmExecutionStatistics {
-                contracts_used: self.inner.state.decommitted_hashes().len(),
-                cycles_used: self.inner.statistics.monotonic_counter - monotonic_counter_before,
-                gas_used: (ergs_before - ergs_after) as u64,
-                gas_remaining: ergs_after,
-                computational_gas_used: ergs_before - ergs_after,
-                total_log_queries: 0,
-                pubdata_published: tracer.pubdata_tracer.pubdata_published,
-                circuit_statistic: tracer
+            statistics: self.get_execution_statistics(
+                monotonic_counter_before,
+                tracer.pubdata_tracer.pubdata_published,
+                ergs_before,
+                ergs_after,
+                tracer
                     .circuits_tracer
                     .circuit_statistics(&self.inner.statistics),
-            },
+            ),
+            refunds: tracer.refund_tracer.unwrap_or_default().into(),
+        }
+    }
+
+    pub fn inspect_inner_with_custom_snapshot(
+        &mut self,
+        tracer: TracerDispatcher<S>,
+        custom_pubdata_tracer: Option<PubdataTracer>,
+        execution_mode: VmExecutionMode,
+        snapshot: era_vm::state::StateSnapshot,
+    ) -> VmExecutionResultAndLogs {
+        let mut track_refunds = false;
+        if let VmExecutionMode::OneTx = execution_mode {
+            // Move the pointer to the next transaction
+            self.bootloader_state.move_tx_to_execute_pointer();
+            track_refunds = true;
+        }
+
+        let refund_tracer = if track_refunds {
+            Some(RefundsTracer::new())
+        } else {
+            None
+        };
+        let mut tracer =
+            VmTracerManager::new(execution_mode, tracer, refund_tracer, custom_pubdata_tracer);
+        let ergs_before = self.inner.execution.gas_left().unwrap();
+        let monotonic_counter_before = self.inner.statistics.monotonic_counter;
+
+        let result = self.run(execution_mode, &mut tracer);
+        let ergs_after = self.inner.execution.gas_left().unwrap();
+
+        let ignore_world_diff = matches!(execution_mode, VmExecutionMode::OneTx)
+            && matches!(result, ExecutionResult::Halt { .. });
+
+        let logs = if ignore_world_diff {
+            VmExecutionLogs::default()
+        } else {
+            self.get_execution_logs(snapshot)
+        };
+
+        VmExecutionResultAndLogs {
+            result,
+            logs,
+            statistics: self.get_execution_statistics(
+                monotonic_counter_before,
+                tracer.pubdata_tracer.pubdata_published,
+                ergs_before,
+                ergs_after,
+                tracer
+                    .circuits_tracer
+                    .circuit_statistics(&self.inner.statistics),
+            ),
+            refunds: tracer.refund_tracer.unwrap_or_default().into(),
+        }
+    }
+
+    fn get_execution_logs(&self, snapshot: era_vm::state::StateSnapshot) -> VmExecutionLogs {
+        let events = merge_events(
+            self.inner.state.get_events_after_snapshot(snapshot.events),
+            self.batch_env.number,
+        );
+        let user_l2_to_l1_logs = extract_l2tol1logs_from_l1_messenger(&events)
+            .into_iter()
+            .map(Into::into)
+            .map(UserL2ToL1Log)
+            .collect();
+        let system_l2_to_l1_logs = self
+            .inner
+            .state
+            .get_l2_to_l1_logs_after_snapshot(snapshot.l2_to_l1_logs)
+            .iter()
+            .map(|log| log.into_system_log())
+            .collect();
+        let storage_logs: Vec<StorageLogWithPreviousValue> = self
+            .inner
+            .state
+            .get_storage_changes_from_snapshot(snapshot.storage_changes)
+            .iter()
+            .map(|(storage_key, previos_value, value, is_initial)| {
+                let key = StorageKey::new(
+                    AccountTreeId::new(storage_key.address),
+                    u256_to_h256(storage_key.key),
+                );
+
+                StorageLogWithPreviousValue {
+                    log: StorageLog {
+                        key,
+                        value: u256_to_h256(*value),
+                        kind: if *is_initial {
+                            StorageLogKind::InitialWrite
+                        } else {
+                            StorageLogKind::RepeatedWrite
+                        },
+                    },
+                    previous_value: u256_to_h256(previos_value.unwrap_or_default()),
+                }
+            })
+            .sorted_by(|a, b| {
+                a.log
+                    .key
+                    .address()
+                    .cmp(&b.log.key.address())
+                    .then_with(|| a.log.key.key().cmp(&b.log.key.key()))
+            })
+            .collect();
+
+        VmExecutionLogs {
+            storage_logs,
+            events,
+            user_l2_to_l1_logs,
+            system_l2_to_l1_logs,
+            total_log_queries_count: 0, // This field is unused
+        }
+    }
+
+    fn get_execution_statistics(
+        &self,
+        monotonic_counter_before: u32,
+        pubdata_published: u32,
+        ergs_before: u32,
+        ergs_after: u32,
+        circuit_statistic: CircuitStatistic,
+    ) -> VmExecutionStatistics {
+        VmExecutionStatistics {
+            contracts_used: self.inner.state.decommitted_hashes().len(),
+            cycles_used: self.inner.statistics.monotonic_counter - monotonic_counter_before,
+            gas_used: (ergs_before - ergs_after) as u64,
+            gas_remaining: ergs_after,
+            computational_gas_used: ergs_before - ergs_after,
+            total_log_queries: 0,
+            pubdata_published,
+            circuit_statistic,
+        }
+    }
+
+    // Very basic parallel execution model, basically, we are spawning a new vm per transaction and merging the state results
+    // and sealing the batch from the final merged state.
+    pub fn execute_parallel(&mut self) -> VmExecutionResultAndLogs {
+        let txs_to_process = self.transaction_to_execute.len();
+        let transactions: Vec<ParallelTransaction> = self
+            .transaction_to_execute
+            .drain(..txs_to_process)
+            .collect();
+
+        // we only care about the final VMState, since that is where the pubdata and L2 changes reside
+        // we will merge this results later
+        let snapshot = self.inner.state.snapshot();
+        let mut state: era_vm::state::VMState = self.inner.state.clone();
+        // to run in parallel, we spin up new vms to process and run the transaction in their own bootloader
+        for tx in transactions.iter() {
+            let mut vm = Vm::new(
+                self.batch_env.clone(),
+                self.system_env.clone(),
+                self.storage.clone(),
+            );
+            vm.bootloader_state.l2_blocks[0] = tx.l2_block.clone();
+            vm.inner.state = state;
+            vm.is_parallel = true;
+            vm.current_tx = self.current_tx;
+            vm.inner.execution.tx_number = vm.current_tx as u64;
+            vm.inner
+                .execution
+                .set_gas_left(self.inner.execution.gas_left().unwrap())
+                .unwrap();
+            if self.current_tx == 0 {
+                // since the first transaction starts the batch, we want to push as first in block
+                // so that it creates the batch and the virtual block at the beginning
+                vm.write_parallel_tx_to_mem(tx, true);
+            } else {
+                vm.write_parallel_tx_to_mem(tx, false);
+            }
+
+            let result: VmExecutionResultAndLogs =
+                vm.inspect_inner(TracerDispatcher::default(), None, VmExecutionMode::OneTx);
+
+            state = vm.inner.state;
+            self.inner
+                .execution
+                .set_gas_left(vm.inner.execution.gas_left().unwrap())
+                .unwrap();
+            self.current_tx += 1;
+
+            if vm.batch_has_failed {
+                self.inner.state = state.clone();
+                return result;
+            }
+        }
+
+        // since no transactions have been pushed onto the bootloader, here it will only call the SetFictiveBlock and request the pubdata
+        let mut tracer = VmTracerManager::new(
+            VmExecutionMode::Batch,
+            TracerDispatcher::default(),
+            None,
+            None,
+        );
+        let ergs_before = self.inner.execution.gas_left().unwrap();
+        let monotonic_counter_before = self.inner.statistics.monotonic_counter;
+
+        self.inner.state = state;
+        self.is_parallel = true;
+
+        let result = self.run(VmExecutionMode::Batch, &mut tracer);
+        let ergs_after = self.inner.execution.gas_left().unwrap();
+
+        VmExecutionResultAndLogs {
+            result,
+            logs: self.get_execution_logs(snapshot),
+            // we should handle the statistics merge properly
+            // for this first model, it isn't that important
+            statistics: self.get_execution_statistics(
+                monotonic_counter_before,
+                tracer.pubdata_tracer.pubdata_published,
+                ergs_before,
+                ergs_after,
+                tracer
+                    .circuits_tracer
+                    .circuit_statistics(&self.inner.statistics),
+            ),
             refunds: tracer.refund_tracer.unwrap_or_default().into(),
         }
     }

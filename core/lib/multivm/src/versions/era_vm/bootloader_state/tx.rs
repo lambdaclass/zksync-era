@@ -4,7 +4,7 @@ use zksync_utils::bytecode::CompressedBytecodeInfo;
 use crate::era_vm::transaction_data::TransactionData;
 
 /// Information about tx necessary for execution in bootloader.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub(crate) struct BootloaderTx {
     pub(crate) hash: H256,
     /// Encoded transaction
@@ -22,7 +22,7 @@ pub(crate) struct BootloaderTx {
 }
 
 impl BootloaderTx {
-    pub(super) fn new(
+    pub fn new(
         tx: TransactionData,
         predefined_refund: u64,
         predefined_overhead: u32,

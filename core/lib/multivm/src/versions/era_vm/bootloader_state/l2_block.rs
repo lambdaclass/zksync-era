@@ -12,7 +12,7 @@ use crate::{
 const EMPTY_TXS_ROLLING_HASH: H256 = H256::zero();
 
 #[derive(Debug, Clone)]
-pub(crate) struct BootloaderL2Block {
+pub struct BootloaderL2Block {
     pub(crate) number: u32,
     pub(crate) timestamp: u64,
     pub(crate) txs_rolling_hash: H256, // The rolling hash of all the transactions in the miniblock
@@ -36,7 +36,7 @@ impl BootloaderL2Block {
         }
     }
 
-    pub(super) fn push_tx(&mut self, tx: BootloaderTx) {
+    pub(crate) fn push_tx(&mut self, tx: BootloaderTx) {
         self.update_rolling_hash(tx.hash);
         self.txs.push(tx)
     }
@@ -50,7 +50,7 @@ impl BootloaderL2Block {
         )
     }
 
-    fn update_rolling_hash(&mut self, tx_hash: H256) {
+    pub(crate) fn update_rolling_hash(&mut self, tx_hash: H256) {
         self.txs_rolling_hash = concat_and_hash(self.txs_rolling_hash, tx_hash)
     }
 

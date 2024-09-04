@@ -7,10 +7,9 @@ use zksync_types::{
     block::L2BlockHasher,
     fee_model::BatchFeeInput,
     get_code_key, get_is_account_key,
-    helpers::unix_timestamp_ms,
     utils::{deployed_address_create, storage_key_for_eth_balance},
-    AccountTreeId, Address, L1BatchNumber, L2BlockNumber, L2ChainId, Nonce, ProtocolVersionId,
-    StorageKey, U256,
+    AccountTreeId, Address, K256PrivateKey, L1BatchNumber, L2BlockNumber, L2ChainId, Nonce,
+    ProtocolVersionId, StorageKey, U256,
 };
 use zksync_utils::{bytecode::hash_bytecode, u256_to_h256};
 
@@ -52,6 +51,7 @@ impl VmTester {
             deployed_address_create(self.deployer.as_ref().unwrap().address, nonce);
         self.test_contract = Some(deployed_address);
     }
+
     pub(crate) fn reset_with_empty_storage(&mut self) {
         self.storage = Rc::new(RefCell::new(get_empty_storage()));
         let world_storage = Rc::new(RefCell::new(World::new(
@@ -205,13 +205,20 @@ impl VmTesterBuilder {
         self
     }
 
+    pub fn with_custom_account(mut self, account: Account) -> Self {
+        self.rich_accounts.push(account);
+        self
+    }
+
     pub(crate) fn with_rich_accounts(mut self, accounts: Vec<Account>) -> Self {
         self.rich_accounts.extend(accounts);
         self
     }
 
     pub(crate) fn with_deployer(mut self) -> Self {
-        let deployer = Account::random();
+        let bytes = [2; 32];
+        let account = Account::new(K256PrivateKey::from_bytes(bytes.into()).unwrap());
+        let deployer = account;
         self.deployer = Some(deployer);
         self
     }
@@ -252,7 +259,9 @@ impl VmTesterBuilder {
 }
 
 pub(crate) fn default_l1_batch(number: L1BatchNumber) -> L1BatchEnv {
-    let timestamp = unix_timestamp_ms();
+    let timestamp = 0xabcd;
+    let bytes = [4; 32];
+    let fee_account = Account::new(K256PrivateKey::from_bytes(bytes.into()).unwrap());
     L1BatchEnv {
         previous_batch_hash: None,
         number,
@@ -261,7 +270,7 @@ pub(crate) fn default_l1_batch(number: L1BatchNumber) -> L1BatchEnv {
             50_000_000_000, // 50 gwei
             250_000_000,    // 0.25 gwei
         ),
-        fee_account: Address::random(),
+        fee_account: fee_account.address(),
         enforced_base_fee: None,
         first_l2_block: L2BlockEnv {
             number: 1,

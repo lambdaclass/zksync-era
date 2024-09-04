@@ -3,12 +3,13 @@ use zksync_types::{H256, U256};
 use zksync_utils::ceil_div_u256;
 
 use super::traits::{Tracer, VmTracer};
+pub use crate::vm_latest::Refunds;
 use crate::{
     era_vm::hook::Hook,
     vm_latest::{
         constants::{OPERATOR_REFUNDS_OFFSET, TX_GAS_LIMIT_OFFSET},
         utils::fee::get_batch_base_fee,
-        L1BatchEnv, Refunds,
+        L1BatchEnv,
     },
 };
 
