@@ -59,7 +59,7 @@ pub trait IntoLatestTracer<S: WriteStorage, H: HistoryMode> {
 }
 
 pub trait IntoEraVmTracer<S: WriteStorage, H: HistoryMode> {
-    fn era_vm(&self) -> Box<dyn crate::era_vm::tracers::traits::VmTracer<S>>;
+    fn into_era_vm(&self) -> Box<dyn crate::era_vm::tracers::traits::VmTracer<S>>;
 }
 
 pub trait IntoVmVirtualBlocksTracer<S: WriteStorage, H: HistoryMode> {
@@ -117,7 +117,7 @@ where
     H: HistoryMode,
     T: crate::era_vm::tracers::traits::VmTracer<S> + Clone + 'static,
 {
-    fn era_vm(&self) -> Box<dyn crate::era_vm::tracers::traits::VmTracer<S>> {
+    fn into_era_vm(&self) -> Box<dyn crate::era_vm::tracers::traits::VmTracer<S>> {
         Box::new(self.clone())
     }
 }

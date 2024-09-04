@@ -36,12 +36,12 @@ impl Tracer for CallTracer {
                     .map(|call| call.frame.gas_left.0.saturating_add(current_ergs))
                     .unwrap_or(current_ergs) as u64;
 
-                // we need to to this cast because `Call` uses another library
+                // we need to do this cast because `Call` uses another library
                 let far_call_variant = match far_call as u8 {
                     0 => FarCallOpcode::Normal,
                     1 => FarCallOpcode::Delegate,
                     2 => FarCallOpcode::Mimic,
-                    _ => unreachable!(),
+                    _ => FarCallOpcode::Normal, // Should never happen
                 };
 
                 let mut current_call = Call {
@@ -94,7 +94,7 @@ impl CallTracer {
                 CallType::Call(far_call)
             }
         } else {
-            unreachable!()
+            return;
         };
         let calldata = if current.heap_id == 0 || current.frame.gas_left.0 == 0 {
             vec![]
@@ -127,22 +127,18 @@ impl CallTracer {
         let fat_data_pointer = execution.get_register(1);
 
         // if `fat_data_pointer` is not a pointer then there is no output
-        let output = if fat_data_pointer.is_pointer {
-            let fat_data_pointer = FatPointer::decode(fat_data_pointer.value);
-            if fat_data_pointer.len == 0 && fat_data_pointer.offset == 0 {
-                Some(
-                    execution
+        let output = match fat_data_pointer.is_pointer {
+            true => {
+                let fat_data_pointer = FatPointer::decode(fat_data_pointer.value);
+                match (fat_data_pointer.len, fat_data_pointer.offset) {
+                    (0, 0) => execution
                         .heaps
                         .get(fat_data_pointer.page)
-                        .unwrap()
-                        .read_unaligned_from_pointer(&fat_data_pointer)
-                        .unwrap(),
-                )
-            } else {
-                None
+                        .and_then(|ptr| ptr.read_unaligned_from_pointer(&fat_data_pointer).ok()),
+                    _ => None,
+                }
             }
-        } else {
-            None
+            _ => None,
         };
 
         match ret_opcode {

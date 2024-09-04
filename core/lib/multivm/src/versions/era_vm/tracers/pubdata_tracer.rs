@@ -75,7 +75,6 @@ impl PubdataTracer {
                         ),
                     enumeration_index: vm
                         .storage
-                        .borrow_mut()
                         .get_enumeration_index(&StorageKey::new(
                             AccountTreeId::new(address),
                             u256_to_h256(key),
