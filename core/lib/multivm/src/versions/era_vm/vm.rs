@@ -417,6 +417,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
         let tx_data: &TransactionData = &tx.clone().into();
         self.update_l2_block(tx_data);
         self.insert_bytecodes(tx_data.factory_deps.iter().map(|dep| &dep[..]));
+        let l2_block = self.bootloader_state.last_l2_block();
         self.transaction_to_execute.push(ParallelTransaction::new(
             tx,
             refund,
@@ -424,7 +425,11 @@ impl<S: ReadStorage + 'static> Vm<S> {
             BootloaderL2Block {
                 txs: vec![],
                 first_tx_index: 0,
-                ..self.bootloader_state.last_l2_block().clone()
+                number: l2_block.number,
+                max_virtual_blocks_to_create: l2_block.max_virtual_blocks_to_create,
+                prev_block_hash: l2_block.prev_block_hash,
+                timestamp: l2_block.timestamp,
+                txs_rolling_hash: l2_block.txs_rolling_hash,
             },
         ));
     }
