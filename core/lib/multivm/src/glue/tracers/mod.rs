@@ -30,7 +30,7 @@
 //! - Add this trait as a trait bound for `T` in `MultiVMTracer` implementation.
 //! - Implement the trait for `T` with a bound to `VmTracer` for a specific version.
 
-use zksync_state::WriteStorage;
+use zksync_state::{ImmutableStorageView, WriteStorage};
 
 use crate::{tracers::old_tracers::OldTracers, HistoryMode};
 
@@ -44,6 +44,7 @@ pub trait MultiVMTracer<S: WriteStorage, H: HistoryMode>:
     + IntoVm1_4_1IntegrationTracer<S, H>
     + IntoVm1_4_2IntegrationTracer<S, H>
     + IntoOldVmTracer
+    + IntoEraVmTracer<S, H>
 {
     fn into_tracer_pointer(self) -> MultiVmTracerPointer<S, H>
     where
@@ -55,6 +56,10 @@ pub trait MultiVMTracer<S: WriteStorage, H: HistoryMode>:
 
 pub trait IntoLatestTracer<S: WriteStorage, H: HistoryMode> {
     fn latest(&self) -> crate::vm_latest::TracerPointer<S, H::Vm1_5_0>;
+}
+
+pub trait IntoEraVmTracer<S: WriteStorage, H: HistoryMode> {
+    fn into_era_vm(&self) -> Box<dyn crate::era_vm::tracers::traits::VmTracer<S>>;
 }
 
 pub trait IntoVmVirtualBlocksTracer<S: WriteStorage, H: HistoryMode> {
@@ -102,6 +107,17 @@ where
     T: crate::vm_latest::VmTracer<S, H::Vm1_5_0> + Clone + 'static,
 {
     fn latest(&self) -> crate::vm_latest::TracerPointer<S, H::Vm1_5_0> {
+        Box::new(self.clone())
+    }
+}
+
+impl<S, T, H> IntoEraVmTracer<S, H> for T
+where
+    S: WriteStorage,
+    H: HistoryMode,
+    T: crate::era_vm::tracers::traits::VmTracer<S> + Clone + 'static,
+{
+    fn into_era_vm(&self) -> Box<dyn crate::era_vm::tracers::traits::VmTracer<S>> {
         Box::new(self.clone())
     }
 }
@@ -180,6 +196,7 @@ where
         + IntoVmBoojumIntegrationTracer<S, H>
         + IntoVm1_4_1IntegrationTracer<S, H>
         + IntoVm1_4_2IntegrationTracer<S, H>
-        + IntoOldVmTracer,
+        + IntoOldVmTracer
+        + IntoEraVmTracer<S, H>,
 {
 }
