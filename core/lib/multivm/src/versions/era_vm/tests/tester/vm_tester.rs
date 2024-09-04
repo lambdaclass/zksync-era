@@ -52,22 +52,6 @@ impl VmTester {
         self.test_contract = Some(deployed_address);
     }
 
-    pub(crate) fn deploy_test_contract_parallel(&mut self) {
-        let contract = read_test_contract();
-        let tx = self
-            .deployer
-            .as_mut()
-            .expect("You have to initialize builder with deployer")
-            .get_deploy_tx(&contract, None, TxType::L2)
-            .tx;
-        let nonce = tx.nonce().unwrap().0.into();
-        self.vm.push_parallel_transaction(tx, 0, true);
-        self.vm.execute_parallel(VmExecutionMode::OneTx);
-        let deployed_address =
-            deployed_address_create(self.deployer.as_ref().unwrap().address, nonce);
-        self.test_contract = Some(deployed_address);
-    }
-
     pub(crate) fn reset_with_empty_storage(&mut self) {
         self.storage = Rc::new(RefCell::new(get_empty_storage()));
         let world_storage = Rc::new(RefCell::new(World::new(

@@ -77,6 +77,7 @@ pub struct Vm<S: ReadStorage> {
     pub transaction_to_execute: Vec<ParallelTransaction>,
     pub current_tx: usize,
     pub is_parallel: bool,
+    pub batch_has_failed: bool,
 }
 
 /// Encapsulates creating VM instance based on the provided environment.
@@ -155,6 +156,7 @@ impl<S: ReadStorage + 'static> VmFactory<S> for Vm<S> {
             transaction_to_execute: vec![],
             is_parallel: false,
             current_tx: 0,
+            batch_has_failed: false,
         };
 
         mv.write_to_bootloader_heap(bootloader_memory);
@@ -177,18 +179,24 @@ impl<S: ReadStorage + 'static> Vm<S> {
             let status = tracer.after_vm_run(self, output.clone());
             let (hook, hook_params) = match output {
                 ExecutionOutput::Ok(output) => break ExecutionResult::Success { output },
-                ExecutionOutput::Revert(output) => match TxRevertReason::parse_error(&output) {
-                    TxRevertReason::TxReverted(output) => break ExecutionResult::Revert { output },
-                    TxRevertReason::Halt(reason) => break ExecutionResult::Halt { reason },
-                },
+                ExecutionOutput::Revert(output) => {
+                    self.batch_has_failed = true;
+                    match TxRevertReason::parse_error(&output) {
+                        TxRevertReason::TxReverted(output) => {
+                            break ExecutionResult::Revert { output }
+                        }
+                        TxRevertReason::Halt(reason) => break ExecutionResult::Halt { reason },
+                    }
+                }
                 ExecutionOutput::Panic => {
+                    self.batch_has_failed = true;
                     break ExecutionResult::Halt {
                         reason: if self.inner.execution.gas_left().unwrap() == 0 {
                             Halt::BootloaderOutOfGas
                         } else {
                             Halt::VMPanic
                         },
-                    }
+                    };
                 }
                 ExecutionOutput::SuspendedOnHook {
                     hook,
@@ -229,6 +237,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     });
                 }
                 Hook::TxHasEnded => {
+                    self.current_tx += 1;
                     if let VmExecutionMode::OneTx = execution_mode {
                         break last_tx_result
                             .expect("There should always be a result if we got this hook");
@@ -263,10 +272,12 @@ impl<S: ReadStorage + 'static> Vm<S> {
             if let TracerExecutionStatus::Stop(reason) = status {
                 match reason {
                     TracerExecutionStopReason::Abort(halt) => {
-                        break ExecutionResult::Halt { reason: halt }
+                        self.batch_has_failed = true;
+                        break ExecutionResult::Halt { reason: halt };
                     }
                     TracerExecutionStopReason::Finish => {
                         if self.inner.execution.gas_left().unwrap() == 0 {
+                            self.batch_has_failed = true;
                             break ExecutionResult::Halt {
                                 reason: Halt::BootloaderOutOfGas,
                             };
@@ -277,6 +288,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
                         let has_failed =
                             self.tx_has_failed(self.bootloader_state.current_tx() as u32);
                         if has_failed {
+                            self.batch_has_failed = true;
                             break ExecutionResult::Revert {
                                 output: crate::interface::VmRevertReason::General {
                                     msg: "Transaction reverted with empty reason. Possibly out of gas".to_string(),
@@ -359,16 +371,16 @@ impl<S: ReadStorage + 'static> Vm<S> {
     }
 
     pub fn push_transaction_inner(&mut self, tx: Transaction, refund: u64, with_compression: bool) {
-        let tx: TransactionData = tx.into();
-        let overhead = tx.overhead_gas();
+        let tx_data: TransactionData = tx.clone().into();
+        let overhead = tx_data.overhead_gas();
 
-        self.insert_bytecodes(tx.factory_deps.iter().map(|dep| &dep[..]));
+        self.insert_bytecodes(tx_data.factory_deps.iter().map(|dep| &dep[..]));
 
-        let compressed_bytecodes = if is_l1_tx_type(tx.tx_type) || !with_compression {
+        let compressed_bytecodes = if is_l1_tx_type(tx_data.tx_type) || !with_compression {
             // L1 transactions do not need compression
             vec![]
         } else {
-            compress_bytecodes(&tx.factory_deps, |hash| {
+            compress_bytecodes(&tx_data.factory_deps, |hash| {
                 self.inner
                     .state
                     .storage_changes()
@@ -381,10 +393,10 @@ impl<S: ReadStorage + 'static> Vm<S> {
             })
         };
 
-        let trusted_ergs_limit = tx.trusted_ergs_limit();
+        let trusted_ergs_limit = tx_data.trusted_ergs_limit();
 
         let memory = self.bootloader_state.push_tx(
-            tx,
+            tx_data,
             overhead,
             refund,
             compressed_bytecodes,
@@ -415,8 +427,8 @@ impl<S: ReadStorage + 'static> Vm<S> {
         with_compression: bool,
     ) {
         let tx_data: &TransactionData = &tx.clone().into();
-        self.update_l2_block(tx_data);
         self.insert_bytecodes(tx_data.factory_deps.iter().map(|dep| &dep[..]));
+        self.update_l2_block(tx_data);
         let l2_block = self.bootloader_state.last_l2_block();
         self.transaction_to_execute.push(ParallelTransaction::new(
             tx,
@@ -662,12 +674,8 @@ impl<S: ReadStorage + 'static> Vm<S> {
 
     // Very basic parallel execution model, basically, we are spawning a new vm per transaction and merging the state results
     // and sealing the batch from the final merged state.
-    pub fn execute_parallel_inner(&mut self, one_tx: bool) -> VmExecutionResultAndLogs {
-        let txs_to_process = if one_tx {
-            self.transaction_to_execute.len()
-        } else {
-            self.transaction_to_execute.len()
-        };
+    pub fn execute_parallel(&mut self) -> VmExecutionResultAndLogs {
+        let txs_to_process = self.transaction_to_execute.len();
         let transactions: Vec<ParallelTransaction> = self
             .transaction_to_execute
             .drain(..txs_to_process)
@@ -677,7 +685,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
         // we will merge this results later
         let snapshot = self.inner.state.snapshot();
         let mut state: era_vm::state::VMState = self.inner.state.clone();
-
         // to run in parallel, we spin up new vms to process and run the transaction in their own bootloader
         for tx in transactions.iter() {
             let mut vm = Vm::new(
@@ -694,11 +701,9 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 .execution
                 .set_gas_left(self.inner.execution.gas_left().unwrap())
                 .unwrap();
-
-            if vm.current_tx == 0 {
-                // since the first transaction starts the batch, we want to push it normally so that
-                // it create the virtual block at the beginning
-                vm.is_parallel = false;
+            if self.current_tx == 0 {
+                // since the first transaction starts the batch, we want to push as first in block
+                // so that it creates the batch and the virtual block at the beginning
                 vm.write_parallel_tx_to_mem(tx, true);
             } else {
                 vm.write_parallel_tx_to_mem(tx, false);
@@ -714,7 +719,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
                 .unwrap();
             self.current_tx += 1;
 
-            if one_tx {
+            if vm.batch_has_failed {
                 self.inner.state = state.clone();
                 return result;
             }
@@ -733,7 +738,7 @@ impl<S: ReadStorage + 'static> Vm<S> {
         self.inner.state = state;
         self.is_parallel = true;
 
-        let result: ExecutionResult = self.run(VmExecutionMode::Batch, &mut tracer);
+        let result = self.run(VmExecutionMode::Batch, &mut tracer);
         let ergs_after = self.inner.execution.gas_left().unwrap();
 
         VmExecutionResultAndLogs {
@@ -751,17 +756,6 @@ impl<S: ReadStorage + 'static> Vm<S> {
                     .circuit_statistics(&self.inner.statistics),
             ),
             refunds: tracer.refund_tracer.unwrap_or_default().into(),
-        }
-    }
-
-    pub fn execute_parallel(
-        &mut self,
-        execution_mode: VmExecutionMode,
-    ) -> VmExecutionResultAndLogs {
-        if let VmExecutionMode::OneTx = execution_mode {
-            self.execute_parallel_inner(true)
-        } else {
-            self.execute_parallel_inner(false)
         }
     }
 }

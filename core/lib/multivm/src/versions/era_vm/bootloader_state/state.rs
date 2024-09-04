@@ -251,14 +251,14 @@ impl BootloaderState {
 
     pub(crate) fn insert_fictive_l2_block(&mut self) -> &BootloaderL2Block {
         let block = self.last_l2_block();
-        // if !block.txs.is_empty() {
-        self.start_new_l2_block(L2BlockEnv {
-            timestamp: block.timestamp + 1,
-            number: block.number + 1,
-            prev_block_hash: block.get_hash(),
-            max_virtual_blocks_to_create: 1,
-        });
-        // }
+        if !block.txs.is_empty() {
+            self.start_new_l2_block(L2BlockEnv {
+                timestamp: block.timestamp + 1,
+                number: block.number + 1,
+                prev_block_hash: block.get_hash(),
+                max_virtual_blocks_to_create: 1,
+            });
+        }
         self.last_l2_block()
     }
 

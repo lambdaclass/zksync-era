@@ -7,7 +7,7 @@ use crate::{
     interface::{VmExecutionMode, VmInterface},
 };
 
-fn prepare_test(is_parallel: bool) -> (VmTester, [Transaction; 3]) {
+fn prepare_test() -> (VmTester, [Transaction; 3]) {
     let bytes = [1; 32];
     let account = Account::new(K256PrivateKey::from_bytes(bytes.into()).unwrap());
 
@@ -17,11 +17,7 @@ fn prepare_test(is_parallel: bool) -> (VmTester, [Transaction; 3]) {
         .with_custom_account(account)
         .build();
 
-    if is_parallel {
-        vm_tester.deploy_test_contract_parallel();
-    } else {
-        vm_tester.deploy_test_contract();
-    }
+    vm_tester.deploy_test_contract();
 
     let account = &mut vm_tester.rich_accounts[0];
 
@@ -55,7 +51,7 @@ fn prepare_test(is_parallel: bool) -> (VmTester, [Transaction; 3]) {
 #[test]
 fn parallel_execution() {
     let normal_execution = {
-        let (mut vm, txs) = prepare_test(false);
+        let (mut vm, txs) = prepare_test();
         let vm = &mut vm.vm;
         for tx in &txs {
             vm.push_transaction_inner(tx.clone(), 0, true);
@@ -64,13 +60,14 @@ fn parallel_execution() {
     };
 
     let parallel_execution = {
-        let (mut vm, txs) = prepare_test(true);
+        let (mut vm, txs) = prepare_test();
         let vm = &mut vm.vm;
         for tx in txs {
             vm.push_parallel_transaction(tx, 0, true);
         }
-        vm.execute_parallel(VmExecutionMode::Batch)
+        vm.execute_parallel()
     };
+    println!("EXECUTION RESULT {:?}", parallel_execution.result);
 
     assert_eq!(
         normal_execution.logs.storage_logs,
