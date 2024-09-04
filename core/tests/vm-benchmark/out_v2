@@ -1,8 +1,0 @@
-lambda/fibonacci_it     time:   [1.7331 ms 1.7497 ms 1.7806 ms]
-fast/fibonacci_it       time:   [6.8865 ms 6.9131 ms 6.9410 ms]
-legacy/fibonacci_it     time:   [2.3271 ms 2.3288 ms 2.3302 ms]
-
-lambda/fibonacci_rec    time:   [182.03 ms 182.33 ms 182.66 ms]
-fast/fibonacci_rec      time:   [20.768 ms 20.807 ms 20.845 ms]
-legacy/fibonacci_rec    time:   [368.43 ms 368.76 ms 369.10 ms]
-

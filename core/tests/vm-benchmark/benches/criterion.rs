@@ -20,6 +20,7 @@ const MEASUREMENT_TIME: Duration = Duration::from_secs(20);
 const ZKSYNC_HOME: &str = std::env!("ZKSYNC_HOME");
 
 pub fn program_from_file(bin_path: &str) -> Vec<u8> {
+    println!("{bin_path}");
     let program = std::fs::read(bin_path).unwrap();
     let encoded = String::from_utf8(program).unwrap();
 
