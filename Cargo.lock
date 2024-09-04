@@ -1982,14 +1982,12 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 [[package]]
 name = "era_vm"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/era_vm.git?branch=main#d3f6a983870b3807b65e33e1269569f7d38b4634"
 dependencies = [
  "hex",
  "lazy_static",
  "primitive-types",
  "rocksdb",
  "thiserror",
- "zk_evm_abstractions 1.5.1",
  "zkevm_opcode_defs 1.5.0",
 ]
 
@@ -3000,8 +2998,10 @@ dependencies = [
 [[package]]
 name = "iai"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71a816c97c42258aa5834d07590b718b4c9a598944cd39a52dc25b351185d678"
+source = "git+https://github.com/lambdaclass/iai?branch=fix/valgrind-forward-compatibility#3bef75bb13cc113a128ce9c00abfa238aceb1784"
+dependencies = [
+ "cfg-if 1.0.0",
+]
 
 [[package]]
 name = "iana-time-zone"
@@ -7295,6 +7295,7 @@ name = "vm-benchmark"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "hex",
  "iai",
  "rand 0.8.5",
  "tokio",
@@ -7938,18 +7939,6 @@ dependencies = [
  "serde",
  "static_assertions",
  "zkevm_opcode_defs 0.150.0",
-]
-
-[[package]]
-name = "zk_evm_abstractions"
-version = "1.5.1"
-source = "git+https://github.com/matter-labs/era-zk_evm_abstractions.git?branch=v1.5.1#eecb28df7d6dbcb728d4e9106933d288e4cb267e"
-dependencies = [
- "anyhow",
- "num_enum 0.6.1",
- "serde",
- "static_assertions",
- "zkevm_opcode_defs 1.5.0",
 ]
 
 [[package]]
