@@ -18,6 +18,7 @@ use crate::{
     tracers::validator::types::{NewTrustedValidationItems, ValidationTracerMode},
 };
 
+mod era_vm;
 mod types;
 mod vm_1_4_1;
 mod vm_1_4_2;

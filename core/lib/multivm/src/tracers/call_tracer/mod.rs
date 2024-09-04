@@ -5,6 +5,7 @@ use zksync_types::vm_trace::Call;
 
 use crate::{glue::tracers::IntoOldVmTracer, tracers::call_tracer::metrics::CALL_METRICS};
 
+pub mod era_vm;
 mod metrics;
 pub mod vm_1_4_1;
 pub mod vm_1_4_2;
