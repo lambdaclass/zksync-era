@@ -560,8 +560,8 @@ impl<S: ReadStorage> VmInterface for Vm<S> {
                 .map(|log| log.into_system_log())
                 .collect(),
             user_l2_to_l1_logs,
-            storage_refunds: state.refunds().clone(),
-            pubdata_costs: state.pubdata_costs().clone(),
+            storage_refunds: state.refunds().to_vec(),
+            pubdata_costs: state.pubdata_costs().to_vec(),
         }
     }
 
