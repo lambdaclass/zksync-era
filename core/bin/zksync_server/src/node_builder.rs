@@ -499,7 +499,21 @@ impl MainNodeBuilder {
         Ok(self)
     }
 
-    fn add_no_da_client_layer(mut self) -> anyhow::Result<Self> {
+    fn add_da_client_layer(mut self) -> anyhow::Result<Self> {
+        #[cfg(all(feature = "da-avail", feature = "da-celestia", feature = "da-eigen"))]
+        return Err(anyhow!("More than one DA client is enabled"));
+
+        #[cfg(feature = "da-avail")]
+        self.node
+            .add_layer(avail_client::wiring_layer::AvailWiringLayer::new());
+        #[cfg(feature = "da-celestia")]
+        self.node
+            .add_layer(celestia_client::wiring_layer::CelestiaWiringLayer);
+        #[cfg(feature = "da-eigen")]
+        self.node
+            .add_layer(eigen_da_client::wiring_layer::EigenDAWiringLayer);
+
+        #[cfg(not(any(feature = "da-avail", feature = "da-celestia", feature = "da-eigen")))]
         self.node.add_layer(NoDAClientWiringLayer);
         Ok(self)
     }
@@ -513,21 +527,22 @@ impl MainNodeBuilder {
     }
 
     fn add_da_dispatcher_layer(mut self) -> anyhow::Result<Self> {
-        let eth_sender_config = try_load_config!(self.configs.eth);
-        if let Some(sender_config) = eth_sender_config.sender {
-            if sender_config.pubdata_sending_mode != PubdataSendingMode::Custom {
-                tracing::warn!("DA dispatcher is enabled, but the pubdata sending mode is not `Custom`. DA dispatcher will not be started.");
-                return Ok(self);
-            }
-        }
+        // let eth_sender_config = try_load_config!(self.configs.eth);
+        // if let Some(sender_config) = eth_sender_config.sender {
+        //     if sender_config.pubdata_sending_mode != PubdataSendingMode::Custom {
+        //         tracing::warn!("DA dispatcher is enabled, but the pubdata sending mode is not `Custom`. DA dispatcher will not be started.");
+        //         return Ok(self);
+        //     }
+        // }
 
         let state_keeper_config = try_load_config!(self.configs.state_keeper_config);
         let da_config = try_load_config!(self.configs.da_dispatcher_config);
+        tracing::info!("Setting up Data Availability Dispatcher:{:?}", &da_config);
         self.node.add_layer(DataAvailabilityDispatcherLayer::new(
             state_keeper_config,
             da_config,
         ));
-
+        tracing::info!("Data Availability Dispatcher is set up");
         Ok(self)
     }
 
@@ -749,7 +764,7 @@ impl MainNodeBuilder {
                     self = self.add_commitment_generator_layer()?;
                 }
                 Component::DADispatcher => {
-                    self = self.add_no_da_client_layer()?.add_da_dispatcher_layer()?;
+                    self = self.add_da_client_layer()?.add_da_dispatcher_layer()?;
                 }
                 Component::VmRunnerProtectiveReads => {
                     self = self.add_vm_runner_protective_reads_layer()?;
