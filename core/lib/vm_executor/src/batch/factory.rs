@@ -18,9 +18,9 @@ use zksync_types::{vm::FastVmMode, Transaction};
 
 use super::{
     executor::{Command, MainBatchExecutor},
-    metrics::{TxExecutionStage, BATCH_TIP_METRICS, KEEPER_METRICS},
+    metrics::{TxExecutionStage, BATCH_TIP_METRICS, EXECUTOR_METRICS, KEEPER_METRICS},
 };
-use crate::batch::metrics::{InteractionType, EXECUTOR_METRICS};
+use crate::shared::InteractionType;
 
 /// The default implementation of [`BatchExecutorFactory`].
 /// Creates real batch executors which maintain the VM (as opposed to the test factories which don't use the VM).
@@ -182,6 +182,7 @@ impl<S: ReadStorage + 'static> CommandReceiver<S> {
         } else {
             self.execute_tx_in_vm(&transaction, vm)?
         };
+
         latency.observe();
 
         Ok(result)
@@ -244,6 +245,13 @@ impl<S: ReadStorage + 'static> CommandReceiver<S> {
         if let (Ok(compressed_bytecodes), tx_result) =
             vm.inspect_transaction_with_bytecode_compression(tracer.into(), tx.clone(), true)
         {
+            // let factory_deps_marked_as_known =
+            //     extract_bytecodes_marked_as_known(&tx_result.logs.events);
+            // let preimages = vm.ask_decommitter(factory_deps_marked_as_known.clone());
+            // let new_known_factory_deps = factory_deps_marked_as_known
+            //     .into_iter()
+            //     .zip(preimages)
+            //     .collect();
             let call_traces = Arc::try_unwrap(call_tracer_result)
                 .map_err(|_| anyhow::anyhow!("failed extracting call traces"))?
                 .take()
@@ -272,6 +280,14 @@ impl<S: ReadStorage + 'static> CommandReceiver<S> {
         let compressed_bytecodes = compression_result
             .context("compression failed when it wasn't applied")?
             .into_owned();
+
+        // let factory_deps_marked_as_known =
+        //     extract_bytecodes_marked_as_known(&tx_result.logs.events);
+        // let preimages = vm.ask_decommitter(factory_deps_marked_as_known.clone());
+        // let new_known_factory_deps = factory_deps_marked_as_known
+        //     .into_iter()
+        //     .zip(preimages)
+        //     .collect();
 
         // TODO implement tracer manager which will be responsible
         //   for collecting result from all tracers and save it to the database
@@ -303,6 +319,13 @@ impl<S: ReadStorage + 'static> CommandReceiver<S> {
         let (bytecodes_result, mut tx_result) =
             vm.inspect_transaction_with_bytecode_compression(tracer.into(), tx.clone(), true);
         if let Ok(compressed_bytecodes) = bytecodes_result {
+            // let factory_deps_marked_as_known =
+            //     extract_bytecodes_marked_as_known(&tx_result.logs.events);
+            // let preimages = vm.ask_decommitter(factory_deps_marked_as_known.clone());
+            // let new_known_factory_deps = factory_deps_marked_as_known
+            //     .into_iter()
+            //     .zip(preimages)
+            //     .collect();
             let call_traces = Arc::try_unwrap(call_tracer_result)
                 .map_err(|_| anyhow::anyhow!("failed extracting call traces"))?
                 .take()

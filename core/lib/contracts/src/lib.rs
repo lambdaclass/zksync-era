@@ -16,6 +16,8 @@ use ethabi::{
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use zksync_config::configs::use_evm_simulator::UseEvmSimulator;
+use zksync_env_config::FromEnv;
 use zksync_utils::{bytecode::hash_bytecode, bytes_to_be_words, workspace_dir_or_current_dir};
 
 pub mod test_contracts;
@@ -193,6 +195,10 @@ pub fn deployer_contract() -> Contract {
     load_sys_contract("ContractDeployer")
 }
 
+pub fn known_code_storage_contract() -> Contract {
+    load_sys_contract("KnownCodesStorage")
+}
+
 pub fn l1_messenger_contract() -> Contract {
     load_sys_contract("L1Messenger")
 }
@@ -303,18 +309,21 @@ pub struct SystemContractCode {
 pub struct BaseSystemContracts {
     pub bootloader: SystemContractCode,
     pub default_aa: SystemContractCode,
+    pub evm_simulator: SystemContractCode,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq)]
 pub struct BaseSystemContractsHashes {
     pub bootloader: H256,
     pub default_aa: H256,
+    pub evm_simulator: H256,
 }
 
 impl PartialEq for BaseSystemContracts {
     fn eq(&self, other: &Self) -> bool {
         self.bootloader.hash == other.bootloader.hash
             && self.default_aa.hash == other.default_aa.hash
+            && self.evm_simulator.hash == other.evm_simulator.hash
     }
 }
 
@@ -335,9 +344,25 @@ impl BaseSystemContracts {
             hash,
         };
 
+        let mut evm_simulator_bytecode =
+            read_sys_contract_bytecode("", "EvmInterpreter", ContractLanguage::Yul);
+        let evm_simulator_hash = hash_bytecode(&evm_simulator_bytecode);
+
+        let use_evm_simulator =
+            UseEvmSimulator::from_env().expect("USE EVM SIMULATOR FLAG SHOULD BE SET");
+        if !use_evm_simulator.use_evm_simulator {
+            evm_simulator_bytecode = vec![];
+        }
+
+        let evm_simulator = SystemContractCode {
+            code: bytes_to_be_words(evm_simulator_bytecode),
+            hash: evm_simulator_hash,
+        };
+
         BaseSystemContracts {
             bootloader,
             default_aa,
+            evm_simulator,
         }
     }
     // BaseSystemContracts with proved bootloader - for handling transactions.
@@ -474,6 +499,7 @@ impl BaseSystemContracts {
         BaseSystemContractsHashes {
             bootloader: self.bootloader.hash,
             default_aa: self.default_aa.hash,
+            evm_simulator: self.evm_simulator.hash,
         }
     }
 }

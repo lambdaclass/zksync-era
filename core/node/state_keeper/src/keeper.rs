@@ -14,6 +14,7 @@ use zksync_multivm::{
     },
     utils::StorageWritesDeduplicator,
 };
+use zksync_shared_metrics::{TxStage, APP_METRICS};
 use zksync_state::{OwnedStorage, ReadStorageFactory};
 use zksync_types::{
     block::L2BlockExecutionData, l2::TransactionType, protocol_upgrade::ProtocolUpgradeTx,
@@ -463,6 +464,9 @@ impl ZkSyncStateKeeper {
                     .with_context(|| format!("failed re-executing transaction {:?}", tx.hash()))?;
                 let result = TxExecutionResult::new(result, &tx);
 
+                APP_METRICS.processed_txs[&TxStage::StateKeeper].inc();
+                APP_METRICS.processed_l1_txs[&TxStage::StateKeeper].inc_by(tx.is_l1().into());
+
                 let TxExecutionResult::Success {
                     tx_result,
                     tx_metrics,
@@ -494,8 +498,9 @@ impl ZkSyncStateKeeper {
 
                 updates_manager.extend_from_executed_transaction(
                     tx,
-                    *tx_result,
+                    *tx_result.clone(),
                     compressed_bytecodes,
+                    tx_result.new_known_factory_deps.unwrap_or_default(),
                     tx_l1_gas_this_tx,
                     tx_execution_metrics,
                     call_tracer_result,
@@ -620,8 +625,9 @@ impl ZkSyncStateKeeper {
                     } = *tx_metrics;
                     updates_manager.extend_from_executed_transaction(
                         tx,
-                        *tx_result,
+                        *tx_result.clone(),
                         compressed_bytecodes,
+                        tx_result.new_known_factory_deps.unwrap_or_default(),
                         tx_l1_gas_this_tx,
                         tx_execution_metrics,
                         call_tracer_result,
@@ -700,8 +706,9 @@ impl ZkSyncStateKeeper {
                 } = *tx_metrics;
                 updates_manager.extend_from_executed_transaction(
                     tx,
-                    *tx_result,
+                    *tx_result.clone(),
                     compressed_bytecodes,
+                    tx_result.new_known_factory_deps.unwrap_or_default(),
                     tx_l1_gas_this_tx,
                     tx_execution_metrics,
                     vec![],
@@ -741,6 +748,9 @@ impl ZkSyncStateKeeper {
             .with_context(|| format!("failed executing transaction {:?}", tx.hash()))?;
         let exec_result = TxExecutionResult::new(exec_result, &tx);
         latency.observe();
+
+        APP_METRICS.processed_txs[&TxStage::StateKeeper].inc();
+        APP_METRICS.processed_l1_txs[&TxStage::StateKeeper].inc_by(tx.is_l1().into());
 
         let latency = KEEPER_METRICS.determine_seal_resolution.start();
         // All of `TxExecutionResult::BootloaderOutOfGasForTx`,

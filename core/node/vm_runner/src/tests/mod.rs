@@ -202,7 +202,7 @@ pub fn create_l2_transaction(
     };
     let tx = account.get_l2_tx_for_execute(
         Execute {
-            contract_address: Address::random(),
+            contract_address: Some(Address::random()),
             calldata: vec![],
             value: Default::default(),
             factory_deps: vec![],
@@ -322,6 +322,10 @@ async fn store_l1_batches(
             .iter()
             .map(|contract| hash_bytecode(&contract.bytecode))
             .chain([genesis_params.base_system_contracts().hashes().default_aa])
+            .chain([genesis_params
+                .base_system_contracts()
+                .hashes()
+                .evm_simulator])
             .map(h256_to_u256)
             .collect();
 

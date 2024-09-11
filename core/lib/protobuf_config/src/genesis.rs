@@ -43,6 +43,13 @@ impl ProtoRepr for proto::Genesis {
                 0.into(),
             )
         };
+        // Check either of fields, use old name as a fallback.
+        let snark_wrapper_vk_hash = match (&prover.snark_wrapper_vk_hash, &prover.recursion_scheduler_level_vk_hash) {
+            (Some(x), _) => parse_h256(x).context("snark_wrapper_vk_hash")?,
+            (_, Some(x)) => parse_h256(x).context("recursion_scheduler_level_vk_hash")?,
+            _ => anyhow::bail!("Either snark_wrapper_vk_hash or recursion_scheduler_level_vk_hash should be presented"),
+        };
+
         Ok(Self::Type {
             protocol_version: Some(protocol_version),
             genesis_root_hash: Some(
@@ -68,6 +75,11 @@ impl ProtoRepr for proto::Genesis {
                     .and_then(|x| parse_h256(x))
                     .context("default_aa_hash")?,
             ),
+            evm_simulator_hash: Some(
+                required(&self.evm_simulator_hash)
+                    .and_then(|x| parse_h256(x))
+                    .context("evm_simulator_hash")?,
+            ),
             l1_chain_id: required(&self.l1_chain_id)
                 .map(|x| L1ChainId(*x))
                 .context("l1_chain_id")?,
@@ -75,9 +87,7 @@ impl ProtoRepr for proto::Genesis {
             l2_chain_id: required(&self.l2_chain_id)
                 .and_then(|x| L2ChainId::try_from(*x).map_err(|a| anyhow::anyhow!(a)))
                 .context("l2_chain_id")?,
-            recursion_scheduler_level_vk_hash: required(&prover.recursion_scheduler_level_vk_hash)
-                .and_then(|x| parse_h256(x))
-                .context("recursion_scheduler_level_vk_hash")?,
+            snark_wrapper_vk_hash,
             fee_account: required(&self.fee_account)
                 .and_then(|x| parse_h160(x))
                 .context("fee_account")?,
@@ -100,15 +110,14 @@ impl ProtoRepr for proto::Genesis {
             genesis_protocol_semantic_version: this.protocol_version.map(|x| x.to_string()),
             default_aa_hash: this.default_aa_hash.map(|x| format!("{:?}", x)),
             bootloader_hash: this.bootloader_hash.map(|x| format!("{:?}", x)),
+            evm_simulator_hash: this.evm_simulator_hash.map(|x| format!("{:?}", x)),
             fee_account: Some(format!("{:?}", this.fee_account)),
             l1_chain_id: Some(this.l1_chain_id.0),
             l2_chain_id: Some(this.l2_chain_id.as_u64()),
             prover: Some(proto::Prover {
-                recursion_scheduler_level_vk_hash: Some(format!(
-                    "{:?}",
-                    this.recursion_scheduler_level_vk_hash
-                )),
+                recursion_scheduler_level_vk_hash: None, // Deprecated field.
                 dummy_verifier: Some(this.dummy_verifier),
+                snark_wrapper_vk_hash: Some(format!("{:?}", this.snark_wrapper_vk_hash)),
             }),
             l1_batch_commit_data_generator_mode: Some(
                 proto::L1BatchCommitDataGeneratorMode::new(
