@@ -3,14 +3,13 @@
 
 use anyhow::Context;
 use zksync_config::{
-    configs::{eth_sender::PubdataSendingMode, wallets::Wallets, GeneralConfig, Secrets},
+    configs::{
+        da_client::DAClient, eth_sender::PubdataSendingMode, wallets::Wallets, GeneralConfig,
+        Secrets,
+    },
     ContractsConfig, GenesisConfig,
 };
 use zksync_core_leftovers::Component;
-use zksync_default_da_clients::{
-    no_da::wiring_layer::NoDAClientWiringLayer,
-    object_store::{config::DAObjectStoreConfig, wiring_layer::ObjectStorageClientWiringLayer},
-};
 use zksync_metadata_calculator::MetadataCalculatorConfig;
 use zksync_node_api_server::{
     tx_sender::{ApiContracts, TxSenderConfig},
@@ -28,6 +27,10 @@ use zksync_node_framework::{
         commitment_generator::CommitmentGeneratorLayer,
         consensus::MainNodeConsensusLayer,
         contract_verification_api::ContractVerificationApiLayer,
+        da_clients::{
+            avail::AvailWiringLayer, no_da::NoDAClientWiringLayer,
+            object_store::ObjectStorageClientWiringLayer,
+        },
         da_dispatcher::DataAvailabilityDispatcherLayer,
         eth_sender::{EthTxAggregatorLayer, EthTxManagerLayer},
         eth_watch::EthWatchLayer,
@@ -364,6 +367,7 @@ impl MainNodeBuilder {
             subscriptions_limit: Some(rpc_config.subscriptions_limit()),
             batch_request_size_limit: Some(rpc_config.max_batch_request_size()),
             response_body_size_limit: Some(rpc_config.max_response_body_size()),
+            with_extended_tracing: rpc_config.extended_api_tracing,
             ..Default::default()
         };
         self.node.add_layer(Web3ServerLayer::http(
@@ -500,29 +504,22 @@ impl MainNodeBuilder {
     }
 
     fn add_da_client_layer(mut self) -> anyhow::Result<Self> {
-        #[cfg(all(feature = "da-avail", feature = "da-celestia", feature = "da-eigen"))]
-        return Err(anyhow!("More than one DA client is enabled"));
+        let Some(da_client_config) = self.configs.da_client_config.clone() else {
+            tracing::warn!("No config for DA client, using the NoDA client");
+            self.node.add_layer(NoDAClientWiringLayer);
+            return Ok(self);
+        };
 
-        #[cfg(feature = "da-avail")]
-        self.node
-            .add_layer(avail_client::wiring_layer::AvailWiringLayer::new());
-        #[cfg(feature = "da-celestia")]
-        self.node
-            .add_layer(celestia_client::wiring_layer::CelestiaWiringLayer);
-        #[cfg(feature = "da-eigen")]
-        self.node
-            .add_layer(eigen_da_client::wiring_layer::EigenDAWiringLayer);
+        match da_client_config.client {
+            DAClient::Avail(config) => {
+                self.node.add_layer(AvailWiringLayer::new(config));
+            }
+            DAClient::ObjectStore(config) => {
+                self.node
+                    .add_layer(ObjectStorageClientWiringLayer::new(config));
+            }
+        }
 
-        #[cfg(not(any(feature = "da-avail", feature = "da-celestia", feature = "da-eigen")))]
-        self.node.add_layer(NoDAClientWiringLayer);
-        Ok(self)
-    }
-
-    #[allow(dead_code)]
-    fn add_object_storage_da_client_layer(mut self) -> anyhow::Result<Self> {
-        let object_store_config = DAObjectStoreConfig::from_env()?;
-        self.node
-            .add_layer(ObjectStorageClientWiringLayer::new(object_store_config.0));
         Ok(self)
     }
 
