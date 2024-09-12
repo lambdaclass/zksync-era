@@ -1,11 +1,14 @@
+use eigen_da::EigenDAConfig;
 use serde::Deserialize;
 
 use crate::{AvailConfig, ObjectStoreConfig};
 
 pub mod avail;
+pub mod eigen_da;
 
 pub const AVAIL_CLIENT_CONFIG_NAME: &str = "Avail";
 pub const OBJECT_STORE_CLIENT_CONFIG_NAME: &str = "ObjectStore";
+pub const EIGENDA_CLIENT_CONFIG_NAME: &str = "EigenDA";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DAClientConfig {
@@ -17,4 +20,5 @@ pub struct DAClientConfig {
 pub enum DAClient {
     Avail(AvailConfig),
     ObjectStore(ObjectStoreConfig),
+    EigenDA(EigenDAConfig),
 }
