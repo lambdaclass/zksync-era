@@ -527,13 +527,13 @@ impl MainNodeBuilder {
     }
 
     fn add_da_dispatcher_layer(mut self) -> anyhow::Result<Self> {
-        // let eth_sender_config = try_load_config!(self.configs.eth);
-        // if let Some(sender_config) = eth_sender_config.sender {
-        //     if sender_config.pubdata_sending_mode != PubdataSendingMode::Custom {
-        //         tracing::warn!("DA dispatcher is enabled, but the pubdata sending mode is not `Custom`. DA dispatcher will not be started.");
-        //         return Ok(self);
-        //     }
-        // }
+        let eth_sender_config = try_load_config!(self.configs.eth);
+        if let Some(sender_config) = eth_sender_config.sender {
+            if sender_config.pubdata_sending_mode != PubdataSendingMode::Custom {
+                tracing::warn!("DA dispatcher is enabled, but the pubdata sending mode is not `Custom`. DA dispatcher will not be started.");
+                return Ok(self);
+            }
+        }
 
         let state_keeper_config = try_load_config!(self.configs.state_keeper_config);
         let da_config = try_load_config!(self.configs.da_dispatcher_config);
