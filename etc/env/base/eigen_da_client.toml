@@ -1,2 +1,2 @@
 [eigen_da_client]
-api_node_url="http://localhost:3100"
+api_node_url = "http://127.0.0.1:4242"
