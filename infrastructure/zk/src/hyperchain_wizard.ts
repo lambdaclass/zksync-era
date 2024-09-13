@@ -481,7 +481,7 @@ async function startServer() {
         components = defaultChoices;
     }
 
-    await server.server(false, false, false, components.join(','));
+    await server.server(false, false, components.join(','));
 }
 
 // Make sure all env information is available and wallets are funded

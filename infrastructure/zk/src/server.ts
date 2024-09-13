@@ -6,19 +6,10 @@ import * as path from 'path';
 import * as db from './database';
 import * as env from './env';
 
-export async function server(
-    rebuildTree: boolean,
-    uring: boolean,
-    da_eigen: boolean,
-    components?: string,
-    useNodeFramework?: boolean
-) {
+export async function server(rebuildTree: boolean, uring: boolean, components?: string, useNodeFramework?: boolean) {
     let options = '';
     if (uring) {
         options += '--features=rocksdb/io-uring';
-    }
-    if (da_eigen) {
-        options += ' --features=da-eigen';
     }
     if (rebuildTree || components || useNodeFramework) {
         options += ' --';
@@ -81,7 +72,6 @@ export const serverCommand = new Command('server')
     .description('start zksync server')
     .option('--genesis', 'generate genesis data via server')
     .option('--uring', 'enables uring support for RocksDB')
-    .option('--da-eigen', 'enables da-eigen feature')
     .option('--components <components>', 'comma-separated list of components to run')
     .option('--chain-name <chain-name>', 'environment name')
     .action(async (cmd: Command) => {
@@ -89,7 +79,7 @@ export const serverCommand = new Command('server')
         if (cmd.genesis) {
             await genesisFromSources();
         } else {
-            await server(cmd.rebuildTree, cmd.uring, cmd.daEigen, cmd.components, cmd.useNodeFramework);
+            await server(cmd.rebuildTree, cmd.uring, cmd.components, cmd.useNodeFramework);
         }
     });
 
