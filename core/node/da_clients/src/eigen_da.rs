@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use zksync_config::configs::da_client::eigen_da::EigenDAConfig;
 use zksync_da_client::{
-    types::{self, InclusionData},
+    types::{self, DAError, InclusionData},
     DataAvailabilityClient,
 };
 
@@ -31,7 +31,6 @@ impl DataAvailabilityClient for EigenDAClient {
         _batch_number: u32,
         blob_data: Vec<u8>,
     ) -> Result<types::DispatchResponse, types::DAError> {
-        tracing::info!("Dispatching blob to Eigen DA");
         let response = self
             .client
             .post(format!("{}/put/", self.config.api_node_url))
@@ -39,9 +38,13 @@ impl DataAvailabilityClient for EigenDAClient {
             .body(blob_data)
             .send()
             .await
-            .unwrap();
+            .map_err(to_retriable_error)?;
 
-        let request_id = response.bytes().await.unwrap().to_vec();
+        let request_id = response
+            .bytes()
+            .await
+            .map_err(to_non_retriable_da_error)?
+            .to_vec();
         Ok(types::DispatchResponse {
             blob_id: hex::encode(request_id),
         })
@@ -55,8 +58,12 @@ impl DataAvailabilityClient for EigenDAClient {
             .get(format!("{}/get/0x{}", self.config.api_node_url, blob_id))
             .send()
             .await
-            .unwrap();
-        let data = response.bytes().await.unwrap().to_vec();
+            .map_err(to_retriable_error)?;
+        let data = response
+            .bytes()
+            .await
+            .map_err(to_non_retriable_da_error)?
+            .to_vec();
         Ok(Some(InclusionData { data }))
     }
 
@@ -71,17 +78,16 @@ impl DataAvailabilityClient for EigenDAClient {
 
 // Note: This methods should be uncommented if the `get_inclusion_data` method
 // implementation gets uncommented.
-//
-// fn to_retriable_error(error: anyhow::Error) -> types::DAError {
-//     types::DAError {
-//         error,
-//         is_retriable: true,
-//     }
-// }
+fn to_retriable_error(error: impl Into<anyhow::Error>) -> DAError {
+    DAError {
+        error: error.into(),
+        is_retriable: true,
+    }
+}
 
-// fn to_non_retriable_error(error: anyhow::Error) -> types::DAError {
-//     types::DAError {
-//         error,
-//         is_retriable: false,
-//     }
-// }
+fn to_non_retriable_da_error(error: impl Into<anyhow::Error>) -> DAError {
+    DAError {
+        error: error.into(),
+        is_retriable: false,
+    }
+}
