@@ -63,9 +63,7 @@ const setupObservability = async (): Promise<void> => {
         `
     );
 
-    await utils.spawn(
-        'cp EigenDA.json ./target/dockprom/grafana/provisioning/dashboards/EigenDA.json'
-    )
+    await utils.spawn('cp EigenDA.json ./target/dockprom/grafana/provisioning/dashboards/EigenDA.json');
 };
 
 // Sets up docker environment and compiles contracts

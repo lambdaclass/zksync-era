@@ -1,22 +1,22 @@
-use tokio_postgres::NoTls;
+use std::{collections::HashMap, convert::Infallible, error::Error, time::Duration};
+
+use hyper::{
+    service::{make_service_fn, service_fn},
+    Body, Request, Response, Server,
+};
 use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
-use hyper::{Body, Response, Server, Request};
-use hyper::service::{make_service_fn, service_fn};
-use std::collections::HashMap;
-use std::convert::Infallible;
 use tokio::time::sleep;
-use std::time::Duration;
-use std::error::Error;
+use tokio_postgres::NoTls;
 
 // Define Prometheus metrics
 lazy_static::lazy_static! {
     static ref BLOB_RETRIEVALS: Counter = register_counter!(
-        "blob_retrievals_total", 
+        "blob_retrievals_total",
         "Total number of blobs successfully retrieved"
     ).unwrap();
 
     static ref BLOB_AVG_SIZE: Gauge = register_gauge!(
-        "blob_avg_size", 
+        "blob_avg_size",
         "Average size of blobs in bytes"
     ).unwrap();
 }
@@ -38,10 +38,13 @@ async fn main() {
     }
 }
 
-async fn get_blobs(blobs: &mut HashMap<String,usize>) -> Result<(), Box<dyn Error>> {
+async fn get_blobs(blobs: &mut HashMap<String, usize>) -> Result<(), Box<dyn Error>> {
     // Connect to the PostgreSQL server
-    let (client, connection) =
-        tokio_postgres::connect("host=postgres user=postgres password=notsecurepassword dbname=zksync_local", NoTls).await?;
+    let (client, connection) = tokio_postgres::connect(
+        "host=postgres user=postgres password=notsecurepassword dbname=zksync_local",
+        NoTls,
+    )
+    .await?;
 
     // Spawn a background task to handle the connection
     tokio::spawn(async move {
@@ -58,13 +61,13 @@ async fn get_blobs(blobs: &mut HashMap<String,usize>) -> Result<(), Box<dyn Erro
     for row in rows {
         let blob_id: &str = row.get(0);
         let blob_id = blob_id.to_string();
-        
+
         if !blobs.contains_key(&blob_id) {
             let blob = get(blob_id.clone()).await?;
             blobs.insert(blob_id.clone(), blob.len());
 
-            if !blob.is_empty(){
-                BLOB_RETRIEVALS.inc();  // Increment counter if blob retrieval succeeds
+            if !blob.is_empty() {
+                BLOB_RETRIEVALS.inc(); // Increment counter if blob retrieval succeeds
             }
         }
         BLOB_AVG_SIZE.set(blobs.values().sum::<usize>() as f64 / blobs.len() as f64);
@@ -90,9 +93,8 @@ async fn get(commitment: String) -> Result<Vec<u8>, Box<dyn Error>> {
 
 // Start the Prometheus metrics server
 async fn start_metrics_server() {
-    let make_svc = make_service_fn(|_conn| async {
-        Ok::<_, Infallible>(service_fn(metrics_handler))
-    });
+    let make_svc =
+        make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(metrics_handler)) });
 
     let addr = ([0, 0, 0, 0], 7070).into();
     let server = Server::bind(&addr).serve(make_svc);
