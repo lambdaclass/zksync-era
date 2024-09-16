@@ -15,6 +15,9 @@ import * as run from './run';
 import * as server from './server';
 import { createVolumes, up } from './up';
 
+const fs = require('fs');
+const yaml = require('yaml');
+
 // Checks if all required tools are installed with the correct versions
 const checkEnv = async (runObservability: boolean): Promise<void> => {
     const tools = ['node', 'yarn', 'docker', 'cargo'];
@@ -50,18 +53,13 @@ const setupObservability = async (): Promise<void> => {
             && cp ./target/era-observability/dashboards/* ./target/dockprom/grafana/provisioning/dashboards
         `
     );
-    // add scrape configuration to prometheus
-    await utils.spawn(
-        `yq '.scrape_configs += [{"job_name": "proxy-blob-retriever", "scrape_interval": "5s", "honor_labels": true, "static_configs": [{"targets": ["host.docker.internal:7070"]}]}]' \
-            ./target/dockprom/prometheus/prometheus.yml | sponge ./target/dockprom/prometheus/prometheus.yml
-        `
-    );
-    // add scrape configuration to prometheus
-    await utils.spawn(
-        `yq '.scrape_configs += [{"job_name": "zksync", "scrape_interval": "5s", "honor_labels": true, "static_configs": [{"targets": ["host.docker.internal:3312"]}]}]' \
-            ./target/dockprom/prometheus/prometheus.yml | sponge ./target/dockprom/prometheus/prometheus.yml
-        `
-    );
+
+    const fileContents = fs.readFileSync("./target/dockprom/prometheus/prometheus.yml", 'utf8');
+    let config = yaml.parse(fileContents);
+    config.scrape_configs.push({ job_name: "proxy-blob-retriever", scrape_interval: "5s", honor_labels: true, static_configs: [ { targets: ["host.docker.internal:7070"] } ] });
+    config.scrape_configs.push({job_name: "zksync", scrape_interval: "5s", honor_labels: true, static_configs: [{targets: ["host.docker.internal:3312"]}]})
+    const newYaml = yaml.stringify(config);
+    fs.writeFileSync("./target/dockprom/prometheus/prometheus.yml", newYaml, 'utf8');
 
     await utils.spawn('cp EigenDA.json ./target/dockprom/grafana/provisioning/dashboards/EigenDA.json');
 };
