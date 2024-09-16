@@ -14,7 +14,7 @@ pub struct EigenDAClient {
 }
 
 impl EigenDAClient {
-    pub const BLOB_SIZE_LIMIT_IN_BYTES: usize = 10 * 1024 * 1024; // 10MB
+    pub const BLOB_SIZE_LIMIT_IN_BYTES: usize = 2 * 1024 * 1024; // 2MB
 
     pub async fn new(config: EigenDAConfig) -> anyhow::Result<Self> {
         Ok(Self {
