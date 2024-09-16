@@ -48,45 +48,16 @@ impl DataAvailabilityClient for EigenDAClient {
     }
     async fn get_inclusion_data(
         &self,
-        _blob_id: &str,
+        blob_id: &str,
     ) -> anyhow::Result<Option<types::InclusionData>, types::DAError> {
-        // let request_id = hex::decode(blob_id).unwrap();
-        // let blob_status_reply = self
-        //     .disperser
-        //     .lock()
-        //     .await
-        //     .get_blob_status(BlobStatusRequest { request_id })
-        //     .await
-        //     .unwrap()
-        //     .into_inner();
-        // let blob_status = blob_status_reply.status();
-        // match blob_status {
-        //     BlobStatus::Unknown => Err(to_retriable_error(anyhow::anyhow!(
-        //         "Blob status is unknown"
-        //     ))),
-        //     BlobStatus::Processing => Err(to_retriable_error(anyhow::anyhow!(
-        //         "Blob is being processed"
-        //     ))),
-        //     BlobStatus::Confirmed => Err(to_retriable_error(anyhow::anyhow!(
-        //         "Blob is confirmed but not finalized"
-        //     ))),
-        //     BlobStatus::Failed => Err(to_non_retriable_error(anyhow::anyhow!("Blob has failed"))),
-        //     BlobStatus::InsufficientSignatures => Err(to_non_retriable_error(anyhow::anyhow!(
-        //         "Insufficient signatures for blob"
-        //     ))),
-        //     BlobStatus::Dispersing => Err(to_retriable_error(anyhow::anyhow!(
-        //         "Blob is being dispersed"
-        //     ))),
-        //     BlobStatus::Finalized => Ok(Some(types::InclusionData {
-        //         data: blob_status_reply
-        //             .info
-        //             .unwrap()
-        //             .blob_verification_proof
-        //             .unwrap()
-        //             .inclusion_proof,
-        //     })),
-        // }
-        Ok(Some(InclusionData { data: vec![] }))
+        let response = self
+            .client
+            .get(format!("{}/get/0x{}", self.config.api_node_url, blob_id))
+            .send()
+            .await
+            .unwrap();
+        let data = response.bytes().await.unwrap().to_vec();
+        Ok(Some(InclusionData { data }))
     }
 
     fn clone_boxed(&self) -> Box<dyn DataAvailabilityClient> {
