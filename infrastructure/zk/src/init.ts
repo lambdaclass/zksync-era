@@ -54,12 +54,22 @@ const setupObservability = async (): Promise<void> => {
         `
     );
 
-    const fileContents = fs.readFileSync("./target/dockprom/prometheus/prometheus.yml", 'utf8');
+    const fileContents = fs.readFileSync('./target/dockprom/prometheus/prometheus.yml', 'utf8');
     let config = yaml.parse(fileContents);
-    config.scrape_configs.push({ job_name: "proxy-blob-retriever", scrape_interval: "5s", honor_labels: true, static_configs: [ { targets: ["host.docker.internal:7070"] } ] });
-    config.scrape_configs.push({job_name: "zksync", scrape_interval: "5s", honor_labels: true, static_configs: [{targets: ["host.docker.internal:3312"]}]})
+    config.scrape_configs.push({
+        job_name: 'proxy-blob-retriever',
+        scrape_interval: '5s',
+        honor_labels: true,
+        static_configs: [{ targets: ['host.docker.internal:7070'] }]
+    });
+    config.scrape_configs.push({
+        job_name: 'zksync',
+        scrape_interval: '5s',
+        honor_labels: true,
+        static_configs: [{ targets: ['host.docker.internal:3312'] }]
+    });
     const newYaml = yaml.stringify(config);
-    fs.writeFileSync("./target/dockprom/prometheus/prometheus.yml", newYaml, 'utf8');
+    fs.writeFileSync('./target/dockprom/prometheus/prometheus.yml', newYaml, 'utf8');
 
     await utils.spawn('cp EigenDA.json ./target/dockprom/grafana/provisioning/dashboards/EigenDA.json');
 };
