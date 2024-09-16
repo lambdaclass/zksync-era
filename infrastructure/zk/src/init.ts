@@ -62,6 +62,10 @@ const setupObservability = async (): Promise<void> => {
             ./target/dockprom/prometheus/prometheus.yml | sponge ./target/dockprom/prometheus/prometheus.yml
         `
     );
+
+    await utils.spawn(
+        'cp EigenDA.json ./target/dockprom/grafana/provisioning/dashboards/EigenDA.json'
+    )
 };
 
 // Sets up docker environment and compiles contracts

@@ -1,13 +1,12 @@
-use reqwest::header::CONTENT_TYPE;
-use tokio_postgres::{NoTls, Error};
-use prometheus::{Counter, Histogram, Encoder, TextEncoder, register_counter, register_histogram};
+use tokio_postgres::NoTls;
+use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
 use hyper::{Body, Response, Server, Request};
 use hyper::service::{make_service_fn, service_fn};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::convert::Infallible;
-use std::time::Instant;
 use tokio::time::sleep;
 use std::time::Duration;
+use std::error::Error;
 
 // Define Prometheus metrics
 lazy_static::lazy_static! {
@@ -16,9 +15,9 @@ lazy_static::lazy_static! {
         "Total number of blobs successfully retrieved"
     ).unwrap();
 
-    static ref BLOB_RETRIEVAL_ERRORS: Counter = register_counter!(
-        "blob_retrieval_errors_total", 
-        "Total number of failed blob retrievals"
+    static ref BLOB_AVG_SIZE: Gauge = register_gauge!(
+        "blob_avg_size", 
+        "Average size of blobs in bytes"
     ).unwrap();
 }
 
@@ -27,18 +26,22 @@ async fn main() {
     // Start the metrics HTTP server
     tokio::spawn(start_metrics_server());
 
-    let mut blobs = HashSet::new();
+    let mut blobs = HashMap::new();
 
     loop {
         // Perform blob retrievals
-        get_blobs(&mut blobs).await.unwrap();
+        match get_blobs(&mut blobs).await {
+            Ok(_) => println!("Blob retrieval successful"),
+            Err(e) => eprintln!("Blob retrieval error: {}", e),
+        };
+        sleep(Duration::from_secs(1)).await;
     }
 }
 
-async fn get_blobs(blobs: &mut HashSet<String>) -> Result<(), Error> {
+async fn get_blobs(blobs: &mut HashMap<String,usize>) -> Result<(), Box<dyn Error>> {
     // Connect to the PostgreSQL server
     let (client, connection) =
-        tokio_postgres::connect("host=localhost user=postgres password=notsecurepassword dbname=zksync_local", NoTls).await?;
+        tokio_postgres::connect("host=postgres user=postgres password=notsecurepassword dbname=zksync_local", NoTls).await?;
 
     // Spawn a background task to handle the connection
     tokio::spawn(async move {
@@ -56,34 +59,32 @@ async fn get_blobs(blobs: &mut HashSet<String>) -> Result<(), Error> {
         let blob_id: &str = row.get(0);
         let blob_id = blob_id.to_string();
         
-        if !blobs.contains(&blob_id) {
-            blobs.insert(blob_id.clone());
-            let blob = get(blob_id).await;
+        if !blobs.contains_key(&blob_id) {
+            let blob = get(blob_id.clone()).await?;
+            blobs.insert(blob_id.clone(), blob.len());
 
-            if blob.is_empty(){
-                BLOB_RETRIEVAL_ERRORS.inc();  // Increment error counter if blob retrieval fails
-            } else {
-                BLOB_RETRIEVALS.inc();  // Increment success counter if blob retrieval succeeds
+            if !blob.is_empty(){
+                BLOB_RETRIEVALS.inc();  // Increment counter if blob retrieval succeeds
             }
         }
-
+        BLOB_AVG_SIZE.set(blobs.values().sum::<usize>() as f64 / blobs.len() as f64);
     }
 
     Ok(())
 }
 
-async fn get(commitment: String) -> Vec<u8> {
-    let url = format!("http://127.0.0.1:4242/get/0x{commitment}");
+async fn get(commitment: String) -> Result<Vec<u8>, Box<dyn Error>> {
+    let url = format!("http://host.docker.internal:4242/get/0x{commitment}");
 
     let client = reqwest::Client::new();
-    let response = client.get(url).send().await.unwrap();
+    let response = client.get(url).send().await?;
 
     if response.status().is_success() {
         // Expecting the response body to be binary data
-        let body = response.bytes().await.unwrap();
-        body.to_vec()
+        let body = response.bytes().await?;
+        Ok(body.to_vec())
     } else {
-        vec![]
+        Ok(vec![])
     }
 }
 
@@ -93,7 +94,7 @@ async fn start_metrics_server() {
         Ok::<_, Infallible>(service_fn(metrics_handler))
     });
 
-    let addr = ([127, 0, 0, 1], 7070).into();
+    let addr = ([0, 0, 0, 0], 7070).into();
     let server = Server::bind(&addr).serve(make_svc);
 
     println!("Serving metrics on http://{}", addr);
