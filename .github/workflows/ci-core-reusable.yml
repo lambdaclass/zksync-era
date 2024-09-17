@@ -26,6 +26,10 @@ jobs:
           echo ZKSYNC_HOME=$(pwd) >> $GITHUB_ENV
           echo $(pwd)/bin >> $GITHUB_PATH
           echo IN_DOCKER=1 >> .env
+          echo "SCCACHE_GCS_BUCKET=matterlabs-infra-sccache-storage" >> .env
+          echo "SCCACHE_GCS_SERVICE_ACCOUNT=gha-ci-runners@matterlabs-infra.iam.gserviceaccount.com" >> .env
+          echo "SCCACHE_GCS_RW_MODE=READ_WRITE" >> .env
+          echo "RUSTC_WRAPPER=sccache" >> .env
 
       # TODO: Remove when we after upgrade of hardhat-plugins
       - name: pre-download compilers
@@ -48,7 +52,6 @@ jobs:
       - name: Start services
         run: |
           ci_localnet_up
-          ci_run sccache --start-server
 
       - name: Init
         run: |
@@ -84,6 +87,10 @@ jobs:
           echo ZKSYNC_HOME=$(pwd) >> $GITHUB_ENV
           echo $(pwd)/bin >> $GITHUB_PATH
           echo IN_DOCKER=1 >> .env
+          echo "SCCACHE_GCS_BUCKET=matterlabs-infra-sccache-storage" >> .env
+          echo "SCCACHE_GCS_SERVICE_ACCOUNT=gha-ci-runners@matterlabs-infra.iam.gserviceaccount.com" >> .env
+          echo "SCCACHE_GCS_RW_MODE=READ_WRITE" >> .env
+          echo "RUSTC_WRAPPER=sccache" >> .env
 
       - name: Loadtest configuration
         run: |
@@ -156,12 +163,15 @@ jobs:
           echo ZKSYNC_HOME=$(pwd) >> $GITHUB_ENV
           echo $(pwd)/bin >> $GITHUB_PATH
           echo IN_DOCKER=1 >> .env
+          echo "SCCACHE_GCS_BUCKET=matterlabs-infra-sccache-storage" >> .env
+          echo "SCCACHE_GCS_SERVICE_ACCOUNT=gha-ci-runners@matterlabs-infra.iam.gserviceaccount.com" >> .env
+          echo "SCCACHE_GCS_RW_MODE=READ_WRITE" >> .env
+          echo "RUSTC_WRAPPER=sccache" >> .env
           echo RUN_CONTRACT_VERIFICATION_TEST=true >> $GITHUB_ENV
 
       - name: Start services
         run: |
           ci_localnet_up
-          ci_run sccache --start-server
 
       - name: Build zk_toolbox
         run: ci_run bash -c "./bin/zkt"
@@ -326,7 +336,7 @@ jobs:
 
       - name: Initialize Contract verifier
         run: |
-          ci_run zk_inception contract-verifier init --zksolc-version=v1.5.3 --zkvyper-version=v1.5.4 --solc-version=0.8.26 --vyper-version=v0.3.10 --era-vm-solc-version=0.8.18-1.0.1 --only --chain era
+          ci_run zk_inception contract-verifier init --zksolc-version=v1.5.3 --zkvyper-version=v1.5.4 --solc-version=0.8.26 --vyper-version=v0.3.10 --era-vm-solc-version=0.8.26-1.0.1 --only --chain era
           ci_run zk_inception contract-verifier run --chain era &> ${{ env.SERVER_LOGS_DIR }}/contract-verifier-rollup.log &
 
       - name: Run servers
