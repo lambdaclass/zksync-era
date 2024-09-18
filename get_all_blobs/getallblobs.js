@@ -145,10 +145,8 @@ function hexToUtf8(hex) {
   return utf8String;
 }
 
-async function getTransactions() {
+async function getTransactions(validatorTimelockAddress, commitBatchesSharedBridge_functionSelector) {
   const latestBlock = await web3.eth.getBlockNumber();
-  const validatorTimelockAddress = "0xeacf0411de906bdd8f2576692486383797d06004";
-  const commitBatchesSharedBridge_functionSelector = "0x6edd4f12";
   for (let i = 0; i <= latestBlock; i++) {
     const block = await web3.eth.getBlock(i, true);
     block.transactions.forEach(tx => {
@@ -169,8 +167,38 @@ async function getTransactions() {
   }
 }
 
-getTransactions();
+function getArguments() {
+  const args = process.argv.slice(2); // Get arguments after the first two (which are node and script path)
 
+  let validatorTimelockAddress = null;
+  let commitBatchesSharedBridge_functionSelector = null;
+  args.forEach(arg => {
+      const [key, value] = arg.split('=');
+      if (key === 'validatorTimelockAddress') {
+        validatorTimelockAddress = value;
+      } else if (key === 'commitBatchesSharedBridge_functionSelector') {
+        commitBatchesSharedBridge_functionSelector = value;
+      }
+  });
+
+  // Check if both arguments are provided
+  if (!validatorTimelockAddress || !commitBatchesSharedBridge_functionSelector) {
+      console.error('Usage: node getallblobs.js validatorTimelockAddress=<validatorTimelockAddress> commitBatchesSharedBridge_functionSelector=<commitBatchesSharedBridge_functionSelector>');
+      process.exit(1); // Exit with error
+  }
+
+  return { validatorTimelockAddress, commitBatchesSharedBridge_functionSelector };
+}
+
+function main() {
+  // Values for local node:
+  // validatorTimelockAddress = "0xeacf0411de906bdd8f2576692486383797d06004"
+  // commitBatchesSharedBridge_functionSelector = "0x6edd4f12"
+  const { validatorTimelockAddress, commitBatchesSharedBridge_functionSelector } = getArguments();
+  getTransactions(validatorTimelockAddress, commitBatchesSharedBridge_functionSelector);
+}
+
+main();
 //0x4ed3cbf1cf6e8738118f87e5060aee0817c6f18b Chain Admin
 //0x3b7d35532a74adaac2ba330ad4dc03432561eda1 Diamond Proxy
 //0x206ee1c1d48828ffff6dbd5215b4363385e5b2b7 Governance
