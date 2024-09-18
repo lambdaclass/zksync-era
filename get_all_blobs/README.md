@@ -12,6 +12,8 @@ node getallblobs.js validatorTimelockAddress=<validatorTimelockAddress> commitBa
 For a local node, the values are:
 
 ```
-validatorTimelockAddress = 0xeacf0411de906bdd8f2576692486383797d06004
+validatorTimelockAddress = check in zk init
 commitBatchesSharedBridge_functionSelector = 0x6edd4f12
 ```
+
+This generates a `blob_data.json` file, where blobs and commitments are stored.

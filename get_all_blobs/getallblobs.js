@@ -1,5 +1,7 @@
 const { Web3 } = require('web3');
 const web3 = new Web3('http://localhost:8545');
+const fs = require('fs');
+
 
 const abi = [
   {
@@ -145,12 +147,19 @@ function hexToUtf8(hex) {
   return utf8String;
 }
 
+function uint8ArrayToHex(uint8Array) {
+  return Array.from(uint8Array)
+      .map(byte => byte.toString(16).padStart(2, '0')) // Convert each byte to a 2-digit hex value
+      .join(''); // Join all the hex values into a single string
+}
+
 async function getTransactions(validatorTimelockAddress, commitBatchesSharedBridge_functionSelector) {
   const latestBlock = await web3.eth.getBlockNumber();
+  let jsonArray = [];
   for (let i = 0; i <= latestBlock; i++) {
     const block = await web3.eth.getBlock(i, true);
-    block.transactions.forEach(tx => {
-      if (tx.to == validatorTimelockAddress) { 
+    block.transactions.forEach(async tx => {
+      if (tx.to && (tx.to.toLowerCase() == validatorTimelockAddress.toLowerCase())) { 
         const input = tx.input;
         const txSelector = input.slice(0, 10);
         if (txSelector == commitBatchesSharedBridge_functionSelector) {
@@ -160,10 +169,37 @@ async function getTransactions(validatorTimelockAddress, commitBatchesSharedBrid
             input.slice(10) // Remove the function selector (first 10 characters of the calldata)
           );
           commitment = hexToUtf8(decodedParams._newBatchesData[0].pubdataCommitments.slice(4));
-          console.log(`Decoded Commitment:`, commitment);
+          let blob = await get(commitment);
+          const blobHex = uint8ArrayToHex(blob);
+          jsonArray.push({
+              commitment: commitment,
+              blob: blobHex
+          });
         }
       }
     });
+  }
+  const jsonString = JSON.stringify(jsonArray, null, 2);
+  fs.writeFileSync("blob_data.json", jsonString, 'utf8');
+}
+
+async function get(commitment) {
+  try {
+      const url = `http://localhost:4242/get/0x${commitment}`;
+
+      const response = await fetch(url);
+
+      if (response.ok) {
+          // Expecting the response body to be binary data
+          const body = await response.arrayBuffer();
+          return new Uint8Array(body);
+      } else {
+          return []; // Return empty array if the response is not successful
+      }
+  } catch (error) {
+      // Handle any errors
+      console.error('Error fetching data:', error);
+      throw error; // Re-throw the error or return an empty array, depending on requirements
   }
 }
 
@@ -192,18 +228,20 @@ function getArguments() {
 
 function main() {
   // Values for local node:
-  // validatorTimelockAddress = "0xeacf0411de906bdd8f2576692486383797d06004"
+  // validatorTimelockAddress = check in zk init
   // commitBatchesSharedBridge_functionSelector = "0x6edd4f12"
   const { validatorTimelockAddress, commitBatchesSharedBridge_functionSelector } = getArguments();
   getTransactions(validatorTimelockAddress, commitBatchesSharedBridge_functionSelector);
 }
 
 main();
-//0x4ed3cbf1cf6e8738118f87e5060aee0817c6f18b Chain Admin
-//0x3b7d35532a74adaac2ba330ad4dc03432561eda1 Diamond Proxy
-//0x206ee1c1d48828ffff6dbd5215b4363385e5b2b7 Governance
-//0xeacf0411de906bdd8f2576692486383797d06004 Validator Timelock //6edd4f12 function selector commitBatchesSharedBridge
-//0x9689eea11e9264821cd04d3444164bf1b3d7bd77 BridgeHub Proxy
-//0x9f5af3ecc9d1319ba77feaf8f2df44553dedb231 Transparent Proxy
-//0x7df5f422a9ae49eb00eed4f0b6ba728bbf050f21 Create2 Factory
-//0x5e6d086f5ec079adff4fb3774cdf3e8d6a34f7e9 Contracts Create2Factory (verifier)
+
+//Contracts being called in L1:
+//Chain Admin
+//Diamond Proxy
+//Governance
+//Validator Timelock //6edd4f12 function selector commitBatchesSharedBridge
+//BridgeHub Proxy
+//Transparent Proxy
+//Create2 Factory
+//Contracts Create2Factory (verifier)
