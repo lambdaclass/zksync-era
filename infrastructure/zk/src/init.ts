@@ -21,9 +21,6 @@ const yaml = require('yaml');
 // Checks if all required tools are installed with the correct versions
 const checkEnv = async (runObservability: boolean): Promise<void> => {
     const tools = ['node', 'yarn', 'docker', 'cargo'];
-    if (runObservability) {
-        tools.push('yq');
-    }
 
     for (const tool of tools) {
         await utils.exec(`which ${tool}`);
