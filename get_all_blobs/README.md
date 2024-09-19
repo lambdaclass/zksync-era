@@ -5,7 +5,7 @@ This script retrieves all blobs commitments directly from L1
 In order to run it:
 
 ```
-node install
+npm i
 node getallblobs.js validatorTimelockAddress=<validatorTimelockAddress> commitBatchesSharedBridge_functionSelector=<commitBatchesSharedBridge_functionSelector>
 ```
 
