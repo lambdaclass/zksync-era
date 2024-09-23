@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use vise::{Buckets, Counter, Gauge, Histogram, Metrics, Unit};
+use vise::{Buckets, Gauge, Histogram, Metrics, Unit};
 
 /// Buckets for `blob_dispatch_latency` (from 0.1 to 120 seconds).
 const DISPATCH_LATENCIES: Buckets =
