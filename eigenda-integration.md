@@ -11,10 +11,8 @@
 2. Start containers
 
 ```bash
-zk_inception containers --observability false
+zk_inception containers --observability true
 ```
-
-Leave the obserbability flag as `false` you can enable it in the `init` step.
 
 3. Create `eigen_da` chain
 
@@ -57,13 +55,14 @@ zk_inception server --chain eigen_da
 
 ### Testing
 
-Modify the following flag in `core/lib/config/src/configs/da_dispatcher.rs`
+Modify the following flag in `core/lib/config/src/configs/da_dispatcher.rs` (then restart the server)
 
 ```rs
 pub const DEFAULT_USE_DUMMY_INCLUSION_DATA: bool = true;
 ```
 
-And with the server running on one terminal, you can run the server integration tests on a separate terminal with the following command:
+And with the server running on one terminal, you can run the server integration tests on a separate terminal with the
+following command:
 
 ```bash
 zk_supervisor test integration --chain eigen_da
