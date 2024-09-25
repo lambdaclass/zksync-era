@@ -527,7 +527,7 @@ impl BlocksWeb3Dal<'_, '_> {
     pub async fn get_traces_for_l2_block(
         &mut self,
         block_number: L2BlockNumber,
-    ) -> DalResult<Vec<Call>> {
+    ) -> DalResult<Vec<(Call, H256, usize)>> {
         let protocol_version = sqlx::query!(
             r#"
             SELECT
@@ -554,6 +554,8 @@ impl BlocksWeb3Dal<'_, '_> {
             CallTrace,
             r#"
             SELECT
+                transactions.hash AS tx_hash,
+                transactions.index_in_block AS tx_index_in_block,
                 call_trace
             FROM
                 call_traces
@@ -570,7 +572,11 @@ impl BlocksWeb3Dal<'_, '_> {
         .fetch_all(self.storage)
         .await?
         .into_iter()
-        .map(|call_trace| call_trace.into_call(protocol_version))
+        .map(|call_trace| {
+            let hash = H256::from_slice(&call_trace.tx_hash);
+            let index = call_trace.tx_index_in_block.unwrap_or_default() as usize;
+            (call_trace.into_call(protocol_version), hash, index)
+        })
         .collect())
     }
 
@@ -663,6 +669,7 @@ impl BlocksWeb3Dal<'_, '_> {
                 miniblocks.fair_pubdata_price,
                 miniblocks.bootloader_code_hash,
                 miniblocks.default_aa_code_hash,
+                l1_batches.evm_simulator_code_hash,
                 miniblocks.protocol_version,
                 miniblocks.fee_account_address
             FROM
@@ -730,7 +737,8 @@ impl BlocksWeb3Dal<'_, '_> {
                 mb.l2_fair_gas_price,
                 mb.fair_pubdata_price,
                 l1_batches.bootloader_code_hash,
-                l1_batches.default_aa_code_hash
+                l1_batches.default_aa_code_hash,
+                l1_batches.evm_simulator_code_hash
             FROM
                 l1_batches
                 INNER JOIN mb ON TRUE
@@ -1084,8 +1092,9 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(traces.len(), 2);
-        for (trace, tx_result) in traces.iter().zip(&tx_results) {
+        for ((trace, hash, _index), tx_result) in traces.iter().zip(&tx_results) {
             let expected_trace = tx_result.call_trace().unwrap();
+            assert_eq!(&tx_result.hash, hash);
             assert_eq!(*trace, expected_trace);
         }
     }

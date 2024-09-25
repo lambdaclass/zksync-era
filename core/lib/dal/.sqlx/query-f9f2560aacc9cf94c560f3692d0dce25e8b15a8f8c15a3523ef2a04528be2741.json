@@ -1,0 +1,122 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                miniblocks.number,\n                miniblocks.timestamp,\n                miniblocks.hash,\n                miniblocks.l1_tx_count,\n                miniblocks.l2_tx_count,\n                fee_account_address AS \"fee_account_address!\",\n                miniblocks.base_fee_per_gas,\n                miniblocks.l1_gas_price,\n                miniblocks.l2_fair_gas_price,\n                miniblocks.gas_per_pubdata_limit,\n                miniblocks.bootloader_code_hash,\n                miniblocks.default_aa_code_hash,\n                l1_batches.evm_simulator_code_hash,\n                miniblocks.protocol_version,\n                miniblocks.virtual_blocks,\n                miniblocks.fair_pubdata_price,\n                miniblocks.gas_limit,\n                miniblocks.logs_bloom\n            FROM\n                miniblocks\n                INNER JOIN l1_batches ON miniblocks.l1_batch_number = l1_batches.number\n            ORDER BY\n                number DESC\n            LIMIT\n                1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "number",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "timestamp",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "hash",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 3,
+        "name": "l1_tx_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "l2_tx_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "fee_account_address!",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 6,
+        "name": "base_fee_per_gas",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 7,
+        "name": "l1_gas_price",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "l2_fair_gas_price",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "gas_per_pubdata_limit",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "bootloader_code_hash",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 11,
+        "name": "default_aa_code_hash",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 12,
+        "name": "evm_simulator_code_hash",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 13,
+        "name": "protocol_version",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 14,
+        "name": "virtual_blocks",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
+        "name": "fair_pubdata_price",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 16,
+        "name": "gas_limit",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 17,
+        "name": "logs_bloom",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "f9f2560aacc9cf94c560f3692d0dce25e8b15a8f8c15a3523ef2a04528be2741"
+}
