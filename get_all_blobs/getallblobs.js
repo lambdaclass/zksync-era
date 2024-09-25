@@ -158,7 +158,7 @@ async function getTransactions(validatorTimelockAddress, commitBatchesSharedBrid
   let jsonArray = [];
   for (let i = 0; i <= latestBlock; i++) {
     const block = await web3.eth.getBlock(i, true);
-    block.transactions.forEach(async tx => {
+    await Promise.all(block.transactions.map(async tx => {
       if (tx.to && (tx.to.toLowerCase() == validatorTimelockAddress.toLowerCase())) { 
         const input = tx.input;
         const txSelector = input.slice(0, 10);
@@ -175,10 +175,14 @@ async function getTransactions(validatorTimelockAddress, commitBatchesSharedBrid
               commitment: commitment,
               blob: blobHex
           });
+          console.log(tx.to);
+          console.log(commitment);
+          console.log(blobHex.length);
         }
       }
-    });
+    }));
   }
+  console.log(jsonArray);
   const jsonString = JSON.stringify(jsonArray, null, 2);
   fs.writeFileSync("blob_data.json", jsonString, 'utf8');
 }
