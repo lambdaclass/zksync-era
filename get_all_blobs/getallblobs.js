@@ -175,14 +175,10 @@ async function getTransactions(validatorTimelockAddress, commitBatchesSharedBrid
               commitment: commitment,
               blob: blobHex
           });
-          console.log(tx.to);
-          console.log(commitment);
-          console.log(blobHex.length);
         }
       }
     }));
   }
-  console.log(jsonArray);
   const jsonString = JSON.stringify(jsonArray, null, 2);
   fs.writeFileSync("blob_data.json", jsonString, 'utf8');
 }
