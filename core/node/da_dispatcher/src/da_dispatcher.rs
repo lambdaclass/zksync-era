@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     future::Future,
-    sync::{atomic::AtomicI64, Arc, Condvar},
+    sync::{atomic::AtomicI64, Arc},
     time::Duration,
 };
 
@@ -9,7 +9,7 @@ use anyhow::Context;
 use chrono::Utc;
 use futures::future::join_all;
 use rand::Rng;
-use tokio::sync::{mpsc, watch::Receiver, Mutex};
+use tokio::sync::{mpsc, watch::Receiver};
 use zksync_config::DADispatcherConfig;
 use zksync_da_client::{
     types::{DAError, InclusionData},
@@ -314,7 +314,7 @@ impl DataAvailabilityDispatcher {
         }
     }
 
-    pub async fn run(self, mut stop_receiver: Receiver<bool>) -> anyhow::Result<()> {
+    pub async fn run(self, stop_receiver: Receiver<bool>) -> anyhow::Result<()> {
         let subtasks = futures::future::join(
             async {
                 if let Err(err) = dispatch_batches(
