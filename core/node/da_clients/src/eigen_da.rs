@@ -1,11 +1,18 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
+use rlp::decode;
 use zksync_config::configs::da_client::eigen_da::EigenDAConfig;
 use zksync_da_client::{
     types::{self, DAError, InclusionData},
     DataAvailabilityClient,
 };
+use zksync_eth_client::{
+    CallFunctionArgs, ContractCallError, EthInterface,
+};
+use zksync_types::{blob, Address, U256};
+
+use crate::blob_info::BlobInfo;
 
 #[derive(Clone, Debug)]
 pub struct EigenDAClient {
@@ -21,6 +28,29 @@ impl EigenDAClient {
             client: reqwest::Client::new(),
             config,
         })
+    }
+}
+impl EigenDAClient {
+    pub async fn verify_blob(
+        &self,
+        verifier_address: Address,
+        eth_client: &dyn EthInterface,
+        commitment: String,
+    ) -> Result<U256, ContractCallError> {
+        let data = &hex::decode(commitment).unwrap()[3..];
+
+        let blob_info: BlobInfo = match decode(&data) {
+            Ok(blob_info) => blob_info,
+            Err(e) => panic!("Error decoding commitment: {}", e)
+        };
+
+        CallFunctionArgs::new("verifyBlob", blob_info)
+            .for_contract(
+                verifier_address,
+                &zksync_contracts::hyperchain_contract(),
+            )
+            .call(eth_client)
+            .await
     }
 }
 
@@ -45,6 +75,12 @@ impl DataAvailabilityClient for EigenDAClient {
             .await
             .map_err(to_non_retriable_da_error)?
             .to_vec();
+
+        self.verify_blob(
+            self.config.verifier_address, //todo
+            self.config.eth_client.as_ref(), //todo
+            hex::encode(request_id),
+        );
         Ok(types::DispatchResponse {
             blob_id: hex::encode(request_id),
         })
