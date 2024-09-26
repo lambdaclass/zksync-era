@@ -30,275 +30,6 @@ pub struct DataAvailabilityDispatcher {
     request_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
-// TODO: this function might be movable to DataAvailabilityDispatcher
-async fn dispatch_batches(
-    pool: ConnectionPool<Core>,
-    config: DADispatcherConfig,
-    client: Box<dyn DataAvailabilityClient>,
-    stop_receiver: Receiver<bool>,
-    semaphore: Arc<tokio::sync::Semaphore>,
-) -> anyhow::Result<()> {
-    let (tx, mut rx) = mpsc::channel(100);
-
-    let next_expected_batch = Arc::new(AtomicI64::new(NO_FIRST_BATCH));
-
-    let stop_receiver_clone = stop_receiver.clone();
-    let pool_clone = pool.clone();
-    let config_clone = config.clone();
-    let next_expected_batch_clone = next_expected_batch.clone();
-    let pending_blobs_reader = tokio::spawn(async move {
-        // Used to avoid sending the same batch multiple times
-        let mut pending_batches = HashSet::new();
-        // let pair = cvar_pair_clone.clone();
-        loop {
-            if *stop_receiver_clone.borrow() {
-                break;
-            }
-
-            let mut conn = pool_clone.connection_tagged("da_dispatcher").await?;
-            let batches = conn
-                .data_availability_dal()
-                .get_ready_for_da_dispatch_l1_batches(config_clone.max_rows_to_dispatch() as usize)
-                .await?;
-            drop(conn);
-            for batch in batches {
-                if pending_batches.contains(&batch.l1_batch_number.0) {
-                    continue;
-                }
-
-                // This should only happen once.
-                // We can't assume that the first batch is always 1 because the dispatcher can be restarted
-                // and resume from a different batch.
-                if next_expected_batch_clone.load(std::sync::atomic::Ordering::Relaxed)
-                    == NO_FIRST_BATCH
-                {
-                    next_expected_batch_clone.store(
-                        batch.l1_batch_number.0 as i64,
-                        std::sync::atomic::Ordering::Relaxed,
-                    );
-                }
-
-                pending_batches.insert(batch.l1_batch_number.0);
-                METRICS.blobs_pending_dispatch.inc_by(1);
-                tx.send(batch).await?;
-            }
-
-            tokio::time::sleep(Duration::from_secs(5)).await;
-        }
-        Ok::<(), anyhow::Error>(())
-    });
-
-    let pending_blobs_sender = tokio::spawn(async move {
-        let mut spawned_requests = vec![];
-        loop {
-            if *stop_receiver.borrow() {
-                break;
-            }
-
-            let batch = match rx.recv().await {
-                Some(batch) => batch,
-                None => continue, // Should never happen
-            };
-
-            // Block until we can send the request
-            let permit = semaphore.clone().acquire_owned().await?;
-
-            let client = client.clone();
-            let pool = pool.clone();
-            let config = config.clone();
-            let next_expected_batch = next_expected_batch.clone();
-            let request = tokio::spawn(async move {
-                let _permit = permit; // move permit into scope
-                let dispatch_latency = METRICS.blob_dispatch_latency.start();
-                let dispatch_response = retry(config.max_retries(), batch.l1_batch_number, || {
-                    client.dispatch_blob(batch.l1_batch_number.0, batch.pubdata.clone())
-                })
-                .await
-                .with_context(|| {
-                    format!(
-                        "failed to dispatch a blob with batch_number: {}, pubdata_len: {}",
-                        batch.l1_batch_number,
-                        batch.pubdata.len()
-                    )
-                })?;
-                let dispatch_latency_duration = dispatch_latency.observe();
-
-                let sent_at = Utc::now().naive_utc();
-
-                // Before saving the blob in the database, we need to be sure that we are doing it
-                // in the correct order.
-                while batch.l1_batch_number.0 as i64
-                    > next_expected_batch.load(std::sync::atomic::Ordering::Relaxed)
-                {
-                    tracing::info!(
-                        "batch_number: {} finished DA dispatch, but the current expected batch is: {}, waiting for the correct order",
-                        batch.l1_batch_number, next_expected_batch.load(std::sync::atomic::Ordering::Relaxed));
-                    // Wait a base time of 5 seconds plus an additional 1 second per batch number difference
-                    let waiting_time = 5 + (batch.l1_batch_number.0 as i64)
-                        - next_expected_batch.load(std::sync::atomic::Ordering::Relaxed);
-                    tokio::time::sleep(Duration::from_secs(waiting_time as u64)).await;
-                }
-
-                let mut conn = pool.connection_tagged("da_dispatcher").await?;
-                conn.data_availability_dal()
-                    .insert_l1_batch_da(
-                        batch.l1_batch_number,
-                        dispatch_response.blob_id.as_str(),
-                        sent_at,
-                    )
-                    .await?;
-                drop(conn);
-
-                // Update the next expected batch number
-                next_expected_batch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
-                METRICS
-                    .last_dispatched_l1_batch
-                    .set(batch.l1_batch_number.0 as usize);
-                METRICS.blob_size.observe(batch.pubdata.len());
-                METRICS.blobs_dispatched.inc_by(1);
-                METRICS.blobs_pending_dispatch.dec_by(1);
-                tracing::info!(
-                    "Dispatched a DA for batch_number: {}, pubdata_size: {}, dispatch_latency: {dispatch_latency_duration:?}",
-                    batch.l1_batch_number,
-                    batch.pubdata.len(),
-                );
-
-                Ok::<(), anyhow::Error>(())
-            });
-            spawned_requests.push(request);
-        }
-        join_all(spawned_requests).await;
-        Ok::<(), anyhow::Error>(())
-    });
-
-    let results = join_all(vec![pending_blobs_reader, pending_blobs_sender]).await;
-    for result in results {
-        result??;
-    }
-    Ok(())
-}
-
-// TODO: this function might be movable to DataAvailabilityDispatcher
-async fn inclusion_poller(
-    pool: ConnectionPool<Core>,
-    config: DADispatcherConfig,
-    client: Box<dyn DataAvailabilityClient>,
-    stop_receiver: Receiver<bool>,
-    semaphore: Arc<tokio::sync::Semaphore>,
-) -> anyhow::Result<()> {
-    let (tx, mut rx) = mpsc::channel(100);
-
-    let stop_receiver_clone = stop_receiver.clone();
-    let pool_clone = pool.clone();
-    let pending_inclusion_reader = tokio::spawn(async move {
-        let mut pending_inclusions = HashSet::new();
-        loop {
-            if *stop_receiver_clone.borrow() {
-                break;
-            }
-
-            let mut conn = pool_clone.connection_tagged("da_dispatcher").await?;
-            // TODO: this query might always return the same blob if the blob is not included
-            // we should probably change the query to return all blobs that are not included
-            let blob_info = conn
-                .data_availability_dal()
-                .get_first_da_blob_awaiting_inclusion()
-                .await?;
-            drop(conn);
-
-            let Some(blob_info) = blob_info else {
-                tokio::time::sleep(Duration::from_secs(5)).await;
-                continue;
-            };
-
-            if pending_inclusions.contains(&blob_info.blob_id) {
-                continue;
-            }
-            pending_inclusions.insert(blob_info.blob_id.clone());
-            tx.send(blob_info).await?;
-        }
-        Ok::<(), anyhow::Error>(())
-    });
-
-    let pending_inclusion_sender = tokio::spawn(async move {
-        let mut spawned_requests = vec![];
-        loop {
-            if *stop_receiver.borrow() {
-                break;
-            }
-            let blob_info = match rx.recv().await {
-                Some(blob_info) => blob_info,
-                None => continue, // Should never happen
-            };
-
-            // Block until we can send the request
-            let permit = semaphore.clone().acquire_owned().await?;
-
-            let client = client.clone();
-            let pool = pool.clone();
-            let config = config.clone();
-            let request = tokio::spawn(async move {
-                let _permit = permit; // move permit into scope
-                let inclusion_data = if config.use_dummy_inclusion_data() {
-                    client
-                        .get_inclusion_data(blob_info.blob_id.as_str())
-                        .await
-                        .with_context(|| {
-                            format!(
-                                "failed to get inclusion data for blob_id: {}, batch_number: {}",
-                                blob_info.blob_id, blob_info.l1_batch_number
-                            )
-                        })?
-                } else {
-                    // if the inclusion verification is disabled, we don't need to wait for the inclusion
-                    // data before committing the batch, so simply return an empty vector
-                    Some(InclusionData { data: vec![] })
-                };
-
-                let Some(inclusion_data) = inclusion_data else {
-                    return Ok(());
-                };
-
-                let mut conn = pool.connection_tagged("da_dispatcher").await?;
-                conn.data_availability_dal()
-                    .save_l1_batch_inclusion_data(
-                        L1BatchNumber(blob_info.l1_batch_number.0),
-                        inclusion_data.data.as_slice(),
-                    )
-                    .await?;
-                drop(conn);
-
-                let inclusion_latency = Utc::now().signed_duration_since(blob_info.sent_at);
-                if let Ok(latency) = inclusion_latency.to_std() {
-                    METRICS.inclusion_latency.observe(latency);
-                }
-                METRICS
-                    .last_included_l1_batch
-                    .set(blob_info.l1_batch_number.0 as usize);
-                METRICS.blobs_included.inc_by(1);
-
-                tracing::info!(
-                    "Received an inclusion data for a batch_number: {}, inclusion_latency_seconds: {}",
-                    blob_info.l1_batch_number,
-                    inclusion_latency.num_seconds()
-                );
-
-                Ok::<(), anyhow::Error>(())
-            });
-            spawned_requests.push(request);
-        }
-        join_all(spawned_requests).await;
-        Ok::<(), anyhow::Error>(())
-    });
-
-    let results = join_all(vec![pending_inclusion_reader, pending_inclusion_sender]).await;
-    for result in results {
-        result??;
-    }
-    Ok(())
-}
-
 impl DataAvailabilityDispatcher {
     pub fn new(
         pool: ConnectionPool<Core>,
@@ -317,28 +48,12 @@ impl DataAvailabilityDispatcher {
     pub async fn run(self, stop_receiver: Receiver<bool>) -> anyhow::Result<()> {
         let subtasks = futures::future::join(
             async {
-                if let Err(err) = dispatch_batches(
-                    self.pool.clone(),
-                    self.config.clone(),
-                    self.client.clone(),
-                    stop_receiver.clone(),
-                    self.request_semaphore.clone(),
-                )
-                .await
-                {
+                if let Err(err) = self.dispatch_batches(stop_receiver.clone()).await {
                     tracing::error!("dispatch error {err:?}");
                 }
             },
             async {
-                if let Err(err) = inclusion_poller(
-                    self.pool.clone(),
-                    self.config.clone(),
-                    self.client.clone(),
-                    stop_receiver.clone(),
-                    self.request_semaphore.clone(),
-                )
-                .await
-                {
+                if let Err(err) = self.inclusion_poller(stop_receiver.clone()).await {
                     tracing::error!("poll_for_inclusion error {err:?}");
                 }
             },
@@ -346,6 +61,272 @@ impl DataAvailabilityDispatcher {
 
         tokio::select! {
             _ = subtasks => {},
+        }
+        Ok(())
+    }
+
+    async fn dispatch_batches(&self, stop_receiver: Receiver<bool>) -> anyhow::Result<()> {
+        let (tx, mut rx) = mpsc::channel(100);
+
+        let next_expected_batch = Arc::new(AtomicI64::new(NO_FIRST_BATCH));
+
+        let stop_receiver_clone = stop_receiver.clone();
+        let pool_clone = self.pool.clone();
+        let config_clone = self.config.clone();
+        let next_expected_batch_clone = next_expected_batch.clone();
+        let pending_blobs_reader = tokio::spawn(async move {
+            // Used to avoid sending the same batch multiple times
+            let mut pending_batches = HashSet::new();
+            // let pair = cvar_pair_clone.clone();
+            loop {
+                if *stop_receiver_clone.borrow() {
+                    break;
+                }
+
+                let mut conn = pool_clone.connection_tagged("da_dispatcher").await?;
+                let batches = conn
+                    .data_availability_dal()
+                    .get_ready_for_da_dispatch_l1_batches(
+                        config_clone.max_rows_to_dispatch() as usize
+                    )
+                    .await?;
+                drop(conn);
+                for batch in batches {
+                    if pending_batches.contains(&batch.l1_batch_number.0) {
+                        continue;
+                    }
+
+                    // This should only happen once.
+                    // We can't assume that the first batch is always 1 because the dispatcher can be restarted
+                    // and resume from a different batch.
+                    if next_expected_batch_clone.load(std::sync::atomic::Ordering::Relaxed)
+                        == NO_FIRST_BATCH
+                    {
+                        next_expected_batch_clone.store(
+                            batch.l1_batch_number.0 as i64,
+                            std::sync::atomic::Ordering::Relaxed,
+                        );
+                    }
+
+                    pending_batches.insert(batch.l1_batch_number.0);
+                    METRICS.blobs_pending_dispatch.inc_by(1);
+                    tx.send(batch).await?;
+                }
+
+                tokio::time::sleep(Duration::from_secs(5)).await;
+            }
+            Ok::<(), anyhow::Error>(())
+        });
+
+        let pool = self.pool.clone();
+        let config = self.config.clone();
+        let client = self.client.clone();
+        let request_semaphore = self.request_semaphore.clone();
+        let pending_blobs_sender = tokio::spawn(async move {
+            let mut spawned_requests = vec![];
+            loop {
+                if *stop_receiver.borrow() {
+                    break;
+                }
+
+                let batch = match rx.recv().await {
+                    Some(batch) => batch,
+                    None => continue, // Should never happen
+                };
+
+                // Block until we can send the request
+                let permit = request_semaphore.clone().acquire_owned().await?;
+
+                let client = client.clone();
+                let pool = pool.clone();
+                let config = config.clone();
+                let next_expected_batch = next_expected_batch.clone();
+                let request = tokio::spawn(async move {
+                    let _permit = permit; // move permit into scope
+                    let dispatch_latency = METRICS.blob_dispatch_latency.start();
+                    let dispatch_response =
+                        retry(config.max_retries(), batch.l1_batch_number, || {
+                            client.dispatch_blob(batch.l1_batch_number.0, batch.pubdata.clone())
+                        })
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to dispatch a blob with batch_number: {}, pubdata_len: {}",
+                                batch.l1_batch_number,
+                                batch.pubdata.len()
+                            )
+                        })?;
+                    let dispatch_latency_duration = dispatch_latency.observe();
+
+                    let sent_at = Utc::now().naive_utc();
+
+                    // Before saving the blob in the database, we need to be sure that we are doing it
+                    // in the correct order.
+                    while batch.l1_batch_number.0 as i64
+                        > next_expected_batch.load(std::sync::atomic::Ordering::Relaxed)
+                    {
+                        tracing::info!(
+                            "batch_number: {} finished DA dispatch, but the current expected batch is: {}, waiting for the correct order",
+                            batch.l1_batch_number, next_expected_batch.load(std::sync::atomic::Ordering::Relaxed));
+                        // Wait a base time of 5 seconds plus an additional 1 second per batch number difference
+                        let waiting_time = 5 + (batch.l1_batch_number.0 as i64)
+                            - next_expected_batch.load(std::sync::atomic::Ordering::Relaxed);
+                        tokio::time::sleep(Duration::from_secs(waiting_time as u64)).await;
+                    }
+
+                    let mut conn = pool.connection_tagged("da_dispatcher").await?;
+                    conn.data_availability_dal()
+                        .insert_l1_batch_da(
+                            batch.l1_batch_number,
+                            dispatch_response.blob_id.as_str(),
+                            sent_at,
+                        )
+                        .await?;
+                    drop(conn);
+
+                    // Update the next expected batch number
+                    next_expected_batch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+                    METRICS
+                        .last_dispatched_l1_batch
+                        .set(batch.l1_batch_number.0 as usize);
+                    METRICS.blob_size.observe(batch.pubdata.len());
+                    METRICS.blobs_dispatched.inc_by(1);
+                    METRICS.blobs_pending_dispatch.dec_by(1);
+                    tracing::info!(
+                        "Dispatched a DA for batch_number: {}, pubdata_size: {}, dispatch_latency: {dispatch_latency_duration:?}",
+                        batch.l1_batch_number,
+                        batch.pubdata.len(),
+                    );
+
+                    Ok::<(), anyhow::Error>(())
+                });
+                spawned_requests.push(request);
+            }
+            join_all(spawned_requests).await;
+            Ok::<(), anyhow::Error>(())
+        });
+
+        let results = join_all(vec![pending_blobs_reader, pending_blobs_sender]).await;
+        for result in results {
+            result??;
+        }
+        Ok(())
+    }
+
+    async fn inclusion_poller(&self, stop_receiver: Receiver<bool>) -> anyhow::Result<()> {
+        let (tx, mut rx) = mpsc::channel(100);
+
+        let stop_receiver_clone = stop_receiver.clone();
+        let pool_clone = self.pool.clone();
+        let pending_inclusion_reader = tokio::spawn(async move {
+            let mut pending_inclusions = HashSet::new();
+            loop {
+                if *stop_receiver_clone.borrow() {
+                    break;
+                }
+
+                let mut conn = pool_clone.connection_tagged("da_dispatcher").await?;
+                // TODO: this query might always return the same blob if the blob is not included
+                // we should probably change the query to return all blobs that are not included
+                let blob_info = conn
+                    .data_availability_dal()
+                    .get_first_da_blob_awaiting_inclusion()
+                    .await?;
+                drop(conn);
+
+                let Some(blob_info) = blob_info else {
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    continue;
+                };
+
+                if pending_inclusions.contains(&blob_info.blob_id) {
+                    continue;
+                }
+                pending_inclusions.insert(blob_info.blob_id.clone());
+                tx.send(blob_info).await?;
+            }
+            Ok::<(), anyhow::Error>(())
+        });
+
+        let pool = self.pool.clone();
+        let config = self.config.clone();
+        let client = self.client.clone();
+        let semaphore = self.request_semaphore.clone();
+        let pending_inclusion_sender = tokio::spawn(async move {
+            let mut spawned_requests = vec![];
+            loop {
+                if *stop_receiver.borrow() {
+                    break;
+                }
+                let blob_info = match rx.recv().await {
+                    Some(blob_info) => blob_info,
+                    None => continue, // Should never happen
+                };
+
+                // Block until we can send the request
+                let permit = semaphore.clone().acquire_owned().await?;
+
+                let client = client.clone();
+                let pool = pool.clone();
+                let config = config.clone();
+                let request = tokio::spawn(async move {
+                    let _permit = permit; // move permit into scope
+                    let inclusion_data = if config.use_dummy_inclusion_data() {
+                        client
+                            .get_inclusion_data(blob_info.blob_id.as_str())
+                            .await
+                            .with_context(|| {
+                                format!(
+                                    "failed to get inclusion data for blob_id: {}, batch_number: {}",
+                                    blob_info.blob_id, blob_info.l1_batch_number
+                                )
+                            })?
+                    } else {
+                        // if the inclusion verification is disabled, we don't need to wait for the inclusion
+                        // data before committing the batch, so simply return an empty vector
+                        Some(InclusionData { data: vec![] })
+                    };
+
+                    let Some(inclusion_data) = inclusion_data else {
+                        return Ok(());
+                    };
+
+                    let mut conn = pool.connection_tagged("da_dispatcher").await?;
+                    conn.data_availability_dal()
+                        .save_l1_batch_inclusion_data(
+                            L1BatchNumber(blob_info.l1_batch_number.0),
+                            inclusion_data.data.as_slice(),
+                        )
+                        .await?;
+                    drop(conn);
+
+                    let inclusion_latency = Utc::now().signed_duration_since(blob_info.sent_at);
+                    if let Ok(latency) = inclusion_latency.to_std() {
+                        METRICS.inclusion_latency.observe(latency);
+                    }
+                    METRICS
+                        .last_included_l1_batch
+                        .set(blob_info.l1_batch_number.0 as usize);
+                    METRICS.blobs_included.inc_by(1);
+
+                    tracing::info!(
+                        "Received an inclusion data for a batch_number: {}, inclusion_latency_seconds: {}",
+                        blob_info.l1_batch_number,
+                        inclusion_latency.num_seconds()
+                    );
+
+                    Ok::<(), anyhow::Error>(())
+                });
+                spawned_requests.push(request);
+            }
+            join_all(spawned_requests).await;
+            Ok::<(), anyhow::Error>(())
+        });
+
+        let results = join_all(vec![pending_inclusion_reader, pending_inclusion_sender]).await;
+        for result in results {
+            result??;
         }
         Ok(())
     }
