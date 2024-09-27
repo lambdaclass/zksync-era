@@ -11126,10 +11126,8 @@ dependencies = [
 name = "zksync_l1_contract_interface"
 version = "0.1.0"
 dependencies = [
- "bincode",
  "hex",
  "once_cell",
- "rlp",
  "serde",
  "serde_json",
  "serde_with",

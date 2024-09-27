@@ -1,6 +1,7 @@
 use zksync_config::configs::da_client::eigen_da::EigenDAConfig;
 use zksync_da_client::DataAvailabilityClient;
 use zksync_da_clients::eigen_da::EigenDAClient;
+use zksync_types::Address;
 
 use crate::{
     implementations::resources::da_client::DAClientResource,
@@ -11,7 +12,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct EigenDAWiringLayer {
     config: EigenDAConfig,
-    verifier_address: String,
+    verifier_address: Address,
 }
 
 impl EigenDAWiringLayer {
