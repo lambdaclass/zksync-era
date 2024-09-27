@@ -1,4 +1,3 @@
-use rlp::decode;
 use zksync_types::{
     commitment::{
         pre_boojum_serialize_commitments, serialize_commitments, L1BatchCommitmentMode,
@@ -14,8 +13,6 @@ use crate::{
     i_executor::commit::kzg::{KzgInfo, ZK_SYNC_BYTES_PER_BLOB},
     Tokenizable,
 };
-use bincode;
-use super::blob_info::BlobInfo;
 
 /// These are used by the L1 Contracts to indicate what DA layer is used for pubdata
 const PUBDATA_SOURCE_CALLDATA: u8 = 0;
@@ -220,27 +217,14 @@ impl Tokenizable for CommitBatchInfo<'_> {
                 }
                 (L1BatchCommitmentMode::Validium, PubdataDA::Custom) => {
                     let mut operator_da_input = vec![PUBDATA_SOURCE_CUSTOM];
-
-                    let commitment = &self
-                        .l1_batch_with_metadata
-                        .metadata
-                        .da_blob_id
-                        .clone()
-                        .unwrap_or_default();
-
-                    let data = &hex::decode(commitment).unwrap()[3..];
-
-                    let blob_info: BlobInfo = match decode(&data) {
-                        Ok(blob_info) => blob_info,
-                        Err(e) => panic!("Error decoding commitment: {}", e)
-                    };
-
-                    let bytes = match bincode::serialize(&blob_info) {
-                        Ok(bytes) => bytes,
-                        Err(e) => panic!("Error serializing commitment: {}", e)
-                    };
-
-                    operator_da_input.extend(bytes);
+                    operator_da_input.extend(
+                    &self
+                            .l1_batch_with_metadata
+                            .metadata
+                            .da_blob_id
+                            .clone()
+                            .unwrap_or_default()
+                    );
                     operator_da_input
                 }
 
