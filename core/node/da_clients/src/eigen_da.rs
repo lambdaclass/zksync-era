@@ -8,7 +8,7 @@ use zksync_da_client::{
     DataAvailabilityClient,
 };
 use zksync_eth_client::{
-    CallFunctionArgs, ContractCallError, EthInterface,
+    clients::{DynClient, L1}, CallFunctionArgs, ContractCallError, EthInterface
 };
 use zksync_types::{blob, Address, U256};
 
@@ -18,23 +18,25 @@ use crate::blob_info::BlobInfo;
 pub struct EigenDAClient {
     client: reqwest::Client,
     config: EigenDAConfig,
+    eth_client: Box<DynClient<L1>>,
+    verifier_address: Address,
 }
 
 impl EigenDAClient {
     pub const BLOB_SIZE_LIMIT_IN_BYTES: usize = 2 * 1024 * 1024; // 2MB
 
-    pub async fn new(config: EigenDAConfig) -> anyhow::Result<Self> {
+    pub async fn new(config: EigenDAConfig, eth_client: Box<DynClient<L1>>, verifier_address: Address) -> anyhow::Result<Self> {
         Ok(Self {
             client: reqwest::Client::new(),
             config,
+            eth_client,
+            verifier_address,
         })
     }
 }
 impl EigenDAClient {
     pub async fn verify_blob(
         &self,
-        verifier_address: Address,
-        eth_client: &dyn EthInterface,
         commitment: String,
     ) -> Result<U256, ContractCallError> {
         let data = &hex::decode(commitment).unwrap()[3..];
@@ -46,10 +48,10 @@ impl EigenDAClient {
 
         CallFunctionArgs::new("verifyBlob", blob_info)
             .for_contract(
-                verifier_address,
-                &zksync_contracts::hyperchain_contract(),
+                self.verifier_address, //todo
+                &zksync_contracts::hyperchain_contract(), // todo
             )
-            .call(eth_client)
+            .call(&self.eth_client)
             .await
     }
 }
@@ -77,8 +79,6 @@ impl DataAvailabilityClient for EigenDAClient {
             .to_vec();
 
         self.verify_blob(
-            self.config.verifier_address, //todo
-            self.config.eth_client.as_ref(), //todo
             hex::encode(request_id),
         );
         Ok(types::DispatchResponse {

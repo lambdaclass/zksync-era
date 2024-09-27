@@ -11,11 +11,12 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct EigenDAWiringLayer {
     config: EigenDAConfig,
+    verifier_address: String,
 }
 
 impl EigenDAWiringLayer {
-    pub fn new(config: EigenDAConfig) -> Self {
-        Self { config }
+    pub fn new(config: EigenDAConfig, verifier_address: Address) -> Self {
+        Self { config, verifier_address }
     }
 }
 
@@ -34,9 +35,10 @@ impl WiringLayer for EigenDAWiringLayer {
         "eigen_da_client_layer"
     }
 
-    async fn wire(self, _: Self::Input) -> Result<Self::Output, WiringError> {
+    async fn wire(self, input: Self::Input) -> Result<Self::Output, WiringError> {
+        let EthInterfaceResource(query_client) = input.eth_client;
         let client: Box<dyn DataAvailabilityClient> =
-            Box::new(EigenDAClient::new(self.config).await?);
+            Box::new(EigenDAClient::new(self.config,query_client, self.verifier_address).await?);
 
         Ok(Self::Output {
             client: DAClientResource(client),
