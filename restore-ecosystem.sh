@@ -33,6 +33,12 @@ fi
 echo "Copying backup files to $CHAIN_PATH..."
 cp -r "$BACKUP_PATH/$ECOSYSTEM_NAME" "$CHAIN_PATH"
 
+# Copy the configs folder in the backup to the configs folder in the root of the project
+# TODO: it may be suitable to warn the user about overwriting the existing configs
+# and ask for confirmation before proceeding
+echo "Copying configs folder from backup..."
+cp -r "$BACKUP_PATH/$ECOSYSTEM_NAME/configs" "./"
+
 # Path to the secrets.yaml file
 SECRETS_FILE="$CHAIN_PATH/configs/secrets.yaml"
 

@@ -45,4 +45,7 @@ unset PGPASSWORD
 # Copy the chain configuration files
 cp -r "./chains/${ECOSYSTEM_NAME}" "./ecosystem_backups/${ECOSYSTEM_NAME}/"
 
+# Copy the configs directory
+cp -r "./configs" "./ecosystem_backups/${ECOSYSTEM_NAME}/"
+
 echo "Backup completed."
