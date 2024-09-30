@@ -109,7 +109,7 @@ Modify `docker-compose.yml` to use holesky RPCs:
 ```bash
 zk_inception chain create \
           --chain-name holesky_eigen_da \
-          --chain-id sequential \
+          --chain-id 275 \
           --prover-mode no-proofs \
           --wallet-creation localhost \
           --l1-batch-commit-data-generator-mode validium \
@@ -166,7 +166,7 @@ Note that:
 ```bash
 zk_inception chain create \
  --chain-name foo \
- --chain-id 275 \
+ --chain-id sequential \
  --prover-mode no-proofs \
  --wallet-creation localhost \
  --l1-batch-commit-data-generator-mode validium \
