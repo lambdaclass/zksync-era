@@ -137,95 +137,53 @@ It's possible to run the zk stack on one computer, and then migrate it to anothe
 
 ### Backup
 
-Set up the following command to streamline the process:
+Suppose that you want to make a backup of `holesky_eigen_da` ecosystem, you only need to run:
 
 ```bash
-export PGPASSWORD=notsecurepassword
+./backup-ecosystem.sh holesky_eigen_da
 ```
 
-1. Let's assume that you have set up an `holesky_eigen_da` chain to run in holesky, you can backup the database with the following commands (make sure the databases are named likewise):
-
-```bash
-pg_dump -U postgres -h localhost zksync_server_holesky_eigen_da > zksync_server_holesky_eigen_da_backup.sql
-pg_dump -U postgres -h localhost zksync_prover_holesky_eigen_da > zksync_prover_holesky_eigen_da_backup.sql
-```
-
-2. You also need to backup the chain configuration, make a copy of the folder `ZKSYNC_HOME/chains/holesky_eigen_da`
+This will generate a directory inside of `ecosystem_backups` with the name `holesky_eigen_da`.
 
 ### Restoration
 
-On the new computer you can restore the databases with the following commands:
+1. Move the `ecoystem_backups/holesky_eigen_da` directory to the other computer, it should be placed in the root of the project.
 
-1. Initialize postgres containers:
+2. Restore the ecosystem with:
 
 ```bash
-zk_inception containers
+./restore-ecosystem.sh holesky_eigen_da
 ```
 
-2. Create the `eigen_da` chain with the same parameters as before (for example):
+Note that:
+
+- The `postgres` container has to be running.
+- The `chain_id` can't be already in use.
+- If you are restoring a local ecosystem, you have to use the same `reth` container as before.
+
+#### ⚠️ If no ecosystem has been `init`ialized yet, the restored ecosystem will fail to start its server. `init` and `create` a dummy chain:
 
 ```bash
 zk_inception chain create \
-          --chain-name holesky_eigen_da \
-          --chain-id 275 \
-          --prover-mode no-proofs \
-          --wallet-creation localhost \
-          --l1-batch-commit-data-generator-mode validium \
-          --base-token-address 0x0000000000000000000000000000000000000001 \
-          --base-token-price-nominator 1 \
-          --base-token-price-denominator 1 \
-          --set-as-default false
-```
-
-3. Copy backed up chain configuration to the new computer (replace the directory)
-
-4. Restore the databases:
-
-```bash
-createdb -U postgres -h localhost zksync_server_holesky_eigen_da
-psql -U postgres -h localhost -d zksync_server_holesky_eigen_da -f zksync_server_holesky_eigen_da_backup.sql
-
-createdb -U postgres -h localhost zksync_prover_holesky_eigen_da
-psql -U postgres -h localhost -d zksync_prover_holesky_eigen_da -f zksync_prover_holesky_eigen_da_backup.sql
-```
-
-> ⚠️ The following step may and should be simplified
-
-5. Create and init a dummy ecosystem to build necessary contracts:
-
-```bash
-zk_inception chain create \
-          --chain-name dummy_chain \
-          --chain-id sequential \
-          --prover-mode no-proofs \
-          --wallet-creation localhost \
-          --l1-batch-commit-data-generator-mode validium \
-          --base-token-address 0x0000000000000000000000000000000000000001 \
-          --base-token-price-nominator 1 \
-          --base-token-price-denominator 1 \
-          --set-as-default false
+ --chain-name foo \
+ --chain-id 275 \
+ --prover-mode no-proofs \
+ --wallet-creation localhost \
+ --l1-batch-commit-data-generator-mode validium \
+ --base-token-address 0x0000000000000000000000000000000000000001 \
+ --base-token-price-nominator 1 \
+ --base-token-price-denominator 1 \
+ --set-as-default false
 
 zk_inception ecosystem init \
-          --deploy-paymaster true \
-          --deploy-erc20 true \
-          --deploy-ecosystem true \
-          --l1-rpc-url http://127.0.0.1:8545 \
-          --server-db-url=postgres://postgres:notsecurepassword@localhost:5432 \
-          --server-db-name=zksync_server_dummy_chain \
-          --prover-db-url=postgres://postgres:notsecurepassword@localhost:5432 \
-          --prover-db-name=zksync_prover_dummy_chain \
-          --chain dummy_chain \
-          --verbose
-```
-
-6. Start the server of the restored chain:
-
-```bash
-zk_inception server --chain zksync_server_holesky_eigen_da
-```
-
-If everything went well, you should see the server logging a message like:
-
-```
-2024-09-30T13:29:41.723324Z  INFO zksync_state_keeper::keeper: Starting state keeper. Next l1 batch to seal: 44, next L2 block to seal: 138
+ --deploy-paymaster true \
+ --deploy-erc20 true \
+ --deploy-ecosystem true \
+ --l1-rpc-url https://ethereum-holesky-rpc.publicnode.com \
+ --server-db-url=postgres://postgres:notsecurepassword@localhost:5432 \
+ --server-db-name=zksync_server_foo \
+ --prover-db-url=postgres://postgres:notsecurepassword@localhost:5432 \
+ --prover-db-name=zksync_prover_foo \
+ --chain foo \
+ --verbose
 ```
