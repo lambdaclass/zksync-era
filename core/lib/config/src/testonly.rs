@@ -258,6 +258,7 @@ impl Distribution<configs::ContractsConfig> for EncodeDist {
             ecosystem_contracts: self.sample(rng),
             base_token_addr: self.sample_opt(|| rng.gen()),
             chain_admin_addr: self.sample_opt(|| rng.gen()),
+            eigenda_verifier_addr: self.sample_opt(|| rng.gen()),
         }
     }
 }

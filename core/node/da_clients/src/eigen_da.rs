@@ -79,8 +79,8 @@ impl DataAvailabilityClient for EigenDAClient {
             .to_vec();
 
         self.verify_blob(
-            hex::encode(request_id),
-        );
+            hex::encode(request_id.clone()),
+        ).await?;
         Ok(types::DispatchResponse {
             blob_id: hex::encode(request_id),
         })
