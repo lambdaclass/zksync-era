@@ -31,6 +31,7 @@ pub struct InitialDeploymentConfig {
     pub validator_timelock_execution_delay: u64,
     pub token_weth_address: Address,
     pub bridgehub_create_new_chain_salt: u64,
+    pub eigen_service_manager: Address,
 }
 
 impl Default for InitialDeploymentConfig {
@@ -53,6 +54,7 @@ impl Default for InitialDeploymentConfig {
             // toml crate u64 support is backed by i64 implementation
             // https://github.com/toml-rs/toml/issues/705
             bridgehub_create_new_chain_salt: rand::thread_rng().gen_range(0..=i64::MAX) as u64,
+            eigen_service_manager: Address::from_str("0x0000000000000000000000000000000000000000").unwrap(),
         }
     }
 }
@@ -161,6 +163,7 @@ impl DeployL1Config {
                 priority_tx_max_gas_limit: initial_deployment_config.priority_tx_max_gas_limit,
                 validator_timelock_execution_delay: initial_deployment_config
                     .validator_timelock_execution_delay,
+                eigen_service_manager: initial_deployment_config.eigen_service_manager,
             },
             tokens: TokensDeployL1Config {
                 token_weth_address: initial_deployment_config.token_weth_address,
@@ -194,6 +197,7 @@ pub struct ContractsDeployL1Config {
     pub diamond_init_minimal_l2_gas_price: u64,
     pub bootloader_hash: H256,
     pub default_aa_hash: H256,
+    pub eigen_service_manager: Address,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
