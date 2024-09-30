@@ -24,8 +24,8 @@ impl Decodable for G1Commitment {
 impl Tokenize for G1Commitment {
     fn into_tokens(self) -> Vec<Token> {
 
-        let x = self.x.into_token();
-        let y = self.y.into_token();
+        let x = Token::Uint(U256::from_big_endian(&self.x));
+        let y = Token::Uint(U256::from_big_endian(&self.y));
 
         vec![x, y]
     }
@@ -87,9 +87,9 @@ impl Tokenize for BlobHeader {
     fn into_tokens(self) -> Vec<Token> {
         let commitment = self.commitment.into_tokens();
         let data_length = Token::Uint(U256::from(self.data_length));
-        let blob_quorum_params = self.blob_quorum_params.into_iter().map(|quorum| Token::Array(quorum.into_tokens())).collect();
+        let blob_quorum_params = self.blob_quorum_params.into_iter().map(|quorum| Token::Tuple(quorum.into_tokens())).collect();
 
-        vec![Token::Array(commitment), data_length,Token::Array(blob_quorum_params)]
+        vec![Token::Tuple(commitment), data_length,Token::Array(blob_quorum_params)]
     }
 }
 
@@ -114,7 +114,7 @@ impl Decodable for BatchHeader {
 
 impl Tokenize for BatchHeader {
     fn into_tokens(self) -> Vec<Token> {
-        let batch_root = self.batch_root.into_token();
+        let batch_root = Token::FixedBytes(self.batch_root);
         let quorum_numbers = self.quorum_numbers.into_token();
         let quorum_signed_percentages = self.quorum_signed_percentages.into_token();
         let reference_block_number = Token::Uint(U256::from(self.reference_block_number));
@@ -149,12 +149,10 @@ impl Decodable for BatchMetadata {
 impl Tokenize for BatchMetadata {
     fn into_tokens(self) -> Vec<Token> {
         let batch_header = self.batch_header.into_tokens();
-        let signatory_record_hash = self.signatory_record_hash.into_token();
-        let fee = self.fee.into_token();
+        let signatory_record_hash = Token::FixedBytes(self.signatory_record_hash);
         let confirmation_block_number = Token::Uint(U256::from(self.confirmation_block_number));
-        let batch_header_hash = self.batch_header_hash.into_token();
 
-        vec![Token::Array(batch_header), signatory_record_hash,fee,confirmation_block_number,batch_header_hash]
+        vec![Token::Tuple(batch_header), signatory_record_hash,confirmation_block_number]
     }
 }
 
@@ -187,7 +185,7 @@ impl Tokenize for BlobVerificationProof {
         let inclusion_proof = self.inclusion_proof.into_token();
         let quorum_indexes = self.quorum_indexes.into_token();
 
-        vec![batch_id, blob_index,Token::Array(batch_medatada),inclusion_proof,quorum_indexes]
+        vec![batch_id, blob_index,Token::Tuple(batch_medatada),inclusion_proof,quorum_indexes]
     }
 }
 
@@ -214,7 +212,7 @@ impl Tokenize for BlobInfo {
         let blob_header = self.blob_header.into_tokens();
         let blob_verification_proof = self.blob_verification_proof.into_tokens();
 
-        vec![Token::Array(blob_header),Token::Array(blob_verification_proof)]
+        vec![Token::Tuple(vec![Token::Tuple(blob_header),Token::Tuple(blob_verification_proof)])]
     }
 }
 
