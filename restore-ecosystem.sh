@@ -17,11 +17,6 @@ export PGPASSWORD
 CHAIN_PATH="./chains/${ECOSYSTEM_NAME}"
 BACKUP_PATH="./ecosystem_backups/${ECOSYSTEM_NAME}"
 
-if [ ! -d "$CHAIN_PATH" ]; then
-  echo "Error: $CHAIN_PATH does not exist. Please create the chain first."
-  exit 1
-fi
-
 # Check if the backup directory exists
 if [ ! -d "$BACKUP_PATH" ]; then
   echo "Error: Backup not found at $BACKUP_PATH."
