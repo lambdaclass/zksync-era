@@ -38,7 +38,7 @@ impl EigenDAClient {
     pub async fn verify_blob(
         &self,
         commitment: String,
-    ) -> Result<U256, ContractCallError> {
+    ) -> Result<U256, types::DAError> {
         let data = &hex::decode(commitment).unwrap()[3..];
 
         let blob_info: BlobInfo = match decode(&data) {
@@ -48,11 +48,14 @@ impl EigenDAClient {
 
         CallFunctionArgs::new("verifyBlob", blob_info)
             .for_contract(
-                self.verifier_address, //todo
-                &zksync_contracts::hyperchain_contract(), // todo
+                self.verifier_address, 
+                &zksync_contracts::eigenda_verifier_contract(),
             )
             .call(&self.eth_client)
-            .await
+            .await.map_err(|e| DAError {
+                error: e.into(),
+                is_retriable: true,
+            })
     }
 }
 
@@ -81,6 +84,7 @@ impl DataAvailabilityClient for EigenDAClient {
         self.verify_blob(
             hex::encode(request_id.clone()),
         ).await?;
+
         Ok(types::DispatchResponse {
             blob_id: hex::encode(request_id),
         })

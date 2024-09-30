@@ -1,10 +1,11 @@
 use zksync_config::configs::da_client::eigen_da::EigenDAConfig;
 use zksync_da_client::DataAvailabilityClient;
 use zksync_da_clients::eigen_da::EigenDAClient;
+use zksync_node_framework_derive::FromContext;
 use zksync_types::Address;
 
 use crate::{
-    implementations::resources::da_client::DAClientResource,
+    implementations::resources::{da_client::DAClientResource, eth_interface::EthInterfaceResource},
     wiring_layer::{WiringError, WiringLayer},
     IntoContext,
 };
@@ -27,9 +28,15 @@ pub struct Output {
     pub client: DAClientResource,
 }
 
+#[derive(Debug, FromContext)]
+#[context(crate = crate)]
+pub struct Input {
+    pub eth_client: EthInterfaceResource,
+}
+
 #[async_trait::async_trait]
 impl WiringLayer for EigenDAWiringLayer {
-    type Input = ();
+    type Input = Input;
     type Output = Output;
 
     fn layer_name(&self) -> &'static str {

@@ -63,7 +63,10 @@ const LOADNEXT_CONTRACT_FILE: &str =
     "etc/contracts-test-data/artifacts-zk/contracts/loadnext/loadnext_contract.sol/LoadnextContract.json";
 const LOADNEXT_SIMPLE_CONTRACT_FILE: &str =
     "etc/contracts-test-data/artifacts-zk/contracts/loadnext/loadnext_contract.sol/Foo.json";
-
+const EIGENDA_VERIFIER_CONTRACT_FILE: (&str, &str) = (
+    "eigenda",
+    "EigendaVerifier.sol/EigendaVerifier.json",
+);
 fn home_path() -> PathBuf {
     Workspace::locate().core()
 }
@@ -160,6 +163,10 @@ pub fn multicall_contract() -> Contract {
 
 pub fn verifier_contract() -> Contract {
     load_contract_for_both_compilers(VERIFIER_CONTRACT_FILE)
+}
+
+pub fn eigenda_verifier_contract() -> Contract {
+  load_contract_for_both_compilers(EIGENDA_VERIFIER_CONTRACT_FILE)
 }
 
 #[derive(Debug, Clone)]
