@@ -104,6 +104,8 @@ Modify `docker-compose.yml` to use holesky RPCs:
 
 ### Create and initialize the ecosystem
 
+(be sure to have postgres container running on the background)
+
 ```bash
 zk_inception chain create \
           --chain-name holesky_eigen_da \
@@ -148,7 +150,7 @@ pg_dump -U postgres -h localhost zksync_server_holesky_eigen_da > zksync_server_
 pg_dump -U postgres -h localhost zksync_prover_holesky_eigen_da > zksync_prover_holesky_eigen_da_backup.sql
 ```
 
-2. You also need to backup the chain configuration, make a copy of the folder `ZKSYNC_HOME/chains/hiolesky_eigen_da`
+2. You also need to backup the chain configuration, make a copy of the folder `ZKSYNC_HOME/chains/holesky_eigen_da`
 
 ### Restoration
 
@@ -174,6 +176,8 @@ zk_inception chain create \
           --base-token-price-denominator 1 \
           --set-as-default false
 ```
+
+3. Copy backed up chain configuration to the new computer (replace the directory)
 
 4. Restore the databases:
 
