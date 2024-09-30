@@ -160,30 +160,8 @@ Note that:
 - The `postgres` container has to be running.
 - The `chain_id` can't be already in use.
 - If you are restoring a local ecosystem, you have to use the same `reth` container as before.
-
-#### ⚠️ If no ecosystem has been `init`ialized yet, the restored ecosystem will fail to start its server. `init` and `create` a dummy chain:
+- If no ecosystem has been `init`ialized on this computer before, run this command:
 
 ```bash
-zk_inception chain create \
- --chain-name foo \
- --chain-id sequential \
- --prover-mode no-proofs \
- --wallet-creation localhost \
- --l1-batch-commit-data-generator-mode validium \
- --base-token-address 0x0000000000000000000000000000000000000001 \
- --base-token-price-nominator 1 \
- --base-token-price-denominator 1 \
- --set-as-default false
-
-zk_inception ecosystem init \
- --deploy-paymaster true \
- --deploy-erc20 true \
- --deploy-ecosystem true \
- --l1-rpc-url https://ethereum-holesky-rpc.publicnode.com \
- --server-db-url=postgres://postgres:notsecurepassword@localhost:5432 \
- --server-db-name=zksync_server_foo \
- --prover-db-url=postgres://postgres:notsecurepassword@localhost:5432 \
- --prover-db-name=zksync_prover_foo \
- --chain foo \
- --verbose
+git submodule update --init --recursive && zk_supervisor contracts
 ```
