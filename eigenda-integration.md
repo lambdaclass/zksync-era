@@ -74,13 +74,23 @@ Access Grafana at [http://localhost:3000/](http://localhost:3000/), go to dashbo
 
 ## Holesky Setup
 
+### Modify localhost chain id number
+
+Modify line 32 in `zk_toolbox/crates/types/src/l1_network.rs`:
+
+```rs
+L1Network::Localhost => 17000,
+```
+
 ### Used wallets
 
-Modify `etc/env/file_based/wallets.yaml` with the following wallets:
+Modify `etc/env/file_based/wallets.yaml` and `configs/wallets.yaml` with the following wallets:
 
 ```yaml
 # Use your own holesky wallets, be sure they have enough funds
 ```
+
+> ⚠️ Some steps distribute ~5000ETH to some wallets, modify `AMOUNT_FOR_DISTRIBUTION_TO_WALLETS` to a lower value if needed.
 
 ### EigenProxy RPC
 
@@ -109,7 +119,7 @@ Modify `docker-compose.yml` to use holesky RPCs:
 ```bash
 zk_inception chain create \
           --chain-name holesky_eigen_da \
-          --chain-id 275 \
+          --chain-id 114411 \
           --prover-mode no-proofs \
           --wallet-creation localhost \
           --l1-batch-commit-data-generator-mode validium \
@@ -129,6 +139,12 @@ zk_inception ecosystem init \
           --prover-db-name=zksync_prover_holesky_eigen_da \
           --chain holesky_eigen_da \
           --verbose
+```
+
+### Start the server
+
+```bash
+zk_inception server --chain holesky_eigen_da
 ```
 
 ## Backup and restoration
