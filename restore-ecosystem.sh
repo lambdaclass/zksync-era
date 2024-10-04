@@ -29,6 +29,28 @@ if ! docker ps --filter "name=postgres" --filter "status=running" | grep "postgr
   exit 1
 fi
 
+# Fix backup files $ZKSYNC_HOME paths
+find_and_replace() {
+  local target_file=$1
+
+  # Find lines with the pattern and replace them with `pwd/./`
+  sed -i '' -e "s|.*zksync-era/\./|$(pwd)/./|g" "$target_file"
+}
+
+# Array of specific files to modify
+files=("$BACKUP_PATH/$ECOSYSTEM_NAME/configs/general.yaml" "$BACKUP_PATH/$ECOSYSTEM_NAME/ZkStack.yaml ")
+
+# Loop over the files and perform the find and replace
+for file in "${files[@]}"; do
+  if [ -f "$file" ]; then
+    find_and_replace "$file"
+  else
+    # Exit with error code
+    echo "ERROR: backup file $file does not exist."
+    exit 1
+  fi
+done
+
 # Copy the ecosystem backup folder to the chains folder, replacing any existing files
 echo "Copying backup files to $CHAIN_PATH..."
 cp -r "$BACKUP_PATH/$ECOSYSTEM_NAME" "$CHAIN_PATH"

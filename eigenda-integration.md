@@ -82,6 +82,12 @@ Modify line 32 in `zk_toolbox/crates/types/src/l1_network.rs`:
 L1Network::Localhost => 17000,
 ```
 
+Then recompile the zk toolbox:
+
+```bash
+./bin/zkt
+```
+
 ### Used wallets
 
 Modify `etc/env/file_based/wallets.yaml` and `configs/wallets.yaml` with the following wallets:
