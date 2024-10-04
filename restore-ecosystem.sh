@@ -38,7 +38,7 @@ find_and_replace() {
 }
 
 # Array of specific files to modify
-files=("$BACKUP_PATH/$ECOSYSTEM_NAME/configs/general.yaml" "$BACKUP_PATH/$ECOSYSTEM_NAME/ZkStack.yaml ")
+files=("$BACKUP_PATH/$ECOSYSTEM_NAME/configs/general.yaml" "$BACKUP_PATH/$ECOSYSTEM_NAME/ZkStack.yaml")
 
 # Loop over the files and perform the find and replace
 for file in "${files[@]}"; do
