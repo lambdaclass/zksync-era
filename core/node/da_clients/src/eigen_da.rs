@@ -8,7 +8,8 @@ use zksync_da_client::{
     DataAvailabilityClient,
 };
 use zksync_eth_client::{
-    clients::{DynClient, L1}, CallFunctionArgs, ContractCallError, EthInterface
+    clients::{DynClient, L1},
+    CallFunctionArgs, ContractCallError, EthInterface,
 };
 use zksync_types::{blob, Address, U256};
 
@@ -25,7 +26,11 @@ pub struct EigenDAClient {
 impl EigenDAClient {
     pub const BLOB_SIZE_LIMIT_IN_BYTES: usize = 2 * 1024 * 1024; // 2MB
 
-    pub async fn new(config: EigenDAConfig, eth_client: Box<DynClient<L1>>, verifier_address: Address) -> anyhow::Result<Self> {
+    pub async fn new(
+        config: EigenDAConfig,
+        eth_client: Box<DynClient<L1>>,
+        verifier_address: Address,
+    ) -> anyhow::Result<Self> {
         Ok(Self {
             client: reqwest::Client::new(),
             config,
@@ -35,24 +40,22 @@ impl EigenDAClient {
     }
 }
 impl EigenDAClient {
-    pub async fn verify_blob(
-        &self,
-        commitment: String,
-    ) -> Result<U256, types::DAError> {
+    pub async fn verify_blob(&self, commitment: String) -> Result<U256, DAError> {
         let data = &hex::decode(commitment).unwrap()[3..];
 
-        let blob_info: BlobInfo = match decode(&data) {
-            Ok(blob_info) => blob_info,
-            Err(e) => panic!("Error decoding commitment: {}", e)
-        };
+        let blob_info: BlobInfo = decode(&data).map_err(|e| DAError {
+            error: e.into(),
+            is_retriable: true,
+        })?;
 
         CallFunctionArgs::new("verifyBlob", blob_info)
             .for_contract(
-                self.verifier_address, 
+                self.verifier_address,
                 &zksync_contracts::eigenda_verifier_contract(),
             )
             .call(&self.eth_client)
-            .await.map_err(|e| DAError {
+            .await
+            .map_err(|e| DAError {
                 error: e.into(),
                 is_retriable: true,
             })
@@ -81,9 +84,7 @@ impl DataAvailabilityClient for EigenDAClient {
             .map_err(to_non_retriable_da_error)?
             .to_vec();
 
-        self.verify_blob(
-            hex::encode(request_id.clone()),
-        ).await?;
+        self.verify_blob(hex::encode(request_id.clone())).await?;
 
         Ok(types::DispatchResponse {
             blob_id: hex::encode(request_id),
