@@ -33,8 +33,10 @@ fi
 find_and_replace() {
   local target_file=$1
 
-  # Find lines with the pattern and replace them with `pwd/./`
-  sed -i '' -e "s|.*zksync-era/\./|$(pwd)/./|g" "$target_file"
+  sed -i '' -e "s|db_path:.*zksync-era/\./|db_path: $(pwd)/./|g" "$target_file"
+  sed -i '' -e "s|state_keeper_db_path:.*zksync-era/\./|state_keeper_db_path: $(pwd)/./|g" "$target_file"
+  sed -i '' -e "s|path:.*zksync-era/\./|path: $(pwd)/./|g" "$target_file"
+  sed -i '' -e "s|configs:.*zksync-era/\./|configs: $(pwd)/./|g" "$target_file"
 }
 
 # Array of specific files to modify
