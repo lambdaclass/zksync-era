@@ -40,7 +40,7 @@ impl EigenDAClient {
     }
 }
 impl EigenDAClient {
-    pub async fn verify_blob(&self, commitment: String) -> Result<U256, DAError> {
+    pub async fn verify_blob(&self, commitment: String) -> Result<bool, DAError> {
         let data = &hex::decode(commitment).unwrap()[3..];
 
         let blob_info: BlobInfo = decode(&data).map_err(|e| DAError {
