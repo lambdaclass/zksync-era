@@ -71,6 +71,7 @@ impl ContractsConfig {
             .diamond_cut_data
             .clone_from(&deploy_l1_output.contracts_config.diamond_cut_data);
         self.l1.chain_admin_addr = deploy_l1_output.deployed_addresses.chain_admin;
+        self.l1.eigenda_verifier_addr = deploy_l1_output.deployed_addresses.eigenda_verifier_addr;
     }
 
     pub fn set_chain_contracts(&mut self, register_chain_output: &RegisterChainOutput) {
@@ -151,6 +152,7 @@ pub struct L1Contracts {
     pub verifier_addr: Address,
     pub validator_timelock_addr: Address,
     pub base_token_addr: Address,
+    pub eigenda_verifier_addr: Address,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

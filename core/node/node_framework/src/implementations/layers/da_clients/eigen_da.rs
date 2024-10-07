@@ -1,9 +1,11 @@
 use zksync_config::configs::da_client::eigen_da::EigenDAConfig;
 use zksync_da_client::DataAvailabilityClient;
 use zksync_da_clients::eigen_da::EigenDAClient;
+use zksync_node_framework_derive::FromContext;
+use zksync_types::Address;
 
 use crate::{
-    implementations::resources::da_client::DAClientResource,
+    implementations::resources::{da_client::DAClientResource, eth_interface::EthInterfaceResource},
     wiring_layer::{WiringError, WiringLayer},
     IntoContext,
 };
@@ -11,11 +13,12 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct EigenDAWiringLayer {
     config: EigenDAConfig,
+    verifier_address: Address,
 }
 
 impl EigenDAWiringLayer {
-    pub fn new(config: EigenDAConfig) -> Self {
-        Self { config }
+    pub fn new(config: EigenDAConfig, verifier_address: Address) -> Self {
+        Self { config, verifier_address }
     }
 }
 
@@ -25,18 +28,25 @@ pub struct Output {
     pub client: DAClientResource,
 }
 
+#[derive(Debug, FromContext)]
+#[context(crate = crate)]
+pub struct Input {
+    pub eth_client: EthInterfaceResource,
+}
+
 #[async_trait::async_trait]
 impl WiringLayer for EigenDAWiringLayer {
-    type Input = ();
+    type Input = Input;
     type Output = Output;
 
     fn layer_name(&self) -> &'static str {
         "eigen_da_client_layer"
     }
 
-    async fn wire(self, _: Self::Input) -> Result<Self::Output, WiringError> {
+    async fn wire(self, input: Self::Input) -> Result<Self::Output, WiringError> {
+        let EthInterfaceResource(query_client) = input.eth_client;
         let client: Box<dyn DataAvailabilityClient> =
-            Box::new(EigenDAClient::new(self.config).await?);
+            Box::new(EigenDAClient::new(self.config,query_client, self.verifier_address).await?);
 
         Ok(Self::Output {
             client: DAClientResource(client),

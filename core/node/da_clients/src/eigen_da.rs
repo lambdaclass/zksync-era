@@ -1,26 +1,64 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
+use rlp::decode;
 use zksync_config::configs::da_client::eigen_da::EigenDAConfig;
 use zksync_da_client::{
     types::{self, DAError, InclusionData},
     DataAvailabilityClient,
 };
+use zksync_eth_client::{
+    clients::{DynClient, L1},
+    CallFunctionArgs, ContractCallError, EthInterface,
+};
+use zksync_types::{blob, Address, U256};
+
+use crate::blob_info::BlobInfo;
 
 #[derive(Clone, Debug)]
 pub struct EigenDAClient {
     client: reqwest::Client,
     config: EigenDAConfig,
+    eth_client: Box<DynClient<L1>>,
+    verifier_address: Address,
 }
 
 impl EigenDAClient {
     pub const BLOB_SIZE_LIMIT_IN_BYTES: usize = 2 * 1024 * 1024; // 2MB
 
-    pub async fn new(config: EigenDAConfig) -> anyhow::Result<Self> {
+    pub async fn new(
+        config: EigenDAConfig,
+        eth_client: Box<DynClient<L1>>,
+        verifier_address: Address,
+    ) -> anyhow::Result<Self> {
         Ok(Self {
             client: reqwest::Client::new(),
             config,
+            eth_client,
+            verifier_address,
         })
+    }
+}
+impl EigenDAClient {
+    pub async fn verify_blob(&self, commitment: String) -> Result<bool, DAError> {
+        let data = &hex::decode(commitment).unwrap()[3..];
+
+        let blob_info: BlobInfo = decode(&data).map_err(|e| DAError {
+            error: e.into(),
+            is_retriable: true,
+        })?;
+
+        CallFunctionArgs::new("verifyBlob", blob_info)
+            .for_contract(
+                self.verifier_address,
+                &zksync_contracts::eigenda_verifier_contract(),
+            )
+            .call(&self.eth_client)
+            .await
+            .map_err(|e| DAError {
+                error: e.into(),
+                is_retriable: true,
+            })
     }
 }
 
@@ -45,6 +83,9 @@ impl DataAvailabilityClient for EigenDAClient {
             .await
             .map_err(to_non_retriable_da_error)?
             .to_vec();
+
+        self.verify_blob(hex::encode(request_id.clone())).await?;
+
         Ok(types::DispatchResponse {
             blob_id: hex::encode(request_id),
         })

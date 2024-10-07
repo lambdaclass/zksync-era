@@ -23,6 +23,8 @@ zksync_types.workspace = true
 zksync_object_store.workspace = true
 zksync_da_client.workspace = true
 zksync_env_config.workspace = true
+zksync_eth_client.workspace = true
+zksync_contracts.workspace = true
 futures.workspace = true
 
 # Avail dependencies
@@ -41,3 +43,5 @@ subxt-signer = { workspace = true, features = ["sr25519", "native"] }
 # EigenDA dependencies
 reqwest = { version = "0.12" }
 http = "1"
+rlp.workspace = true
+ethers = { version = "2.0.0-rc.1", features = ["abigen", "etherscan"] }

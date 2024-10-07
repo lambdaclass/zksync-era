@@ -40,6 +40,7 @@ pub struct ContractsConfig {
     // Used by the RPC API and by the node builder in wiring the BaseTokenRatioProvider layer.
     pub base_token_addr: Option<Address>,
     pub chain_admin_addr: Option<Address>,
+    pub eigenda_verifier_addr: Option<Address>,
 }
 
 impl ContractsConfig {
@@ -61,6 +62,7 @@ impl ContractsConfig {
             base_token_addr: Some(Address::repeat_byte(0x14)),
             ecosystem_contracts: Some(EcosystemContracts::for_tests()),
             chain_admin_addr: Some(Address::repeat_byte(0x18)),
+            eigenda_verifier_addr: Some(Address::repeat_byte(0x19)),
         }
     }
 }
