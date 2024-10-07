@@ -104,6 +104,7 @@ Get `EIGEN_SIGNER_PK` from 1password and set it as an `env` var:
 
 ```bash
 export EIGEN_SIGNER_PK=<VALUE_HERE>
+export HOLESKY_RPC_URL=<VALUE_HERE>
 ```
 
 Modify `docker-compose.yml` to use holesky RPCs:
@@ -113,9 +114,10 @@ Modify `docker-compose.yml` to use holesky RPCs:
     image: ghcr.io/layr-labs/eigenda-proxy
     environment:
       - EIGEN_SIGNER_PK=$EIGEN_SIGNER_PK
+      - HOLESKY_RPC_URL=$HOLESKY_RPC_URL
     ports:
       - "4242:4242"
-    command: ./eigenda-proxy --addr 0.0.0.0 --port 4242 --eigenda-disperser-rpc disperser-holesky.eigenda.xyz:443 --eigenda-signer-private-key-hex $EIGEN_SIGNER_PK --eigenda-eth-rpc https://ethereum-holesky-rpc.publicnode.com --eigenda-svc-manager-addr 0xD4A7E1Bd8015057293f0D0A557088c286942e84b --eigenda-eth-confirmation-depth 0
+    command: ./eigenda-proxy --addr 0.0.0.0 --port 4242 --eigenda-disperser-rpc disperser-holesky.eigenda.xyz:443 --eigenda-signer-private-key-hex $EIGEN_SIGNER_PK --eigenda-eth-rpc $HOLESKY_RPC_URL --eigenda-svc-manager-addr 0xD4A7E1Bd8015057293f0D0A557088c286942e84b --eigenda-eth-confirmation-depth 0
 ```
 
 ### Create and initialize the ecosystem
@@ -138,7 +140,7 @@ zk_inception ecosystem init \
           --deploy-paymaster true \
           --deploy-erc20 true \
           --deploy-ecosystem true \
-          --l1-rpc-url https://ethereum-holesky-rpc.publicnode.com \
+          --l1-rpc-url $HOLESKY_RPC_URL \
           --server-db-url=postgres://postgres:notsecurepassword@localhost:5432 \
           --server-db-name=zksync_server_holesky_eigen_da \
           --prover-db-url=postgres://postgres:notsecurepassword@localhost:5432 \
