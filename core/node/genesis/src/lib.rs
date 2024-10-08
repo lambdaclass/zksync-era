@@ -8,7 +8,7 @@ use anyhow::Context as _;
 use zksync_config::GenesisConfig;
 use zksync_contracts::{
     hyperchain_contract, verifier_contract, BaseSystemContracts, BaseSystemContractsHashes,
-    SET_CHAIN_ID_EVENT,
+    SystemContractCode, SET_CHAIN_ID_EVENT,
 };
 use zksync_dal::{Connection, Core, CoreDal, DalError};
 use zksync_eth_client::{CallFunctionArgs, EthInterface};
@@ -29,7 +29,7 @@ use zksync_types::{
 use zksync_utils::{bytecode::hash_bytecode, u256_to_h256};
 
 use crate::utils::{
-    add_eth_token, get_deduped_log_queries, get_storage_logs,
+    add_eth_token, calculate_root_hash_and_commitment, get_deduped_log_queries, get_storage_logs,
     insert_base_system_contracts_to_factory_deps, insert_system_contracts,
     save_genesis_l1_batch_metadata,
 };
@@ -42,14 +42,16 @@ mod utils;
 pub struct BaseContractsHashError {
     from_config: BaseSystemContractsHashes,
     calculated: BaseSystemContractsHashes,
+    new_root_hash: H256,
+    new_commitment_hash: H256,
 }
 
 impl std::fmt::Display for BaseContractsHashError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "From Config {:?}, Calculated : {:?}",
-            &self.from_config, &self.calculated
+            "From Config {:#?}, Calculated : {:#?}, New root hash: {:#?}, New commitment hash: {:#?}",
+            &self.from_config, &self.calculated, &self.new_root_hash, &self.new_commitment_hash
         )
     }
 }
@@ -105,17 +107,28 @@ impl GenesisParams {
                 .default_aa_hash
                 .ok_or(GenesisError::MalformedConfig("default_aa_hash"))?,
         };
+
         if base_system_contracts_hashes != base_system_contracts.hashes() {
+            let new_genesis_params = GenesisParams {
+                base_system_contracts: base_system_contracts.clone(),
+                system_contracts,
+                config,
+            };
+            let (new_root_hash, new_commitment, _) =
+                calculate_root_hash_and_commitment(&new_genesis_params);
             return Err(GenesisError::BaseSystemContractsHashes(Box::new(
                 BaseContractsHashError {
                     from_config: base_system_contracts_hashes,
                     calculated: base_system_contracts.hashes(),
+                    new_root_hash,
+                    new_commitment_hash: new_commitment.hash().commitment,
                 },
             )));
         }
         if config.protocol_version.is_none() {
             return Err(GenesisError::MalformedConfig("protocol_version"));
         }
+
         Ok(GenesisParams {
             base_system_contracts,
             system_contracts,
