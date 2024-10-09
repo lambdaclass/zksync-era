@@ -325,6 +325,7 @@ impl BlocksDal<'_, '_> {
                 zkporter_is_available,
                 bootloader_code_hash,
                 default_aa_code_hash,
+                evm_emulator_code_hash,
                 aux_data_hash,
                 pass_through_data_hash,
                 meta_parameters_hash,
@@ -333,10 +334,14 @@ impl BlocksDal<'_, '_> {
                 compressed_state_diffs,
                 events_queue_commitment,
                 bootloader_initial_content_commitment,
-                pubdata_input
+                pubdata_input,
+                data_availability.blob_id AS "blob_id?"
             FROM
                 l1_batches
             LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
+            LEFT JOIN
+                data_availability
+                ON data_availability.l1_batch_number = l1_batches.number
             WHERE
                 number = $1
             "#,
@@ -366,6 +371,7 @@ impl BlocksDal<'_, '_> {
                 used_contract_hashes,
                 bootloader_code_hash,
                 default_aa_code_hash,
+                evm_emulator_code_hash,
                 protocol_version,
                 system_logs,
                 pubdata_input
@@ -610,6 +616,7 @@ impl BlocksDal<'_, '_> {
                 used_contract_hashes,
                 bootloader_code_hash,
                 default_aa_code_hash,
+                evm_emulator_code_hash,
                 protocol_version,
                 system_logs,
                 storage_refunds,
@@ -641,6 +648,7 @@ impl BlocksDal<'_, '_> {
                 $18,
                 $19,
                 $20,
+                $21,
                 NOW(),
                 NOW()
             )
@@ -659,6 +667,11 @@ impl BlocksDal<'_, '_> {
             used_contract_hashes,
             header.base_system_contracts_hashes.bootloader.as_bytes(),
             header.base_system_contracts_hashes.default_aa.as_bytes(),
+            header
+                .base_system_contracts_hashes
+                .evm_emulator
+                .as_ref()
+                .map(H256::as_bytes),
             header.protocol_version.map(|v| v as i32),
             &system_logs,
             &storage_refunds,
@@ -703,6 +716,7 @@ impl BlocksDal<'_, '_> {
                 gas_per_pubdata_limit,
                 bootloader_code_hash,
                 default_aa_code_hash,
+                evm_emulator_code_hash,
                 protocol_version,
                 virtual_blocks,
                 fair_pubdata_price,
@@ -730,6 +744,7 @@ impl BlocksDal<'_, '_> {
                 $15,
                 $16,
                 $17,
+                $18,
                 NOW(),
                 NOW()
             )
@@ -752,6 +767,11 @@ impl BlocksDal<'_, '_> {
                 .base_system_contracts_hashes
                 .default_aa
                 .as_bytes(),
+            l2_block_header
+                .base_system_contracts_hashes
+                .evm_emulator
+                .as_ref()
+                .map(H256::as_bytes),
             l2_block_header.protocol_version.map(|v| v as i32),
             i64::from(l2_block_header.virtual_blocks),
             l2_block_header.batch_fee_input.fair_pubdata_price() as i64,
@@ -780,6 +800,7 @@ impl BlocksDal<'_, '_> {
                 gas_per_pubdata_limit,
                 bootloader_code_hash,
                 default_aa_code_hash,
+                evm_emulator_code_hash,
                 protocol_version,
                 virtual_blocks,
                 fair_pubdata_price,
@@ -820,6 +841,7 @@ impl BlocksDal<'_, '_> {
                 gas_per_pubdata_limit,
                 bootloader_code_hash,
                 default_aa_code_hash,
+                evm_emulator_code_hash,
                 protocol_version,
                 virtual_blocks,
                 fair_pubdata_price,
@@ -1038,6 +1060,7 @@ impl BlocksDal<'_, '_> {
                 zkporter_is_available,
                 bootloader_code_hash,
                 default_aa_code_hash,
+                evm_emulator_code_hash,
                 aux_data_hash,
                 pass_through_data_hash,
                 meta_parameters_hash,
@@ -1046,10 +1069,14 @@ impl BlocksDal<'_, '_> {
                 system_logs,
                 events_queue_commitment,
                 bootloader_initial_content_commitment,
-                pubdata_input
+                pubdata_input,
+                data_availability.blob_id AS "blob_id?"
             FROM
                 l1_batches
             LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
+            LEFT JOIN
+                data_availability
+                ON data_availability.l1_batch_number = l1_batches.number
             WHERE
                 number = 0
                 OR eth_commit_tx_id IS NOT NULL
@@ -1224,6 +1251,7 @@ impl BlocksDal<'_, '_> {
                 zkporter_is_available,
                 bootloader_code_hash,
                 default_aa_code_hash,
+                evm_emulator_code_hash,
                 aux_data_hash,
                 pass_through_data_hash,
                 meta_parameters_hash,
@@ -1232,10 +1260,14 @@ impl BlocksDal<'_, '_> {
                 system_logs,
                 events_queue_commitment,
                 bootloader_initial_content_commitment,
-                pubdata_input
+                pubdata_input,
+                data_availability.blob_id AS "blob_id?"
             FROM
                 l1_batches
             LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
+            LEFT JOIN
+                data_availability
+                ON data_availability.l1_batch_number = l1_batches.number
             WHERE
                 eth_commit_tx_id IS NOT NULL
                 AND eth_prove_tx_id IS NULL
@@ -1304,6 +1336,7 @@ impl BlocksDal<'_, '_> {
                 zkporter_is_available,
                 bootloader_code_hash,
                 default_aa_code_hash,
+                evm_emulator_code_hash,
                 aux_data_hash,
                 pass_through_data_hash,
                 meta_parameters_hash,
@@ -1312,7 +1345,8 @@ impl BlocksDal<'_, '_> {
                 protocol_version,
                 events_queue_commitment,
                 bootloader_initial_content_commitment,
-                pubdata_input
+                pubdata_input,
+                data_availability.blob_id AS "blob_id?"
             FROM
                 (
                     SELECT
@@ -1333,6 +1367,7 @@ impl BlocksDal<'_, '_> {
                         $2
                 ) inn
             LEFT JOIN commitments ON commitments.l1_batch_number = inn.number
+            LEFT JOIN data_availability ON data_availability.l1_batch_number = inn.number
             WHERE
                 number - row_number = $1
             "#,
@@ -1377,6 +1412,7 @@ impl BlocksDal<'_, '_> {
                         zkporter_is_available,
                         bootloader_code_hash,
                         default_aa_code_hash,
+                        evm_emulator_code_hash,
                         aux_data_hash,
                         pass_through_data_hash,
                         meta_parameters_hash,
@@ -1385,10 +1421,14 @@ impl BlocksDal<'_, '_> {
                         system_logs,
                         events_queue_commitment,
                         bootloader_initial_content_commitment,
-                        pubdata_input
+                        pubdata_input,
+                        data_availability.blob_id AS "blob_id?"
                     FROM
                         l1_batches
                     LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
+                    LEFT JOIN
+                        data_availability
+                        ON data_availability.l1_batch_number = l1_batches.number
                     WHERE
                         eth_prove_tx_id IS NOT NULL
                         AND eth_execute_tx_id IS NULL
@@ -1504,6 +1544,7 @@ impl BlocksDal<'_, '_> {
                     zkporter_is_available,
                     bootloader_code_hash,
                     default_aa_code_hash,
+                    evm_emulator_code_hash,
                     aux_data_hash,
                     pass_through_data_hash,
                     meta_parameters_hash,
@@ -1512,10 +1553,14 @@ impl BlocksDal<'_, '_> {
                     system_logs,
                     events_queue_commitment,
                     bootloader_initial_content_commitment,
-                    pubdata_input
+                    pubdata_input,
+                    data_availability.blob_id AS "blob_id?"
                 FROM
                     l1_batches
                 LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
+                LEFT JOIN
+                    data_availability
+                    ON data_availability.l1_batch_number = l1_batches.number
                 WHERE
                     number BETWEEN $1 AND $2
                 ORDER BY
@@ -1568,6 +1613,7 @@ impl BlocksDal<'_, '_> {
                 zkporter_is_available,
                 l1_batches.bootloader_code_hash,
                 l1_batches.default_aa_code_hash,
+                l1_batches.evm_emulator_code_hash,
                 aux_data_hash,
                 pass_through_data_hash,
                 meta_parameters_hash,
@@ -1576,11 +1622,15 @@ impl BlocksDal<'_, '_> {
                 system_logs,
                 events_queue_commitment,
                 bootloader_initial_content_commitment,
-                pubdata_input
+                pubdata_input,
+                data_availability.blob_id AS "blob_id?"
             FROM
                 l1_batches
             LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
             JOIN protocol_versions ON protocol_versions.id = l1_batches.protocol_version
+            LEFT JOIN
+                data_availability
+                ON data_availability.l1_batch_number = l1_batches.number
             WHERE
                 eth_commit_tx_id IS NULL
                 AND number != 0
@@ -1646,6 +1696,7 @@ impl BlocksDal<'_, '_> {
                 zkporter_is_available,
                 l1_batches.bootloader_code_hash,
                 l1_batches.default_aa_code_hash,
+                l1_batches.evm_emulator_code_hash,
                 aux_data_hash,
                 pass_through_data_hash,
                 meta_parameters_hash,
@@ -1654,7 +1705,8 @@ impl BlocksDal<'_, '_> {
                 system_logs,
                 events_queue_commitment,
                 bootloader_initial_content_commitment,
-                pubdata_input
+                pubdata_input,
+                data_availability.blob_id AS "blob_id?"
             FROM
                 l1_batches
             LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
@@ -2693,6 +2745,40 @@ mod tests {
             )
             .await
             .is_err());
+    }
+
+    #[tokio::test]
+    async fn persisting_evm_emulator_hash() {
+        let pool = ConnectionPool::<Core>::test_pool().await;
+        let mut conn = pool.connection().await.unwrap();
+
+        conn.protocol_versions_dal()
+            .save_protocol_version_with_tx(&ProtocolVersion::default())
+            .await
+            .unwrap();
+
+        let mut l2_block_header = create_l2_block_header(1);
+        l2_block_header.base_system_contracts_hashes.evm_emulator = Some(H256::repeat_byte(0x23));
+        conn.blocks_dal()
+            .insert_l2_block(&l2_block_header)
+            .await
+            .unwrap();
+
+        let mut fetched_block_header = conn
+            .blocks_dal()
+            .get_last_sealed_l2_block_header()
+            .await
+            .unwrap()
+            .expect("no block");
+        // Batch fee input isn't restored exactly
+        fetched_block_header.batch_fee_input = l2_block_header.batch_fee_input;
+
+        assert_eq!(fetched_block_header, l2_block_header);
+        // ...and a sanity check just to be sure
+        assert!(fetched_block_header
+            .base_system_contracts_hashes
+            .evm_emulator
+            .is_some());
     }
 
     #[tokio::test]
