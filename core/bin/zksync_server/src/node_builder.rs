@@ -523,7 +523,7 @@ impl MainNodeBuilder {
                 self.node
                     .add_layer(ObjectStorageClientWiringLayer::new(config));
             }
-            (DAClient::EigenDA(config), _) => {
+            (DAClientConfig::EigenDA(config), _) => {
                 self.node.add_layer(EigenDAWiringLayer::new(
                     config,
                     self.contracts_config.eigenda_verifier_addr.unwrap(),
