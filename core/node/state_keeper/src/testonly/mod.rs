@@ -33,6 +33,7 @@ pub(crate) fn successful_exec() -> BatchTransactionExecutionResult {
             logs: Default::default(),
             statistics: Default::default(),
             refunds: Default::default(),
+            new_known_factory_deps: None,
         }),
         compressed_bytecodes: vec![],
         call_traces: vec![],
@@ -131,7 +132,7 @@ pub fn fee(gas_limit: u32) -> Fee {
 pub fn l2_transaction(account: &mut Account, gas_limit: u32) -> Transaction {
     account.get_l2_tx_for_execute(
         Execute {
-            contract_address: Address::random(),
+            contract_address: Some(Address::random()),
             calldata: vec![],
             value: Default::default(),
             factory_deps: vec![],
@@ -143,7 +144,7 @@ pub fn l2_transaction(account: &mut Account, gas_limit: u32) -> Transaction {
 pub fn l1_transaction(account: &mut Account, serial_id: PriorityOpId) -> Transaction {
     account.get_l1_tx(
         Execute {
-            contract_address: Address::random(),
+            contract_address: Some(Address::random()),
             value: Default::default(),
             calldata: vec![],
             factory_deps: vec![],

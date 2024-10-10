@@ -23,6 +23,8 @@ use crate::{
     Aggregator, EthTxAggregator, EthTxManager,
 };
 
+pub(super) const STATE_TRANSITION_CONTRACT_ADDRESS: Address = Address::repeat_byte(0xa0);
+
 // Alias to conveniently call static methods of `ETHSender`.
 type MockEthTxManager = EthTxManager;
 
@@ -153,7 +155,7 @@ impl EthSenderTester {
             .into_iter()
             .map(|base_fee_per_gas| BaseFees {
                 base_fee_per_gas,
-                base_fee_per_blob_gas: 0.into(),
+                base_fee_per_blob_gas: 1.into(),
                 l2_pubdata_price: 0.into(),
             })
             .collect();
@@ -161,8 +163,8 @@ impl EthSenderTester {
         let gateway = MockSettlementLayer::builder()
             .with_fee_history(
                 std::iter::repeat_with(|| BaseFees {
-                    base_fee_per_gas: 0,
-                    base_fee_per_blob_gas: 0.into(),
+                    base_fee_per_gas: 1,
+                    base_fee_per_blob_gas: 1.into(),
                     l2_pubdata_price: 0.into(),
                 })
                 .take(Self::WAIT_CONFIRMATIONS as usize)
@@ -172,7 +174,7 @@ impl EthSenderTester {
             .with_non_ordering_confirmation(non_ordering_confirmations)
             .with_call_handler(move |call, _| {
                 assert_eq!(call.to, Some(contracts_config.l1_multicall3_addr));
-                crate::tests::mock_multicall_response()
+                crate::tests::mock_multicall_response(call)
             })
             .build();
         gateway.advance_block_number(Self::WAIT_CONFIRMATIONS);
@@ -181,8 +183,8 @@ impl EthSenderTester {
         let l2_gateway: MockSettlementLayer = MockSettlementLayer::builder()
             .with_fee_history(
                 std::iter::repeat_with(|| BaseFees {
-                    base_fee_per_gas: 0,
-                    base_fee_per_blob_gas: 0.into(),
+                    base_fee_per_gas: 1,
+                    base_fee_per_blob_gas: 1.into(),
                     l2_pubdata_price: 0.into(),
                 })
                 .take(Self::WAIT_CONFIRMATIONS as usize)
@@ -192,7 +194,7 @@ impl EthSenderTester {
             .with_non_ordering_confirmation(non_ordering_confirmations)
             .with_call_handler(move |call, _| {
                 assert_eq!(call.to, Some(contracts_config.l1_multicall3_addr));
-                crate::tests::mock_multicall_response()
+                crate::tests::mock_multicall_response(call)
             })
             .build();
         l2_gateway.advance_block_number(Self::WAIT_CONFIRMATIONS);
@@ -201,8 +203,8 @@ impl EthSenderTester {
         let gateway_blobs = MockSettlementLayer::builder()
             .with_fee_history(
                 std::iter::repeat_with(|| BaseFees {
-                    base_fee_per_gas: 0,
-                    base_fee_per_blob_gas: 0.into(),
+                    base_fee_per_gas: 1,
+                    base_fee_per_blob_gas: 1.into(),
                     l2_pubdata_price: 0.into(),
                 })
                 .take(Self::WAIT_CONFIRMATIONS as usize)
@@ -212,7 +214,7 @@ impl EthSenderTester {
             .with_non_ordering_confirmation(non_ordering_confirmations)
             .with_call_handler(move |call, _| {
                 assert_eq!(call.to, Some(contracts_config.l1_multicall3_addr));
-                crate::tests::mock_multicall_response()
+                crate::tests::mock_multicall_response(call)
             })
             .build();
         gateway_blobs.advance_block_number(Self::WAIT_CONFIRMATIONS);
@@ -261,7 +263,7 @@ impl EthSenderTester {
             // ZKsync contract address
             Address::random(),
             contracts_config.l1_multicall3_addr,
-            Address::random(),
+            STATE_TRANSITION_CONTRACT_ADDRESS,
             Default::default(),
             custom_commit_sender_addr,
             SettlementMode::SettlesToL1,

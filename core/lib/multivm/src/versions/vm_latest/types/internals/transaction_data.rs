@@ -22,7 +22,7 @@ use crate::vm_latest::{
 pub(crate) struct TransactionData {
     pub(crate) tx_type: u8,
     pub(crate) from: Address,
-    pub(crate) to: Address,
+    pub(crate) to: Option<Address>,
     pub(crate) gas_limit: U256,
     pub(crate) pubdata_price_limit: U256,
     pub(crate) max_fee_per_gas: U256,
@@ -46,8 +46,8 @@ pub(crate) struct TransactionData {
     pub(crate) raw_bytes: Option<Vec<u8>>,
 }
 
-impl From<Transaction> for TransactionData {
-    fn from(execute_tx: Transaction) -> Self {
+impl TransactionData {
+    pub(crate) fn new(execute_tx: Transaction, use_evm_emulator: bool) -> Self {
         match execute_tx.common_data {
             ExecuteTransactionCommon::L2(common_data) => {
                 let nonce = U256::from_big_endian(&common_data.nonce.to_be_bytes());
@@ -57,6 +57,19 @@ impl From<Transaction> for TransactionData {
                     TransactionType::LegacyTransaction
                 ) && common_data.extract_chain_id().is_some()
                 {
+                    U256([1, 0, 0, 0])
+                } else {
+                    U256::zero()
+                };
+
+                let should_deploy_contract = if execute_tx.execute.contract_address.is_none() {
+                    // Transactions with no `contract_address` should be filtered out by the API server,
+                    // so this is more of a sanity check.
+                    assert!(
+                        use_evm_emulator,
+                        "`execute.contract_address` not set for transaction {:?} with EVM emulation disabled",
+                        common_data.hash()
+                    );
                     U256([1, 0, 0, 0])
                 } else {
                     U256::zero()
@@ -85,7 +98,7 @@ impl From<Transaction> for TransactionData {
                     value: execute_tx.execute.value,
                     reserved: [
                         should_check_chain_id,
-                        U256::zero(),
+                        should_deploy_contract,
                         U256::zero(),
                         U256::zero(),
                     ],
@@ -169,7 +182,7 @@ impl TransactionData {
         encode(&[Token::Tuple(vec![
             Token::Uint(U256::from_big_endian(&self.tx_type.to_be_bytes())),
             Token::Address(self.from),
-            Token::Address(self.to),
+            Token::Address(self.to.unwrap_or_default()),
             Token::Uint(self.gas_limit),
             Token::Uint(self.pubdata_price_limit),
             Token::Uint(self.max_fee_per_gas),
@@ -305,7 +318,7 @@ mod tests {
         let transaction = TransactionData {
             tx_type: 113,
             from: Address::random(),
-            to: Address::random(),
+            to: Some(Address::random()),
             gas_limit: U256::from(1u32),
             pubdata_price_limit: U256::from(1u32),
             max_fee_per_gas: U256::from(1u32),

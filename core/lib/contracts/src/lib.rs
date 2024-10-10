@@ -49,12 +49,13 @@ const DIAMOND_INIT_CONTRACT_FILE: (&str, &str) = (
 const GOVERNANCE_CONTRACT_FILE: (&str, &str) = ("governance", "IGovernance.sol/IGovernance.json");
 const CHAIN_ADMIN_CONTRACT_FILE: (&str, &str) = ("governance", "IChainAdmin.sol/IChainAdmin.json");
 const GETTERS_FACET_CONTRACT_FILE: (&str, &str) = (
-    "state-transition/chain-deps/facets",
-    "Getters.sol/GettersFacet.json",
+    "state-transition/chain-interfaces",
+    "IGetters.sol/IGetters.json",
 );
 
 const MULTICALL3_CONTRACT_FILE: (&str, &str) = ("dev-contracts", "Multicall3.sol/Multicall3.json");
 const VERIFIER_CONTRACT_FILE: (&str, &str) = ("state-transition", "Verifier.sol/Verifier.json");
+
 const _IERC20_CONTRACT_FILE: &str =
     "contracts/l1-contracts/artifacts/contracts/common/interfaces/IERC20.sol/IERC20.json";
 const _FAIL_ON_RECEIVE_CONTRACT_FILE:  &str  =
@@ -299,6 +300,7 @@ fn read_zbin_bytecode_from_path(bytecode_path: PathBuf) -> Vec<u8> {
     fs::read(&bytecode_path)
         .unwrap_or_else(|err| panic!("Can't read .zbin bytecode at {:?}: {}", bytecode_path, err))
 }
+
 /// Hash of code and code which consists of 32 bytes words
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemContractCode {
@@ -310,18 +312,23 @@ pub struct SystemContractCode {
 pub struct BaseSystemContracts {
     pub bootloader: SystemContractCode,
     pub default_aa: SystemContractCode,
+    /// Never filled in constructors for now. The only way to get the EVM emulator enabled is to call [`Self::with_evm_emulator()`].
+    pub evm_emulator: Option<SystemContractCode>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq)]
 pub struct BaseSystemContractsHashes {
     pub bootloader: H256,
     pub default_aa: H256,
+    pub evm_emulator: Option<H256>,
 }
 
 impl PartialEq for BaseSystemContracts {
     fn eq(&self, other: &Self) -> bool {
         self.bootloader.hash == other.bootloader.hash
             && self.default_aa.hash == other.default_aa.hash
+            && self.evm_emulator.as_ref().map(|contract| contract.hash)
+                == other.evm_emulator.as_ref().map(|contract| contract.hash)
     }
 }
 
@@ -345,12 +352,25 @@ impl BaseSystemContracts {
         BaseSystemContracts {
             bootloader,
             default_aa,
+            evm_emulator: None,
         }
     }
-    // BaseSystemContracts with proved bootloader - for handling transactions.
+
+    /// BaseSystemContracts with proved bootloader - for handling transactions.
     pub fn load_from_disk() -> Self {
         let bootloader_bytecode = read_proved_batch_bootloader_bytecode();
         BaseSystemContracts::load_with_bootloader(bootloader_bytecode)
+    }
+
+    /// Loads the latest EVM emulator for these base system contracts. Logically, it only makes sense to do for the latest protocol version.
+    pub fn with_latest_evm_emulator(mut self) -> Self {
+        let bytecode = read_sys_contract_bytecode("", "EvmInterpreter", ContractLanguage::Yul);
+        let hash = hash_bytecode(&bytecode);
+        self.evm_emulator = Some(SystemContractCode {
+            code: bytes_to_be_words(bytecode),
+            hash,
+        });
+        self
     }
 
     /// BaseSystemContracts with playground bootloader - used for handling eth_calls.
@@ -481,6 +501,7 @@ impl BaseSystemContracts {
         BaseSystemContractsHashes {
             bootloader: self.bootloader.hash,
             default_aa: self.default_aa.hash,
+            evm_emulator: self.evm_emulator.as_ref().map(|contract| contract.hash),
         }
     }
 }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use zksync_system_constants::{
     BOOTLOADER_ADDRESS, KNOWN_CODES_STORAGE_ADDRESS, L1_MESSENGER_ADDRESS,
@@ -118,6 +120,10 @@ pub struct VmExecutionResultAndLogs {
     pub logs: VmExecutionLogs,
     pub statistics: VmExecutionStatistics,
     pub refunds: Refunds,
+    /// Bytecodes decommitted during VM execution. `None` if not computed by the VM.
+    // FIXME: currently, this is only filled up by `vm_latest`; probably makes sense to narrow down
+    //   to *dynamic* factory deps, so that `HashMap::new()` is a valid value for VMs not supporting EVM emulation.
+    pub new_known_factory_deps: Option<HashMap<H256, Vec<u8>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -300,16 +306,16 @@ impl Call {
 
 /// Mid-level transaction execution output returned by a [batch executor](crate::executor::BatchExecutor).
 #[derive(Debug, Clone)]
-pub struct BatchTransactionExecutionResult {
+pub struct BatchTransactionExecutionResult<C = Vec<CompressedBytecodeInfo>> {
     /// VM result.
     pub tx_result: Box<VmExecutionResultAndLogs>,
     /// Compressed bytecodes used by the transaction.
-    pub compressed_bytecodes: Vec<CompressedBytecodeInfo>,
+    pub compressed_bytecodes: C,
     /// Call traces (if requested; otherwise, empty).
     pub call_traces: Vec<Call>,
 }
 
-impl BatchTransactionExecutionResult {
+impl<C> BatchTransactionExecutionResult<C> {
     pub fn was_halted(&self) -> bool {
         matches!(self.tx_result.result, ExecutionResult::Halt { .. })
     }

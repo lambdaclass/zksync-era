@@ -54,6 +54,7 @@ pub(crate) fn create_l2_block_header(number: u32) -> L2BlockHeader {
         logs_bloom: Default::default(),
     }
 }
+
 pub(crate) fn create_l1_batch_header(number: u32) -> L1BatchHeader {
     L1BatchHeader::new(
         L1BatchNumber(number),
@@ -61,6 +62,7 @@ pub(crate) fn create_l1_batch_header(number: u32) -> L1BatchHeader {
         BaseSystemContractsHashes {
             bootloader: H256::repeat_byte(1),
             default_aa: H256::repeat_byte(42),
+            evm_emulator: Some(H256::repeat_byte(43)),
         },
         ProtocolVersionId::latest(),
     )
@@ -74,7 +76,7 @@ pub(crate) fn mock_l2_transaction() -> L2Tx {
         gas_per_pubdata_limit: U256::from(DEFAULT_GAS_PER_PUBDATA),
     };
     let mut l2_tx = L2Tx::new_signed(
-        Address::random(),
+        Some(Address::random()),
         vec![],
         zksync_types::Nonce(0),
         fee,
@@ -110,7 +112,7 @@ pub(crate) fn mock_l1_execute() -> L1Tx {
     };
 
     let execute = Execute {
-        contract_address: H160::random(),
+        contract_address: Some(H160::random()),
         value: Default::default(),
         calldata: vec![],
         factory_deps: vec![],
@@ -138,7 +140,7 @@ pub(crate) fn mock_protocol_upgrade_transaction() -> ProtocolUpgradeTx {
     };
 
     let execute = Execute {
-        contract_address: H160::random(),
+        contract_address: Some(H160::random()),
         value: Default::default(),
         calldata: vec![],
         factory_deps: vec![],
