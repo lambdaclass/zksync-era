@@ -1,10 +1,9 @@
-use rlp::Decodable;
-use rlp::DecoderError;
-use rlp::Rlp;
-use zksync_types::web3::contract::Tokenizable;
-use zksync_types::web3::contract::Tokenize;
-use zksync_types::ethabi::Token;
-use zksync_types::U256;
+use rlp::{Decodable, DecoderError, Rlp};
+use zksync_types::{
+    ethabi::Token,
+    web3::contract::{Tokenizable, Tokenize},
+    U256,
+};
 
 #[derive(Debug)]
 pub struct G1Commitment {
@@ -14,8 +13,8 @@ pub struct G1Commitment {
 
 impl Decodable for G1Commitment {
     fn decode(rlp: &Rlp) -> Result<Self, DecoderError> {
-        let x: Vec<u8> = rlp.val_at(0)?;  // Decode first element as Vec<u8>
-        let y: Vec<u8> = rlp.val_at(1)?;  // Decode second element as Vec<u8>
+        let x: Vec<u8> = rlp.val_at(0)?; // Decode first element as Vec<u8>
+        let y: Vec<u8> = rlp.val_at(1)?; // Decode second element as Vec<u8>
 
         Ok(G1Commitment { x, y })
     }
@@ -23,7 +22,6 @@ impl Decodable for G1Commitment {
 
 impl Tokenize for G1Commitment {
     fn into_tokens(self) -> Vec<Token> {
-
         let x = Token::Uint(U256::from_big_endian(&self.x));
         let y = Token::Uint(U256::from_big_endian(&self.y));
 
@@ -36,7 +34,7 @@ pub struct BlobQuorumParam {
     pub quorum_number: u32,
     pub adversary_threshold_percentage: u32,
     pub confirmation_threshold_percentage: u32,
-    pub chunk_length: u32
+    pub chunk_length: u32,
 }
 
 impl Decodable for BlobQuorumParam {
@@ -52,13 +50,19 @@ impl Decodable for BlobQuorumParam {
 
 impl Tokenize for BlobQuorumParam {
     fn into_tokens(self) -> Vec<Token> {
-
         let quorum_number = Token::Uint(U256::from(self.quorum_number));
-        let adversary_threshold_percentage = Token::Uint(U256::from(self.adversary_threshold_percentage));
-        let confirmation_threshold_percentage = Token::Uint(U256::from(self.confirmation_threshold_percentage));
+        let adversary_threshold_percentage =
+            Token::Uint(U256::from(self.adversary_threshold_percentage));
+        let confirmation_threshold_percentage =
+            Token::Uint(U256::from(self.confirmation_threshold_percentage));
         let chunk_length = Token::Uint(U256::from(self.chunk_length));
 
-        vec![quorum_number, adversary_threshold_percentage,confirmation_threshold_percentage,chunk_length]
+        vec![
+            quorum_number,
+            adversary_threshold_percentage,
+            confirmation_threshold_percentage,
+            chunk_length,
+        ]
     }
 }
 
@@ -66,7 +70,7 @@ impl Tokenize for BlobQuorumParam {
 pub struct BlobHeader {
     pub commitment: G1Commitment,
     pub data_length: u32,
-    pub blob_quorum_params: Vec<BlobQuorumParam>
+    pub blob_quorum_params: Vec<BlobQuorumParam>,
 }
 
 impl Decodable for BlobHeader {
@@ -87,9 +91,17 @@ impl Tokenize for BlobHeader {
     fn into_tokens(self) -> Vec<Token> {
         let commitment = self.commitment.into_tokens();
         let data_length = Token::Uint(U256::from(self.data_length));
-        let blob_quorum_params = self.blob_quorum_params.into_iter().map(|quorum| Token::Tuple(quorum.into_tokens())).collect();
+        let blob_quorum_params = self
+            .blob_quorum_params
+            .into_iter()
+            .map(|quorum| Token::Tuple(quorum.into_tokens()))
+            .collect();
 
-        vec![Token::Tuple(commitment), data_length,Token::Array(blob_quorum_params)]
+        vec![
+            Token::Tuple(commitment),
+            data_length,
+            Token::Array(blob_quorum_params),
+        ]
     }
 }
 
@@ -98,7 +110,7 @@ pub struct BatchHeader {
     pub batch_root: Vec<u8>,
     pub quorum_numbers: Vec<u8>,
     pub quorum_signed_percentages: Vec<u8>,
-    pub reference_block_number: u32
+    pub reference_block_number: u32,
 }
 
 impl Decodable for BatchHeader {
@@ -119,7 +131,12 @@ impl Tokenize for BatchHeader {
         let quorum_signed_percentages = self.quorum_signed_percentages.into_token();
         let reference_block_number = Token::Uint(U256::from(self.reference_block_number));
 
-        vec![batch_root, quorum_numbers,quorum_signed_percentages,reference_block_number]
+        vec![
+            batch_root,
+            quorum_numbers,
+            quorum_signed_percentages,
+            reference_block_number,
+        ]
     }
 }
 
@@ -129,7 +146,7 @@ pub struct BatchMetadata {
     pub signatory_record_hash: Vec<u8>,
     pub fee: Vec<u8>,
     pub confirmation_block_number: u32,
-    pub batch_header_hash: Vec<u8>
+    pub batch_header_hash: Vec<u8>,
 }
 
 impl Decodable for BatchMetadata {
@@ -152,7 +169,11 @@ impl Tokenize for BatchMetadata {
         let signatory_record_hash = Token::FixedBytes(self.signatory_record_hash);
         let confirmation_block_number = Token::Uint(U256::from(self.confirmation_block_number));
 
-        vec![Token::Tuple(batch_header), signatory_record_hash,confirmation_block_number]
+        vec![
+            Token::Tuple(batch_header),
+            signatory_record_hash,
+            confirmation_block_number,
+        ]
     }
 }
 
@@ -162,7 +183,7 @@ pub struct BlobVerificationProof {
     pub blob_index: u32,
     pub batch_medatada: BatchMetadata,
     pub inclusion_proof: Vec<u8>,
-    pub quorum_indexes: Vec<u8>
+    pub quorum_indexes: Vec<u8>,
 }
 
 impl Decodable for BlobVerificationProof {
@@ -185,14 +206,20 @@ impl Tokenize for BlobVerificationProof {
         let inclusion_proof = self.inclusion_proof.into_token();
         let quorum_indexes = self.quorum_indexes.into_token();
 
-        vec![batch_id, blob_index,Token::Tuple(batch_medatada),inclusion_proof,quorum_indexes]
+        vec![
+            batch_id,
+            blob_index,
+            Token::Tuple(batch_medatada),
+            inclusion_proof,
+            quorum_indexes,
+        ]
     }
 }
 
 #[derive(Debug)]
 pub struct BlobInfo {
     pub blob_header: BlobHeader,
-    pub blob_verification_proof: BlobVerificationProof
+    pub blob_verification_proof: BlobVerificationProof,
 }
 
 impl Decodable for BlobInfo {
@@ -212,8 +239,9 @@ impl Tokenize for BlobInfo {
         let blob_header = self.blob_header.into_tokens();
         let blob_verification_proof = self.blob_verification_proof.into_tokens();
 
-        vec![Token::Tuple(vec![Token::Tuple(blob_header),Token::Tuple(blob_verification_proof)])]
+        vec![Token::Tuple(vec![
+            Token::Tuple(blob_header),
+            Token::Tuple(blob_verification_proof),
+        ])]
     }
 }
-
-

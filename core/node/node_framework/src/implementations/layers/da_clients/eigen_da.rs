@@ -5,7 +5,9 @@ use zksync_node_framework_derive::FromContext;
 use zksync_types::Address;
 
 use crate::{
-    implementations::resources::{da_client::DAClientResource, eth_interface::EthInterfaceResource},
+    implementations::resources::{
+        da_client::DAClientResource, eth_interface::EthInterfaceResource,
+    },
     wiring_layer::{WiringError, WiringLayer},
     IntoContext,
 };
@@ -18,7 +20,10 @@ pub struct EigenDAWiringLayer {
 
 impl EigenDAWiringLayer {
     pub fn new(config: EigenDAConfig, verifier_address: Address) -> Self {
-        Self { config, verifier_address }
+        Self {
+            config,
+            verifier_address,
+        }
     }
 }
 
@@ -46,7 +51,7 @@ impl WiringLayer for EigenDAWiringLayer {
     async fn wire(self, input: Self::Input) -> Result<Self::Output, WiringError> {
         let EthInterfaceResource(query_client) = input.eth_client;
         let client: Box<dyn DataAvailabilityClient> =
-            Box::new(EigenDAClient::new(self.config,query_client, self.verifier_address).await?);
+            Box::new(EigenDAClient::new(self.config, query_client, self.verifier_address).await?);
 
         Ok(Self::Output {
             client: DAClientResource(client),

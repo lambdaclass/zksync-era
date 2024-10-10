@@ -524,7 +524,10 @@ impl MainNodeBuilder {
                     .add_layer(ObjectStorageClientWiringLayer::new(config));
             }
             (DAClient::EigenDA(config), _) => {
-                self.node.add_layer(EigenDAWiringLayer::new(config, self.contracts_config.eigenda_verifier_addr.unwrap()));
+                self.node.add_layer(EigenDAWiringLayer::new(
+                    config,
+                    self.contracts_config.eigenda_verifier_addr.unwrap(),
+                ));
             }
         }
 

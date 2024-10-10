@@ -54,7 +54,8 @@ impl Default for InitialDeploymentConfig {
             // toml crate u64 support is backed by i64 implementation
             // https://github.com/toml-rs/toml/issues/705
             bridgehub_create_new_chain_salt: rand::thread_rng().gen_range(0..=i64::MAX) as u64,
-            eigen_service_manager: Address::from_str("0x0000000000000000000000000000000000000000").unwrap(),
+            eigen_service_manager: Address::from_str("0x0000000000000000000000000000000000000000")
+                .unwrap(),
         }
     }
 }
