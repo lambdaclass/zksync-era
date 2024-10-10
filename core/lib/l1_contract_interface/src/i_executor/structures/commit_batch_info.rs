@@ -226,14 +226,14 @@ impl Tokenizable for CommitBatchInfo<'_> {
                         .clone()
                         .unwrap_or_default();
 
-                    let blob_info: BlobInfo = match decode(commitment) {
+                    let data = &hex::decode(commitment).unwrap()[3..];
+
+                    let blob_info: BlobInfo = match decode(data) {
                         Ok(info) => info,
                         Err(_) => return Token::Tuple(vec![]),
                     };
 
-                    /*operator_da_input.extend(
-                        &blob_info.into_bytes(),
-                    );*/
+                    operator_da_input.extend(&blob_info.into_bytes());
                     operator_da_input
                 }
 
