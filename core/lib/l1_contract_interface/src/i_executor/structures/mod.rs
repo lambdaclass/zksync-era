@@ -1,5 +1,6 @@
 //! Structures exposed by the `IExecutor.sol`.
 
+mod blob_info;
 mod commit_batch_info;
 mod stored_batch_info;
 

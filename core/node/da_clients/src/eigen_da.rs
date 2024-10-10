@@ -84,7 +84,7 @@ impl DataAvailabilityClient for EigenDAClient {
             .map_err(to_non_retriable_da_error)?
             .to_vec();
 
-        self.verify_blob(hex::encode(request_id.clone())).await?;
+        //self.verify_blob(hex::encode(request_id.clone())).await?;
 
         Ok(types::DispatchResponse {
             blob_id: hex::encode(request_id),

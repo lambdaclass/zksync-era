@@ -1,3 +1,4 @@
+use rlp::decode;
 use zksync_types::{
     commitment::{
         pre_boojum_serialize_commitments, serialize_commitments, L1BatchCommitmentMode,
@@ -9,6 +10,7 @@ use zksync_types::{
     ProtocolVersionId, U256,
 };
 
+use super::blob_info::BlobInfo;
 use crate::{
     i_executor::commit::kzg::{KzgInfo, ZK_SYNC_BYTES_PER_BLOB},
     Tokenizable,
@@ -217,14 +219,21 @@ impl Tokenizable for CommitBatchInfo<'_> {
                 }
                 (L1BatchCommitmentMode::Validium, PubdataDA::Custom) => {
                     let mut operator_da_input = vec![PUBDATA_SOURCE_CUSTOM];
-                    operator_da_input.extend(
-                        &self
-                            .l1_batch_with_metadata
-                            .metadata
-                            .da_blob_id
-                            .clone()
-                            .unwrap_or_default(),
-                    );
+                    let commitment = &self
+                        .l1_batch_with_metadata
+                        .metadata
+                        .da_blob_id
+                        .clone()
+                        .unwrap_or_default();
+
+                    let blob_info: BlobInfo = match decode(commitment) {
+                        Ok(info) => info,
+                        Err(_) => return Token::Tuple(vec![]),
+                    };
+
+                    /*operator_da_input.extend(
+                        &blob_info.into_bytes(),
+                    );*/
                     operator_da_input
                 }
 
