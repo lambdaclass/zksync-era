@@ -92,8 +92,14 @@ impl MemStore {
 
         let cert_bytes = rlp::encode(&blob_info).to_vec();
 
-        let key = String::from_utf8(blob_info.blob_verification_proof.inclusion_proof.clone())
-            .map_err(|_| MemStoreError::IncorrectString)?;
+        let key = String::from_utf8_lossy(
+            blob_info
+                .blob_verification_proof
+                .inclusion_proof
+                .clone()
+                .as_slice(),
+        )
+        .to_string();
 
         if self.store.contains_key(key.as_str()) {
             return Err(MemStoreError::BlobAlreadyExists);
@@ -109,13 +115,83 @@ impl MemStore {
         let _guard = self.mutex.read().unwrap();
         let blob_info: BlobInfo =
             decode(&commit).map_err(|_| MemStoreError::IncorrectCommitment)?;
-        let key = String::from_utf8(blob_info.blob_verification_proof.inclusion_proof.clone())
-            .map_err(|_| MemStoreError::IncorrectString)?;
+        let key = String::from_utf8_lossy(
+            blob_info
+                .blob_verification_proof
+                .inclusion_proof
+                .clone()
+                .as_slice(),
+        )
+        .to_string();
         match self.store.get(&key) {
             Some(value) => Ok(value.clone()),
             None => Err(MemStoreError::BlobNotFound),
         }
         // TODO: verify commitment?
         // TODO: decode blob?
+    }
+}
+
+mod test {
+    use std::time::Duration;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_memstore() {
+        let config = MemStoreConfig {
+            max_blob_size_bytes: 1024,
+            blob_expiration: Duration::from_secs(60),
+            put_latency: Duration::from_millis(100),
+            get_latency: Duration::from_millis(100),
+        };
+        let mut store = MemStore::new(config);
+
+        let blob = vec![0u8; 100];
+        let cert = store.put(blob.clone()).await.unwrap();
+        let blob2 = store.get(cert).await.unwrap();
+        assert_eq!(blob, blob2);
+    }
+
+    #[tokio::test]
+    async fn test_memstore_multiple() {
+        let config = MemStoreConfig {
+            max_blob_size_bytes: 1024,
+            blob_expiration: Duration::from_secs(60),
+            put_latency: Duration::from_millis(100),
+            get_latency: Duration::from_millis(100),
+        };
+        let mut store = MemStore::new(config);
+
+        let blob = vec![0u8; 100];
+        let blob2 = vec![1u8; 100];
+        let cert = store.put(blob.clone()).await.unwrap();
+        let cert2 = store.put(blob2.clone()).await.unwrap();
+        let blob_result = store.get(cert).await.unwrap();
+        let blob_result2 = store.get(cert2).await.unwrap();
+        assert_eq!(blob, blob_result);
+        assert_eq!(blob2, blob_result2);
+    }
+
+    #[tokio::test]
+    async fn test_memstore_latency() {
+        let put_latency = Duration::from_millis(1000);
+        let get_latency = Duration::from_millis(1000);
+        let config = MemStoreConfig {
+            max_blob_size_bytes: 1024,
+            blob_expiration: Duration::from_secs(60),
+            put_latency,
+            get_latency,
+        };
+        let mut store = MemStore::new(config);
+
+        let blob = vec![0u8; 100];
+        let time_before_put = Instant::now();
+        let cert = store.put(blob.clone()).await.unwrap();
+        assert!(time_before_put.elapsed() >= put_latency);
+        let time_before_get = Instant::now();
+        let blob2 = store.get(cert).await.unwrap();
+        assert!(time_before_get.elapsed() >= get_latency);
+        assert_eq!(blob, blob2);
     }
 }
