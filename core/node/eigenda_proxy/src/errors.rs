@@ -1,0 +1,2 @@
+pub(crate) enum RequestProcessorError {
+}
