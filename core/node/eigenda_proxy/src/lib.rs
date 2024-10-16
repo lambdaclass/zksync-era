@@ -1,5 +1,6 @@
-use std::net::SocketAddr;
+mod client;
 
+use std::net::SocketAddr;
 use anyhow::Context as _;
 use axum::{
     routing::{get, put},
