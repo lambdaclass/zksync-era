@@ -1,2 +1,1 @@
-pub(crate) enum RequestProcessorError {
-}
+pub(crate) enum RequestProcessorError {}

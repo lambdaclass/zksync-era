@@ -1,5 +1,5 @@
-use axum::{extract::Path, Error, Json};
 use crate::errors::RequestProcessorError;
+use axum::{extract::Path, Error, Json};
 
 #[derive(Clone)]
 pub(crate) struct RequestProcessor {}
@@ -9,7 +9,10 @@ impl RequestProcessor {
         Self {}
     }
 
-    pub(crate) async fn get_blob_id(&self, Path(blob_id): Path<String>) -> Result<Json<String>, RequestProcessorError>{
+    pub(crate) async fn get_blob_id(
+        &self,
+        Path(blob_id): Path<String>,
+    ) -> Result<Json<String>, RequestProcessorError> {
         Ok(Json(blob_id))
     }
 
@@ -22,5 +25,4 @@ impl RequestProcessor {
     pub(crate) async fn foo(&self, Path(blob_id): Path<String>) -> () {
         ()
     }
-
 }
