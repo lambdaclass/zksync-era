@@ -42,7 +42,6 @@ impl MemStore {
         });
         let store_clone = Arc::clone(&memstore);
         tokio::spawn(async move {
-            // Use a signal for graceful shutdown (e.g., Ctrl+C)
             store_clone.pruning_loop().await;
         });
         memstore
