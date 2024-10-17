@@ -14,8 +14,9 @@ anyhow.workspace = true
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-prost.workspace = true
-tonic.workspace = true
+prost = "0.13.1"
+tonic = { version = "0.12.1", features = ["tls", "channel", "tls-roots"]}
+tonic-web = "0.12.1"
 
 [build-dependencies]
 tonic-build = { version = "0.12.1", features = ["prost"] }
