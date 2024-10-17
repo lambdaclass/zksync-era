@@ -3,7 +3,7 @@ use std::{net::SocketAddr, sync::Arc};
 use anyhow::Context as _;
 use axum::{
     extract::Path,
-    routing::{post, put},
+    routing::{get, post, put},
     Json, Router,
 };
 use request_processor::RequestProcessor;
@@ -42,8 +42,8 @@ fn create_eigenda_proxy_router() -> Router {
     let mut router = Router::new()
         .route(
             "/get/:l1_batch_number",
-            post(move |blob_id: Path<String>| async move {
-                let foo = get_blob_id_processor.get_blob_id(blob_id).await;
+            get(move |blob_id: Path<String>| async move {
+                get_blob_id_processor.get_blob_id(blob_id).await
             }),
         )
         .route(
