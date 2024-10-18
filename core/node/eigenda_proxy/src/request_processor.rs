@@ -88,7 +88,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    #[should_panic]
     async fn test_get_blob_id() {
         let endpoint = Channel::builder(
             "https://disperser-holesky.eigenda.xyz"
@@ -102,22 +101,8 @@ mod tests {
         let request_processor = RequestProcessor::new(disperser);
 
         // We know for certain that this blob id exists in the holesky disperser
-        let mut blob_id = hex::encode([
-            102, 99, 98, 102, 97, 51, 51, 98, 99, 55, 98, 52, 50, 100, 102, 98, 52, 102, 102, 54,
-            51, 98, 52, 97, 50, 54, 51, 56, 48, 55, 50, 53, 57, 53, 97, 48, 100, 51, 102, 54, 97,
-            102, 97, 48, 57, 51, 100, 54, 98, 57, 101, 50, 102, 50, 49, 54, 57, 50, 97, 55, 48, 98,
-            48, 54, 45, 51, 49, 51, 55, 51, 50, 51, 52, 51, 55, 51, 48, 51, 51, 51, 55, 51, 48, 51,
-            54, 51, 48, 51, 50, 51, 48, 51, 50, 51, 50, 51, 53, 51, 51, 51, 49, 51, 55, 50, 102,
-            51, 49, 50, 102, 51, 51, 51, 51, 50, 102, 51, 48, 50, 102, 51, 51, 51, 51, 50, 102,
-            101, 51, 98, 48, 99, 52, 52, 50, 57, 56, 102, 99, 49, 99, 49, 52, 57, 97, 102, 98, 102,
-            52, 99, 56, 57, 57, 54, 102, 98, 57, 50, 52, 50, 55, 97, 101, 52, 49, 101, 52, 54, 52,
-            57, 98, 57, 51, 52, 99, 97, 52, 57, 53, 57, 57, 49, 98, 55, 56, 53, 50, 98, 56, 53, 53,
-        ]);
+        let blob_id = "010000f901b3f850f842a025d5eb2ffb96e675f2980f741f32504bcb43c4e34659b2af3c80e606f9d4140fa000e362c18d14d8b58035fb292a1a56209a6cf631efa007aa029fff9fadf5e66d02cac480213701c401213701f9015e82cfd535f873eba03123acdd9d10fa60c8f32fd245e7da208ea3454f672452e978e1ac8a8d49e229820001826363832711e5a01e3362433b8731f03f723739052b34d88a988ab0d7946f05e216c818cda67cd80083271237a0403e9c917631ced33c2678f7a1f1ddbf0370d3cae81132e1f3a64f99048cb550b8e0bfb90db1357815edee0469887689e1ca86945a1f09d19c8c7bb771700a55c29c8852aa813b69b6d0f12b5cb3e672e2e0b9cfb076a446e392f447443d4070e73df150ba1d395de9fd8fc23e0c27a022ae23f7cb32b8801ff4eddaf913aa1f71d93bbf8a75e96e02668a63d9bdc14ccc9a587421eb9ddcbe9686406a1449014a3cbb47f93506db1c40fe3bf84ed9f551969ab894c49f6a30066a0bd19ae921d293d72de36ef624f8322be1d0296f00ab4f794c67d8a194f43c4defc40e7627e48940777960bf82437a7e57f007e19850f958231c6dd20f6e35c80a49de22e0587e820001".to_string();
         let response = request_processor.get_blob_id(Path(blob_id.clone())).await;
         assert_eq!(response.status(), StatusCode::OK);
-
-        // We change the blob id to a non-existent one
-        blob_id.push_str("fa");
-        request_processor.get_blob_id(Path(blob_id)).await;
     }
 }
