@@ -168,9 +168,8 @@ impl MemStore {
     }
 }
 
+#[cfg(test)]
 mod test {
-    use std::time::Duration;
-
     use super::*;
 
     #[tokio::test]
