@@ -6,8 +6,10 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use disperser::disperser_client::DisperserClient;
 use request_processor::RequestProcessor;
 use tokio::sync::watch;
+use tonic::transport::{Channel, ClientTlsConfig};
 
 mod blob_info;
 mod common;
@@ -20,7 +22,17 @@ pub async fn run_server(mut stop_receiver: watch::Receiver<bool>) -> anyhow::Res
     // TODO: Replace port for config
     let bind_address = SocketAddr::from(([0, 0, 0, 0], 4242));
     tracing::info!("Starting eigenda proxy on {bind_address}");
-    let app = create_eigenda_proxy_router();
+
+    let disperser_endpoint = Channel::builder(
+        "https://disperser-holesky.eigenda.xyz"
+            .to_string()
+            .parse()
+            .unwrap(),
+    )
+    .tls_config(ClientTlsConfig::new().with_native_roots())
+    .unwrap();
+    let disperser = DisperserClient::connect(disperser_endpoint).await.unwrap();
+    let app = create_eigenda_proxy_router(disperser);
 
     let listener = tokio::net::TcpListener::bind(bind_address)
         .await
@@ -40,10 +52,10 @@ pub async fn run_server(mut stop_receiver: watch::Receiver<bool>) -> anyhow::Res
     Ok(())
 }
 
-fn create_eigenda_proxy_router() -> Router {
-    let get_blob_id_processor = RequestProcessor::new();
+fn create_eigenda_proxy_router(disperser: DisperserClient<Channel>) -> Router {
+    let get_blob_id_processor = RequestProcessor::new(disperser);
     let _put_blob_id_processor = get_blob_id_processor.clone();
-    let mut router = Router::new()
+    let router = Router::new()
         .route(
             "/get/:l1_batch_number",
             get(move |blob_id: Path<String>| async move {
@@ -52,7 +64,7 @@ fn create_eigenda_proxy_router() -> Router {
         )
         .route(
             "/put/",
-            post(move |blob_id: Path<u32>| async move {
+            post(move |_blob_id: Path<u32>| async move {
                 // put_blob_id_processor
                 //     .put_blob_id(blob_id)
                 //     .await
