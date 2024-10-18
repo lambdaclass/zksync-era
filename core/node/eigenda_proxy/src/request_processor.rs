@@ -1,5 +1,6 @@
-use crate::errors::RequestProcessorError;
 use axum::{extract::Path, Json};
+
+use crate::errors::RequestProcessorError;
 
 #[derive(Clone)]
 pub(crate) struct RequestProcessor {}
@@ -42,7 +43,6 @@ impl RequestProcessor {
         let (commitment, version) = read_version_and_commitment(blob_id); // TODO: Implement
 
         // Request commitment to dispatcher?
-
 
         Ok(Json(commitment))
     }

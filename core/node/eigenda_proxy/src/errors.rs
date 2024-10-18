@@ -7,3 +7,12 @@ impl IntoResponse for RequestProcessorError {
         unimplemented!("EigenDA request error into response")
     }
 }
+
+#[derive(Debug, PartialEq)]
+pub enum MemStoreError {
+    BlobToLarge,
+    IncorrectString,
+    BlobAlreadyExists,
+    IncorrectCommitment,
+    BlobNotFound,
+}
