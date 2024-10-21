@@ -1,16 +1,21 @@
 use std::{
+    str::FromStr,
     sync::Arc,
     time::{Duration, Instant},
 };
 
 use rlp::decode;
+use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use tokio::{sync::Mutex, time::interval};
 use tonic::transport::{Channel, ClientTlsConfig};
 use zksync_config::configs::da_client::eigen_da::DisperserConfig;
 
 use crate::{
     blob_info::BlobInfo,
-    disperser::{self, disperser_client::DisperserClient, BlobStatusRequest, DisperseBlobRequest},
+    disperser::{
+        self, disperser_client::DisperserClient, AuthenticatedRequest, BlobStatusRequest,
+        DisperseBlobRequest,
+    },
     errors::EigenDAError,
 };
 
@@ -77,6 +82,148 @@ impl EigenDAClient {
             .await
             .map_err(|_| EigenDAError::PutError)?
             .into_inner();
+
+        if self.result_to_status(reply.result) == disperser::BlobStatus::Failed {
+            return Err(EigenDAError::PutError);
+        }
+
+        let request_id_str =
+            String::from_utf8(reply.request_id.clone()).map_err(|_| EigenDAError::PutError)?;
+
+        let mut interval = interval(Duration::from_secs(self.config.status_query_interval));
+        let start_time = Instant::now();
+        while Instant::now() - start_time < Duration::from_secs(self.config.status_query_timeout) {
+            let blob_status_reply = self
+                .disperser
+                .lock()
+                .await
+                .get_blob_status(BlobStatusRequest {
+                    request_id: reply.request_id.clone(),
+                })
+                .await
+                .map_err(|_| EigenDAError::PutError)?
+                .into_inner();
+
+            let blob_status = blob_status_reply.status();
+
+            tracing::info!(
+                "Dispersing blob {:?}, status: {:?}",
+                request_id_str,
+                blob_status
+            );
+
+            match blob_status {
+                disperser::BlobStatus::Unknown => {
+                    interval.tick().await;
+                }
+                disperser::BlobStatus::Processing => {
+                    interval.tick().await;
+                }
+                disperser::BlobStatus::Confirmed => {
+                    if self.config.wait_for_finalization {
+                        interval.tick().await;
+                    } else {
+                        match blob_status_reply.info {
+                            Some(info) => {
+                                let blob_info =
+                                    BlobInfo::try_from(info).map_err(|_| EigenDAError::PutError)?;
+                                return Ok(rlp::encode(&blob_info).to_vec());
+                            }
+                            None => {
+                                return Err(EigenDAError::PutError);
+                            }
+                        }
+                    }
+                }
+                disperser::BlobStatus::Failed => {
+                    return Err(EigenDAError::PutError);
+                }
+                disperser::BlobStatus::InsufficientSignatures => {
+                    return Err(EigenDAError::PutError);
+                }
+                disperser::BlobStatus::Dispersing => {
+                    interval.tick().await;
+                }
+                disperser::BlobStatus::Finalized => match blob_status_reply.info {
+                    Some(info) => {
+                        let blob_info =
+                            BlobInfo::try_from(info).map_err(|_| EigenDAError::PutError)?;
+                        return Ok(rlp::encode(&blob_info).to_vec());
+                    }
+                    None => {
+                        return Err(EigenDAError::PutError);
+                    }
+                },
+            }
+        }
+
+        return Err(EigenDAError::PutError);
+    }
+
+    pub async fn put_blob_authenticated(
+        &self,
+        blob_data: Vec<u8>,
+    ) -> Result<Vec<u8>, EigenDAError> {
+        tracing::info!("Putting blob");
+        println!("Putting blob");
+        if blob_data.len() > self.config.blob_size_limit as usize {
+            return Err(EigenDAError::PutError);
+        }
+
+        let custom_quorum_numbers = self
+            .config
+            .custom_quorum_numbers
+            .clone()
+            .unwrap_or_default();
+        let account_id = self.config.account_id.clone().unwrap_or_default();
+        let secp = Secp256k1::new();
+        let secret_key = SecretKey::from_str(account_id.as_str()).map_err(|e| {
+            println!("Error: {:?}", e);
+            EigenDAError::PutError
+        })?;
+        let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+        let account_id = "0x".to_string() + &hex::encode(public_key.serialize_uncompressed());
+        let request_stream = futures::stream::once(async {
+            AuthenticatedRequest {
+                payload: Some(disperser::authenticated_request::Payload::DisperseRequest(
+                    DisperseBlobRequest {
+                        data: blob_data,
+                        custom_quorum_numbers,
+                        account_id,
+                    },
+                )),
+            }
+        });
+
+        println!("Request stream: ");
+
+        let result = self
+            .disperser
+            .lock()
+            .await
+            .disperse_blob_authenticated(request_stream)
+            .await
+            .map_err(|e| {
+                println!("Error {:?}", e);
+                EigenDAError::PutError
+            })?
+            .get_mut()
+            .message()
+            .await
+            .map_err(|e| {
+                println!("Error {:?}", e);
+                EigenDAError::PutError
+            })?;
+
+        println!("Result: {:?}", result);
+
+        let reply = match result.unwrap().payload.unwrap() {
+            disperser::authenticated_reply::Payload::DisperseReply(reply) => reply,
+            _ => {
+                println!("Error");
+                return Err(EigenDAError::PutError);
+            }
+        };
 
         if self.result_to_status(reply.result) == disperser::BlobStatus::Failed {
             return Err(EigenDAError::PutError);
@@ -267,5 +414,33 @@ mod test {
         let blob = vec![0u8; 3];
         let cert = store.put_blob(blob.clone()).await;
         assert!(cert.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_eigenda_client_authenticated() {
+        let config = DisperserConfig {
+            api_node_url: "".to_string(),
+            custom_quorum_numbers: Some(vec![]),
+            account_id: Some(
+                "850683b40d4a740aa6e745f889a6fdc8327be76e122f5aba645a5b02d0248db8".to_string(),
+            ),
+            disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
+            eth_confirmation_depth: -1,
+            eigenda_eth_rpc: "".to_string(),
+            eigenda_svc_manager_addr: "".to_string(),
+            blob_size_limit: 2 * 1024 * 1024, // 2MB
+            status_query_timeout: 1800,       // 30 minutes
+            status_query_interval: 5,         // 5 seconds
+            wait_for_finalization: false,
+        };
+        let store = match EigenDAClient::new(config).await {
+            Ok(store) => store,
+            Err(e) => panic!("Failed to create EigenDAProxyClient {:?}", e),
+        };
+
+        let blob = vec![0u8; 100];
+        let cert = store.put_blob_authenticated(blob.clone()).await.unwrap();
+        let blob2 = store.get_blob(cert).await.unwrap();
+        assert_eq!(blob, blob2);
     }
 }
