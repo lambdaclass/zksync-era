@@ -273,6 +273,22 @@ impl BlobInfo {
         bytes.extend(blob_verification_proof_bytes);
         bytes
     }
+
+    pub fn blob_index(&self) -> u32 {
+        self.blob_verification_proof.blob_index
+    }
+
+    pub fn batch_header_root(&self) -> &Vec<u8> {
+        &self
+            .blob_verification_proof
+            .batch_medatada
+            .batch_header
+            .batch_root
+    }
+
+    pub fn proof(&self) -> &BlobVerificationProof {
+        &self.blob_verification_proof
+    }
 }
 
 impl Decodable for BlobInfo {
