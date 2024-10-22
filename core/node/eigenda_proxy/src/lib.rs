@@ -13,6 +13,7 @@ mod blob_info;
 mod eigenda_client;
 mod errors;
 mod memstore;
+mod signer;
 
 pub async fn run_server(mut stop_receiver: watch::Receiver<bool>) -> anyhow::Result<()> {
     // TODO: Replace port for config
