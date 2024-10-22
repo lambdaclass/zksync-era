@@ -4,8 +4,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+use byteorder::{BigEndian, ByteOrder};
 use rlp::decode;
-use secp256k1::{PublicKey, Secp256k1, SecretKey};
+use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
+use tiny_keccak::{Hasher, Keccak};
 use tokio::{sync::Mutex, time::interval};
 use tonic::transport::{Channel, ClientTlsConfig};
 use zksync_config::configs::da_client::eigen_da::DisperserConfig;
@@ -13,8 +15,8 @@ use zksync_config::configs::da_client::eigen_da::DisperserConfig;
 use crate::{
     blob_info::BlobInfo,
     disperser::{
-        self, disperser_client::DisperserClient, AuthenticatedRequest, BlobStatusRequest,
-        DisperseBlobRequest,
+        self, disperser_client::DisperserClient, AuthenticatedRequest, AuthenticationData,
+        BlobStatusRequest, DisperseBlobRequest,
     },
     errors::EigenDAError,
 };
@@ -160,6 +162,103 @@ impl EigenDAClient {
         return Err(EigenDAError::PutError);
     }
 
+    fn keccak256(&self, input: &[u8]) -> [u8; 32] {
+        let mut hasher = Keccak::v256();
+        let mut output = [0u8; 32];
+        hasher.update(input);
+        hasher.finalize(&mut output);
+        output
+    }
+
+    fn sign(&self, challenge: u32, private_key: &SecretKey) -> Vec<u8> {
+        let mut buf = [0u8; 4];
+        BigEndian::write_u32(&mut buf, challenge);
+        let hash = self.keccak256(&buf);
+        let message = Message::from_slice(&hash).unwrap();
+        let secp = Secp256k1::signing_only();
+        let recoverable_sig = secp.sign_ecdsa_recoverable(&message, private_key);
+
+        // Step 5: Convert recoverable signature to a 65-byte array (64 bytes for signature + 1 byte for recovery ID)
+        let (recovery_id, sig_bytes) = recoverable_sig.serialize_compact();
+
+        // Step 6: Append the recovery ID as the last byte to form a 65-byte signature
+        let mut full_signature = [0u8; 65];
+        full_signature[..64].copy_from_slice(&sig_bytes);
+        full_signature[64] = recovery_id.to_i32() as u8; // Append the recovery ID as the last byte
+
+        full_signature.to_vec()
+    }
+
+    async fn authentication(
+        &self,
+        blob_data: Vec<u8>,
+        custom_quorum_numbers: Vec<u32>,
+        account_id: String,
+        private_key: &SecretKey,
+    ) -> Result<disperser::DisperseBlobReply, EigenDAError> {
+        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<AuthenticatedRequest>();
+        let request = AuthenticatedRequest {
+            payload: Some(disperser::authenticated_request::Payload::DisperseRequest(
+                DisperseBlobRequest {
+                    data: blob_data,
+                    custom_quorum_numbers,
+                    account_id,
+                },
+            )),
+        };
+        sender.send(request).unwrap();
+        let receiver_stream = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
+        let mut stream = self
+            .disperser
+            .lock()
+            .await
+            .disperse_blob_authenticated(receiver_stream)
+            .await
+            .map_err(|e| {
+                println!("Error {:?}", e);
+                EigenDAError::PutError
+            })?;
+
+        let result = stream.get_mut().message().await.map_err(|e| {
+            println!("Error {:?}", e);
+            EigenDAError::PutError
+        })?;
+
+        let reply = match result.unwrap().payload.unwrap() {
+            disperser::authenticated_reply::Payload::DisperseReply(_) => {
+                return Err(EigenDAError::PutError);
+            }
+            disperser::authenticated_reply::Payload::BlobAuthHeader(reply) => {
+                let challenge = reply.challenge_parameter;
+                println!("Challenge: {:?}", challenge);
+                let new_request = AuthenticatedRequest {
+                    payload: Some(
+                        disperser::authenticated_request::Payload::AuthenticationData(
+                            AuthenticationData {
+                                authentication_data: self.sign(challenge, private_key), // Todo: real signature
+                            },
+                        ),
+                    ),
+                };
+                sender.send(new_request).unwrap();
+                let result = stream.get_mut().message().await.map_err(|e| {
+                    println!("Error {:?}", e);
+                    EigenDAError::PutError
+                })?;
+
+                let reply = match result.unwrap().payload.unwrap() {
+                    disperser::authenticated_reply::Payload::DisperseReply(reply) => reply,
+                    _ => {
+                        return Err(EigenDAError::PutError);
+                    }
+                };
+                reply
+            }
+        };
+
+        Ok(reply)
+    }
+
     pub async fn put_blob_authenticated(
         &self,
         blob_data: Vec<u8>,
@@ -183,47 +282,12 @@ impl EigenDAClient {
         })?;
         let public_key = PublicKey::from_secret_key(&secp, &secret_key);
         let account_id = "0x".to_string() + &hex::encode(public_key.serialize_uncompressed());
-        let request_stream = futures::stream::once(async {
-            AuthenticatedRequest {
-                payload: Some(disperser::authenticated_request::Payload::DisperseRequest(
-                    DisperseBlobRequest {
-                        data: blob_data,
-                        custom_quorum_numbers,
-                        account_id,
-                    },
-                )),
-            }
-        });
 
-        println!("Request stream: ");
+        let reply = self
+            .authentication(blob_data, custom_quorum_numbers, account_id, &secret_key)
+            .await?;
 
-        let result = self
-            .disperser
-            .lock()
-            .await
-            .disperse_blob_authenticated(request_stream)
-            .await
-            .map_err(|e| {
-                println!("Error {:?}", e);
-                EigenDAError::PutError
-            })?
-            .get_mut()
-            .message()
-            .await
-            .map_err(|e| {
-                println!("Error {:?}", e);
-                EigenDAError::PutError
-            })?;
-
-        println!("Result: {:?}", result);
-
-        let reply = match result.unwrap().payload.unwrap() {
-            disperser::authenticated_reply::Payload::DisperseReply(reply) => reply,
-            _ => {
-                println!("Error");
-                return Err(EigenDAError::PutError);
-            }
-        };
+        println!("Reply: {:?}", reply);
 
         if self.result_to_status(reply.result) == disperser::BlobStatus::Failed {
             return Err(EigenDAError::PutError);
@@ -252,6 +316,11 @@ impl EigenDAClient {
                 "Dispersing blob {:?}, status: {:?}",
                 request_id_str,
                 blob_status
+            );
+
+            println!(
+                "Dispersing blob {:?}, status: {:?}",
+                request_id_str, blob_status
             );
 
             match blob_status {

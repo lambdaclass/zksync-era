@@ -28,6 +28,9 @@ rustls.workspace = true
 futures.workspace = true
 secp256k1.workspace = true
 hex.workspace = true
+tokio-stream = "0.1.16"
+byteorder = "1.5.0"
+tiny-keccak.workspace = true
 
 [build-dependencies]
 tonic-build = { version = "0.12.1", features = ["prost"] }
