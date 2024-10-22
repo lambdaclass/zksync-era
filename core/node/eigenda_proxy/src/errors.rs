@@ -12,6 +12,6 @@ pub enum EigenDAError {
     TlsError,
     UriError,
     ConnectionError,
-    PutError,
+    PutError(String),
     GetError,
 }
