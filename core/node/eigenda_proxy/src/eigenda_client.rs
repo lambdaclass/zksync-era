@@ -21,10 +21,9 @@ pub struct EigenDAClient {
 
 impl EigenDAClient {
     pub async fn new(config: DisperserConfig) -> Result<Self, EigenDAError> {
-        match rustls::crypto::ring::default_provider().install_default() {
-            Ok(_) => {}
-            Err(_) => {} // This is not an actual error, we expect this function to return an Err(Arc<CryptoProvider>)
-        };
+        // This might fail if the default provider is already installed
+        // So we ignore the result altogether
+        let _ = rustls::crypto::ring::default_provider().install_default();
         let inner = Channel::builder(
             config
                 .disperser_rpc
@@ -44,15 +43,9 @@ impl EigenDAClient {
     }
 
     fn result_to_status(&self, result: i32) -> disperser::BlobStatus {
-        match result {
-            0 => disperser::BlobStatus::Unknown,
-            1 => disperser::BlobStatus::Processing,
-            2 => disperser::BlobStatus::Confirmed,
-            3 => disperser::BlobStatus::Failed,
-            4 => disperser::BlobStatus::Finalized,
-            5 => disperser::BlobStatus::InsufficientSignatures,
-            6 => disperser::BlobStatus::Dispersing,
-            _ => disperser::BlobStatus::Unknown,
+        match disperser::BlobStatus::try_from(result) {
+            Ok(status) => status,
+            Err(_) => disperser::BlobStatus::Unknown,
         }
     }
 
