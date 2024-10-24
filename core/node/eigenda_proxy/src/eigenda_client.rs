@@ -14,6 +14,7 @@ use crate::{
     errors::EigenDAError,
 };
 
+#[derive(Clone)]
 pub struct EigenDAClient {
     disperser: Arc<Mutex<DisperserClient<Channel>>>,
     config: DisperserConfig,
@@ -36,7 +37,7 @@ impl EigenDAClient {
         let disperser = Arc::new(Mutex::new(
             DisperserClient::connect(inner)
                 .await
-                .map_err(|_| EigenDAError::ConnectionError)?,
+                .map_err(|err| EigenDAError::ConnectionError(err))?,
         ));
 
         Ok(Self { disperser, config })

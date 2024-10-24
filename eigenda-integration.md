@@ -25,7 +25,7 @@ If you want to use memstore:
 da_client:
   eigen_da:
     memstore:
-      api_node_url: http://127.0.0.1:4242 # TODO: This should be removed once eigenda proxy is no longer used
+      api_node_url: 0.0.0.0:4242 # TODO: This should be removed once eigenda proxy is no longer used
       max_blob_size_bytes: 2097152
       blob_expiration: 100000
       get_latency: 100
@@ -38,7 +38,7 @@ If you want to use disperser:
 da_client:
   eigen_da:
     disperser:
-      api_node_url: http://127.0.0.1:4242 # TODO: This should be removed once eigenda proxy is no longer used
+      api_node_url: 0.0.0.0:4242 # TODO: This should be removed once eigenda proxy is no longer used
       disperser_rpc: <your_desired_disperser>
       eth_confirmation_depth: -1
       eigenda_eth_rpc: <your_desired_rpc>
@@ -49,7 +49,7 @@ da_client:
       wait_for_finalization: false
 ```
 
-2. Add `eigenda-proxy` to the `docker-compose.yml` file:
+2. OLD: Add `eigenda-proxy` to the `docker-compose.yml` file:
 
 ```yaml
 eigenda-proxy:
@@ -59,11 +59,19 @@ eigenda-proxy:
   command: ./eigenda-proxy --addr 0.0.0.0 --port 4242 --memstore.enabled --eigenda-max-blob-length "2MiB"
 ```
 
+2. NEW (temporary): Add eigenda proxy layer to the default components in `core/bin/zksync_server/src/node_builder.rs`:
+
+````rs
+.add_gas_adjuster_layer()?
+.add_eigenda_proxy_layer()?;
+```
+(line 696)
+
 3. (optional) for using pubdata with 2MiB (as per specification), modify `etc/env/file_based/general.yaml`:
 
 ```yaml
 max_pubdata_per_batch: 2097152
-```
+````
 
 ## Local Setup
 
