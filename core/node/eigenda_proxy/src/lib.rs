@@ -3,16 +3,18 @@ mod common;
 mod disperser;
 mod verifier;
 
+use std::net::SocketAddr;
+
 use anyhow::Context as _;
 use axum::{
     routing::{get, put},
     Router,
 };
-use std::net::SocketAddr;
 use tokio::sync::watch;
 mod blob_info;
 mod errors;
 mod memstore;
+mod rust_kzg_bn254;
 
 pub async fn run_server(mut stop_receiver: watch::Receiver<bool>) -> anyhow::Result<()> {
     // TODO: Replace port for config
