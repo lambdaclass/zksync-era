@@ -97,10 +97,16 @@ mod test {
             eth_confirmation_deph: 0,
         });
         let commitment = super::G1Commitment {
-            x: vec![0u8; 32],
-            y: vec![0u8; 32],
+            x: vec![
+                46, 103, 30, 170, 173, 163, 217, 225, 108, 178, 168, 65, 182, 189, 146, 95, 228,
+                31, 156, 176, 160, 98, 173, 127, 56, 190, 187, 0, 221, 129, 137, 113,
+            ],
+            y: vec![
+                24, 27, 147, 230, 31, 241, 198, 35, 65, 194, 169, 170, 87, 203, 87, 163, 121, 50,
+                234, 169, 140, 182, 78, 155, 248, 178, 37, 3, 93, 128, 201, 148,
+            ],
         };
-        let blob = vec![0u8; 32];
+        let blob = vec![1u8; 32];
         let result = verifier.verify_commitment(commitment, blob);
         assert_eq!(result.is_ok(), true);
     }
