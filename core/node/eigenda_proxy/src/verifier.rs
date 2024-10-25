@@ -3,7 +3,10 @@ use std::str::FromStr;
 use ark_bn254::{Fq, G1Affine};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 
-use crate::common::G1Commitment;
+use crate::{
+    blob_info::{BlobHeader, BlobInfo},
+    common::G1Commitment,
+};
 
 pub enum VerificationError {
     WrongProof,
@@ -85,6 +88,31 @@ impl Verifier {
             return Err(VerificationError::WrongProof);
         }
         Ok(())
+    }
+
+    fn hash_encode_blob_header(&self, blob_header: BlobHeader) -> Vec<u8> {
+        //let blob_hash = hash_blob_header(blob_header);
+        vec![]
+    }
+
+    pub fn verify_merkle_proof(&self, cert: BlobInfo) -> Result<(), VerificationError> {
+        let inclusion_proof = cert.blob_verification_proof.inclusion_proof;
+        let root = cert
+            .blob_verification_proof
+            .batch_medatada
+            .batch_header
+            .batch_root;
+        let blob_index = cert.blob_verification_proof.blob_index;
+        let blob_header = cert.blob_header;
+
+        let leafHash = self.hash_encode_blob_header(blob_header);
+
+        Ok(())
+    }
+
+    pub fn verify_certificate(&self, cert: BlobInfo) -> Result<(), VerificationError> {
+        self.verify_merkle_proof(cert)?;
+        todo!()
     }
 }
 

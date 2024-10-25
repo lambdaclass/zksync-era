@@ -295,8 +295,7 @@ pub mod disperser_client {
         clippy::wildcard_imports,
         clippy::let_unit_value
     )]
-    use tonic::codegen::http::Uri;
-    use tonic::codegen::*;
+    use tonic::codegen::{http::Uri, *};
     /// Disperser defines the public APIs for dispersing blobs.
     #[derive(Debug, Clone)]
     pub struct DisperserClient<T> {
