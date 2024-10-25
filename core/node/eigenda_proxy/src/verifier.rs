@@ -27,9 +27,9 @@ pub struct VerifierConfig {
 }
 
 pub struct Verifier {
-    g1: Vec<G1Affine>, // TODO: change this.
+    g1: Vec<G1Affine>,
     kzg: Kzg,
-    verify_certs: bool,
+    verify_certs: bool,  // TODO: change this.
     cert_verifier: bool, // TODO: change this.
 }
 
@@ -67,7 +67,7 @@ impl Verifier {
     fn commit(&self, blob: Vec<u8>) -> G1Affine {
         let blob = Blob::from_bytes_and_pad(&blob.to_vec());
         self.kzg
-            .blob_to_kzg_commitment(&blob, PolynomialFormat::InCoefficientForm)
+            .blob_to_kzg_commitment(&blob, PolynomialFormat::InEvaluationForm)
             .unwrap()
     }
 
@@ -101,15 +101,15 @@ mod test {
         });
         let commitment = super::G1Commitment {
             x: vec![
-                46, 103, 30, 170, 173, 163, 217, 225, 108, 178, 168, 65, 182, 189, 146, 95, 228,
-                31, 156, 176, 160, 98, 173, 127, 56, 190, 187, 0, 221, 129, 137, 113,
+                22, 11, 176, 29, 82, 48, 62, 49, 51, 119, 94, 17, 156, 142, 248, 96, 240, 183, 134,
+                85, 152, 5, 74, 27, 175, 83, 162, 148, 17, 110, 201, 74,
             ],
             y: vec![
-                24, 27, 147, 230, 31, 241, 198, 35, 65, 194, 169, 170, 87, 203, 87, 163, 121, 50,
-                234, 169, 140, 182, 78, 155, 248, 178, 37, 3, 93, 128, 201, 148,
+                12, 132, 236, 56, 147, 6, 176, 135, 244, 166, 21, 18, 87, 76, 122, 3, 23, 22, 254,
+                236, 148, 129, 110, 207, 131, 116, 58, 170, 4, 130, 191, 157,
             ],
         };
-        let blob = vec![1u8; 32];
+        let blob = vec![1u8; 100]; // Actual blob sent was this blob but kzg-padded, but Blob::from_bytes_and_pad padds it inside, so we don't need to pad it here.
         let result = verifier.verify_commitment(commitment, blob);
         assert_eq!(result.is_ok(), true);
     }
