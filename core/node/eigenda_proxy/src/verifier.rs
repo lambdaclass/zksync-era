@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use ark_bn254::{Fq, G1Affine};
-use rust_kzg_bn254::{blob::Blob, kzg::Kzg};
+use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 
 use crate::common::G1Commitment;
 
@@ -37,11 +37,12 @@ impl Verifier {
     pub fn new(cfg: VerifierConfig) -> Self {
         let srs_points_to_load = 2097152 / 32; // 2 Mb / 32 (Max blob size)
         let kzg = Kzg::setup(
-            "../resources/g1.point",
+            "./resources/g1.point",
             "",
-            "",
+            "./resources/g2.point.powerOf2",
             268435456,
             srs_points_to_load,
+            "".to_string(),
         );
         let kzg = kzg.unwrap();
         let g1: Vec<G1Affine> = kzg.get_g1_points();
@@ -57,7 +58,7 @@ impl Verifier {
 
         Self {
             g1,
-            kzg: kzg,
+            kzg,
             verify_certs: false,
             cert_verifier: false,
         }
@@ -65,7 +66,9 @@ impl Verifier {
 
     fn commit(&self, blob: Vec<u8>) -> G1Affine {
         let blob = Blob::from_bytes_and_pad(&blob.to_vec());
-        self.kzg.blob_to_kzg_commitment(&blob).unwrap()
+        self.kzg
+            .blob_to_kzg_commitment(&blob, PolynomialFormat::InCoefficientForm)
+            .unwrap()
     }
 
     pub fn verify_commitment(
@@ -81,7 +84,7 @@ impl Verifier {
         if actual_commitment != expected_commitment {
             return Err(VerificationError::WrongProof);
         }
-        todo!()
+        Ok(())
     }
 }
 

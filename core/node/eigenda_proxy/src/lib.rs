@@ -3,12 +3,13 @@ mod common;
 mod disperser;
 mod verifier;
 
+use std::net::SocketAddr;
+
 use anyhow::Context as _;
 use axum::{
     routing::{get, put},
     Router,
 };
-use std::net::SocketAddr;
 use tokio::sync::watch;
 mod blob_info;
 mod errors;
