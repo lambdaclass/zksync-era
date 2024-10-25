@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
 use ark_bn254::{Fq, G1Affine};
+use ethabi::{encode, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
+use sha3::{Digest, Keccak256};
+use tiny_keccak::{Hasher, Keccak};
 
 use crate::{
     blob_info::{BlobHeader, BlobInfo},
@@ -91,8 +94,32 @@ impl Verifier {
     }
 
     fn hash_encode_blob_header(&self, blob_header: BlobHeader) -> Vec<u8> {
-        //let blob_hash = hash_blob_header(blob_header);
-        vec![]
+        let mut blob_quorums = vec![];
+        for quorum in blob_header.blob_quorum_params {
+            let quorum = Token::Tuple(vec![
+                Token::Uint(ethabi::Uint::from(quorum.quorum_number)),
+                Token::Uint(ethabi::Uint::from(quorum.adversary_threshold_percentage)),
+                Token::Uint(ethabi::Uint::from(quorum.confirmation_threshold_percentage)),
+                Token::Uint(ethabi::Uint::from(quorum.chunk_length)),
+            ]);
+            blob_quorums.push(quorum);
+        }
+        let blob_header = Token::Tuple(vec![
+            Token::Tuple(vec![
+                Token::Uint(ethabi::Uint::from(blob_header.commitment.x.as_slice())),
+                Token::Uint(ethabi::Uint::from(blob_header.commitment.y.as_slice())),
+            ]),
+            Token::Uint(ethabi::Uint::from(blob_header.data_length)),
+            Token::Array(blob_quorums),
+        ]);
+
+        let encoded = encode(&[blob_header]);
+
+        let mut keccak = Keccak::v256();
+        keccak.update(&encoded);
+        let mut hash = [0u8; 32];
+        keccak.finalize(&mut hash);
+        hash.to_vec()
     }
 
     pub fn verify_merkle_proof(&self, cert: BlobInfo) -> Result<(), VerificationError> {
