@@ -22,11 +22,9 @@ sha3.workspace = true
 prost = "0.13.1"
 tonic = { version = "0.12.1", features = ["tls", "channel", "tls-roots"]}
 tonic-web = "0.12.1"
+rust-kzg-bn254 = "0.1.0"
 ark-bn254 = "0.4.0"
 num-bigint = "0.4.6"
-crossbeam-channel = "0.5"
-num_cpus = "1.13.0"
-ark-ec = {version = "0.4.2", features = ["parallel"]}
 
 [build-dependencies]
 tonic-build = { version = "0.12.1", features = ["prost"] }

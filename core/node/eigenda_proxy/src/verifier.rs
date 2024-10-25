@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
 use ark_bn254::{Fq, G1Affine};
+use rust_kzg_bn254::{blob::Blob, kzg::Kzg};
 
-use crate::{common::G1Commitment, rust_kzg_bn254::Kzg};
+use crate::common::G1Commitment;
 
 pub enum VerificationError {
     WrongProof,
@@ -26,7 +27,7 @@ pub struct VerifierConfig {
 }
 
 pub struct Verifier {
-    g1: bool, // TODO: change this.
+    g1: Vec<G1Affine>, // TODO: change this.
     kzg: Kzg,
     verify_certs: bool,
     cert_verifier: bool, // TODO: change this.
@@ -35,9 +36,15 @@ pub struct Verifier {
 impl Verifier {
     pub fn new(cfg: VerifierConfig) -> Self {
         let srs_points_to_load = 2097152 / 32; // 2 Mb / 32 (Max blob size)
-        let kzg = Kzg::setup("../resources/g1.point", 268435456, srs_points_to_load);
+        let kzg = Kzg::setup(
+            "../resources/g1.point",
+            "",
+            "",
+            268435456,
+            srs_points_to_load,
+        );
         let kzg = kzg.unwrap();
-        //let g1: Vec<G1Affine> = kzg.get_g1_points();
+        let g1: Vec<G1Affine> = kzg.get_g1_points();
         let cert_verifier = if cfg.verify_certs {
             false
             // TODO: create CertVerifier
@@ -49,7 +56,7 @@ impl Verifier {
         //
 
         Self {
-            g1: true,
+            g1,
             kzg: kzg,
             verify_certs: false,
             cert_verifier: false,
@@ -57,9 +64,8 @@ impl Verifier {
     }
 
     fn commit(&self, blob: Vec<u8>) -> G1Affine {
-        //let blob = Blob::from_bytes_and_pad(&blob.to_vec());
-        //self.kzg.blob_to_kzg_commitment(&blob).unwrap()
-        todo!()
+        let blob = Blob::from_bytes_and_pad(&blob.to_vec());
+        self.kzg.blob_to_kzg_commitment(&blob).unwrap()
     }
 
     pub fn verify_commitment(
