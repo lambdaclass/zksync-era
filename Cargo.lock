@@ -4250,6 +4250,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "lambdaworks-math"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "708d148956bcdc21ae5c432b4e20bbaa26fd68d5376a3a6c461f41095abea0ba"
+dependencies = [
+ "rayon",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10411,8 +10422,12 @@ dependencies = [
  "anyhow",
  "ark-bn254",
  "axum",
+ "crossbeam-channel",
+ "hex",
  "kzgpad-rs",
+ "lambdaworks-math",
  "num-bigint 0.4.6",
+ "num_cpus",
  "prost 0.13.3",
  "rand 0.8.5",
  "rlp",
