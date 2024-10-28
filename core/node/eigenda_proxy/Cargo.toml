@@ -29,6 +29,7 @@ kzgpad-rs = { git = "https://github.com/Layr-Labs/kzgpad-rs.git", tag = "v0.1.0"
 ethabi = "16.0.0"
 tiny-keccak = "2.0"
 hex.workspace = true
+alloy = { version = "0.3", features = ["full"] }
 
 [build-dependencies]
 tonic-build = { version = "0.12.1", features = ["prost"] }

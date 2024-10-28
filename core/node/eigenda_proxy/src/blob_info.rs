@@ -1,6 +1,6 @@
 use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct G1Commitment {
     pub x: Vec<u8>,
     pub y: Vec<u8>,
@@ -35,7 +35,7 @@ impl Encodable for G1Commitment {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlobQuorumParam {
     pub quorum_number: u32,
     pub adversary_threshold_percentage: u32,
@@ -76,7 +76,7 @@ impl Encodable for BlobQuorumParam {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlobHeader {
     pub commitment: G1Commitment,
     pub data_length: u32,
@@ -121,7 +121,7 @@ impl Encodable for BlobHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BatchHeader {
     pub batch_root: Vec<u8>,
     pub quorum_numbers: Vec<u8>,
@@ -165,7 +165,7 @@ impl Encodable for BatchHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BatchMetadata {
     pub batch_header: BatchHeader,
     pub signatory_record_hash: Vec<u8>,
@@ -210,7 +210,7 @@ impl Encodable for BatchMetadata {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlobVerificationProof {
     pub batch_id: u32,
     pub blob_index: u32,
@@ -257,7 +257,7 @@ impl Encodable for BlobVerificationProof {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlobInfo {
     pub blob_header: BlobHeader,
     pub blob_verification_proof: BlobVerificationProof,
