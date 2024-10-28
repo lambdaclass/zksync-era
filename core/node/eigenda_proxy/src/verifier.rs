@@ -122,6 +122,41 @@ impl Verifier {
         hash.to_vec()
     }
 
+    fn process_inclusion_proof(
+        &self,
+        proof: &[u8],
+        leaf: &[u8],
+        index: u32,
+    ) -> Result<Vec<u8>, VerificationError> {
+        let mut index = index;
+        if proof.len() == 0 || proof.len() % 32 != 0 {
+            return Err(VerificationError::WrongProof);
+        }
+        let mut computed_hash = leaf.to_vec();
+        for i in 0..proof.len() / 32 {
+            let mut combined = proof[i * 32..(i + 1) * 32]
+                .iter()
+                .chain(computed_hash.iter())
+                .cloned()
+                .collect::<Vec<u8>>();
+            if index % 2 == 0 {
+                combined = computed_hash
+                    .iter()
+                    .chain(proof[i * 32..(i + 1) * 32].iter())
+                    .cloned()
+                    .collect::<Vec<u8>>();
+            };
+            let mut keccak = Keccak::v256();
+            keccak.update(&combined);
+            let mut hash = [0u8; 32];
+            keccak.finalize(&mut hash);
+            computed_hash = hash.to_vec();
+            index /= 2;
+        }
+
+        Ok(computed_hash)
+    }
+
     pub fn verify_merkle_proof(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let inclusion_proof = cert.blob_verification_proof.inclusion_proof;
         let root = cert
@@ -132,8 +167,13 @@ impl Verifier {
         let blob_index = cert.blob_verification_proof.blob_index;
         let blob_header = cert.blob_header;
 
-        let leafHash = self.hash_encode_blob_header(blob_header);
+        let leaf_hash = self.hash_encode_blob_header(blob_header);
+        let generated_root =
+            self.process_inclusion_proof(&inclusion_proof, &leaf_hash, blob_index)?;
 
+        if generated_root != root {
+            return Err(VerificationError::WrongProof);
+        }
         Ok(())
     }
 
@@ -167,5 +207,18 @@ mod test {
         let blob = vec![1u8; 100]; // Actual blob sent was this blob but kzg-padded, but Blob::from_bytes_and_pad padds it inside, so we don't need to pad it here.
         let result = verifier.verify_commitment(commitment, blob);
         assert_eq!(result.is_ok(), true);
+    }
+
+    #[test]
+    fn test_verify_merkle_proof() {
+        let verifier = super::Verifier::new(super::VerifierConfig {
+            verify_certs: false,
+            rpc_url: "".to_string(),
+            svc_manager_addr: "".to_string(),
+            eth_confirmation_deph: 0,
+        });
+        //let cert = ;
+        //let result = verifier.verify_merkle_proof(cert);
+        //assert_eq!(result.is_ok(), true);
     }
 }
