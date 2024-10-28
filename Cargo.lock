@@ -10553,6 +10553,7 @@ dependencies = [
  "ark-bn254",
  "axum",
  "ethabi 16.0.0",
+ "hex",
  "kzgpad-rs",
  "num-bigint 0.4.6",
  "prost 0.13.3",
