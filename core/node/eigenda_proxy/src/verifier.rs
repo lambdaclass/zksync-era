@@ -11,6 +11,7 @@ use crate::{
     common::G1Commitment,
 };
 
+#[derive(Debug)]
 pub enum VerificationError {
     WrongProof,
 }
@@ -167,8 +168,12 @@ impl Verifier {
         let blob_index = cert.blob_verification_proof.blob_index;
         let blob_header = cert.blob_header;
 
-        let leaf_hash = self.hash_encode_blob_header(blob_header);
-        println!("Leaf hash: {:?}", leaf_hash);
+        let blob_header_hash = self.hash_encode_blob_header(blob_header);
+        let mut keccak = Keccak::v256();
+        keccak.update(&blob_header_hash);
+        let mut leaf_hash = [0u8; 32];
+        keccak.finalize(&mut leaf_hash);
+
         let generated_root =
             self.process_inclusion_proof(&inclusion_proof, &leaf_hash, blob_index)?;
 
@@ -336,5 +341,28 @@ mod test {
         let result = verifier.hash_encode_blob_header(blob_header);
         let expected = "ba4675a31c9bf6b2f7abfdcedd34b74645cb7332b35db39bff00ae8516a67393";
         assert_eq!(result, hex::decode(expected).unwrap());
+    }
+
+    #[test]
+    fn test_inclusion_proof() {
+        let verifier = super::Verifier::new(super::VerifierConfig {
+            verify_certs: false,
+            rpc_url: "".to_string(),
+            svc_manager_addr: "".to_string(),
+            eth_confirmation_deph: 0,
+        });
+
+        let proof = hex::decode("c455c1ea0e725d7ea3e5f29e9f48be8fc2787bb0a914d5a86710ba302c166ac4f626d76f67f1055bb960a514fb8923af2078fd84085d712655b58a19612e8cd15c3e4ac1cef57acde3438dbcf63f47c9fefe1221344c4d5c1a4943dd0d1803091ca81a270909dc0e146841441c9bd0e08e69ce6168181a3e4060ffacf3627480bec6abdd8d7bb92b49d33f180c42f49e041752aaded9c403db3a17b85e48a11e9ea9a08763f7f383dab6d25236f1b77c12b4c49c5cdbcbea32554a604e3f1d2f466851cb43fe73617b3d01e665e4c019bf930f92dea7394c25ed6a1e200d051fb0c30a2193c459f1cfef00bf1ba6656510d16725a4d1dc031cb759dbc90bab427b0f60ddc6764681924dda848824605a4f08b7f526fe6bd4572458c94e83fbf2150f2eeb28d3011ec921996dc3e69efa52d5fcf3182b20b56b5857a926aa66605808079b4d52c0c0cfe06923fa92e65eeca2c3e6126108e8c1babf5ac522f4d7").unwrap();
+        let leaf = hex::decode("f6106e6ae4631e68abe0fa898cedbe97dbae6c7efb1b088c5aa2e8b91190ff96")
+            .unwrap();
+        let expected_root =
+            hex::decode("7390b8023db8248123dcaeca57fa6c9340bef639e204f2278fc7ec3d46ad071b")
+                .unwrap();
+
+        let actual_root = verifier
+            .process_inclusion_proof(&proof, &leaf, 580)
+            .unwrap();
+
+        assert_eq!(actual_root, expected_root);
     }
 }
