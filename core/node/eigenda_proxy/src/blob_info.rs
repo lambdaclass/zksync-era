@@ -1,4 +1,29 @@
+use std::fmt;
+
 use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream};
+
+use crate::{
+    common::G1Commitment as DisperserG1Commitment,
+    disperser::{
+        BatchHeader as DisperserBatchHeader, BatchMetadata as DisperserBatchMetadata,
+        BlobHeader as DisperserBlobHeader, BlobInfo as DisperserBlobInfo,
+        BlobQuorumParam as DisperserBlobQuorumParam,
+        BlobVerificationProof as DisperserBlobVerificationProof,
+    },
+};
+
+#[derive(Debug)]
+pub enum ConversionError {
+    NotPresentError,
+}
+
+impl fmt::Display for ConversionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ConversionError::NotPresentError => write!(f, "Failed to convert BlobInfo"),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct G1Commitment {
@@ -35,7 +60,16 @@ impl Encodable for G1Commitment {
     }
 }
 
-#[derive(Debug, Clone)]
+impl From<DisperserG1Commitment> for G1Commitment {
+    fn from(value: DisperserG1Commitment) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+        }
+    }
+}
+
+#[derive(Debug,Clone)]
 pub struct BlobQuorumParam {
     pub quorum_number: u32,
     pub adversary_threshold_percentage: u32,
@@ -76,7 +110,17 @@ impl Encodable for BlobQuorumParam {
     }
 }
 
-#[derive(Debug, Clone)]
+impl From<DisperserBlobQuorumParam> for BlobQuorumParam {
+    fn from(value: DisperserBlobQuorumParam) -> Self {
+        Self {
+            quorum_number: value.quorum_number,
+            adversary_threshold_percentage: value.adversary_threshold_percentage,
+            confirmation_threshold_percentage: value.confirmation_threshold_percentage,
+            chunk_length: value.chunk_length,
+        }
+    }
+}
+#[derive(Debug,Clone)]
 pub struct BlobHeader {
     pub commitment: G1Commitment,
     pub data_length: u32,
@@ -121,7 +165,27 @@ impl Encodable for BlobHeader {
     }
 }
 
-#[derive(Debug, Clone)]
+impl TryFrom<DisperserBlobHeader> for BlobHeader {
+    type Error = ConversionError;
+    fn try_from(value: DisperserBlobHeader) -> Result<Self, Self::Error> {
+        if value.commitment.is_none() {
+            return Err(ConversionError::NotPresentError);
+        }
+        let blob_quorum_params: Vec<BlobQuorumParam> = value
+            .blob_quorum_params
+            .iter()
+            .map(|param| BlobQuorumParam::from(param.clone()))
+            .collect();
+        let blob_quorum_params = blob_quorum_params;
+        Ok(Self {
+            commitment: G1Commitment::from(value.commitment.unwrap()),
+            data_length: value.data_length,
+            blob_quorum_params,
+        })
+    }
+}
+
+#[derive(Debug,Clone)]
 pub struct BatchHeader {
     pub batch_root: Vec<u8>,
     pub quorum_numbers: Vec<u8>,
@@ -165,7 +229,18 @@ impl Encodable for BatchHeader {
     }
 }
 
-#[derive(Debug, Clone)]
+impl From<DisperserBatchHeader> for BatchHeader {
+    fn from(value: DisperserBatchHeader) -> Self {
+        Self {
+            batch_root: value.batch_root,
+            quorum_numbers: value.quorum_numbers,
+            quorum_signed_percentages: value.quorum_signed_percentages,
+            reference_block_number: value.reference_block_number,
+        }
+    }
+}
+
+#[derive(Debug,Clone)]
 pub struct BatchMetadata {
     pub batch_header: BatchHeader,
     pub signatory_record_hash: Vec<u8>,
@@ -210,7 +285,23 @@ impl Encodable for BatchMetadata {
     }
 }
 
-#[derive(Debug, Clone)]
+impl TryFrom<DisperserBatchMetadata> for BatchMetadata {
+    type Error = ConversionError;
+    fn try_from(value: DisperserBatchMetadata) -> Result<Self, Self::Error> {
+        if value.batch_header.is_none() {
+            return Err(ConversionError::NotPresentError);
+        }
+        Ok(Self {
+            batch_header: BatchHeader::from(value.batch_header.unwrap()),
+            signatory_record_hash: value.signatory_record_hash,
+            fee: value.fee,
+            confirmation_block_number: value.confirmation_block_number,
+            batch_header_hash: value.batch_header_hash,
+        })
+    }
+}
+
+#[derive(Debug,Clone)]
 pub struct BlobVerificationProof {
     pub batch_id: u32,
     pub blob_index: u32,
@@ -257,7 +348,23 @@ impl Encodable for BlobVerificationProof {
     }
 }
 
-#[derive(Debug, Clone)]
+impl TryFrom<DisperserBlobVerificationProof> for BlobVerificationProof {
+    type Error = ConversionError;
+    fn try_from(value: DisperserBlobVerificationProof) -> Result<Self, Self::Error> {
+        if value.batch_metadata.is_none() {
+            return Err(ConversionError::NotPresentError);
+        }
+        Ok(Self {
+            batch_id: value.batch_id,
+            blob_index: value.blob_index,
+            batch_medatada: BatchMetadata::try_from(value.batch_metadata.unwrap())?,
+            inclusion_proof: value.inclusion_proof,
+            quorum_indexes: value.quorum_indexes,
+        })
+    }
+}
+
+#[derive(Debug,Clone)]
 pub struct BlobInfo {
     pub blob_header: BlobHeader,
     pub blob_verification_proof: BlobVerificationProof,
@@ -308,5 +415,20 @@ impl Encodable for BlobInfo {
         s.begin_list(2);
         s.append(&self.blob_header);
         s.append(&self.blob_verification_proof);
+    }
+}
+
+impl TryFrom<DisperserBlobInfo> for BlobInfo {
+    type Error = ConversionError;
+    fn try_from(value: DisperserBlobInfo) -> Result<Self, Self::Error> {
+        if value.blob_header.is_none() || value.blob_verification_proof.is_none() {
+            return Err(ConversionError::NotPresentError);
+        }
+        Ok(Self {
+            blob_header: BlobHeader::try_from(value.blob_header.unwrap())?,
+            blob_verification_proof: BlobVerificationProof::try_from(
+                value.blob_verification_proof.unwrap(),
+            )?,
+        })
     }
 }

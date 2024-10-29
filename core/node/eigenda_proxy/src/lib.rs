@@ -13,6 +13,7 @@ use axum::{
 use tokio::sync::watch;
 mod blob_info;
 mod eigendaservicemanager;
+mod eigenda_client;
 mod errors;
 mod memstore;
 
