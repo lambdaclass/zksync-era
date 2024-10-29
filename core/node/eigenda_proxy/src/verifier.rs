@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use alloy::{
     network::Ethereum,
@@ -297,7 +297,7 @@ impl Verifier {
         let blob_header = cert.blob_header;
         let batch_header = cert.blob_verification_proof.batch_medatada.batch_header;
 
-        let confirmed_quorums: Vec<bool> = vec![];
+        let mut confirmed_quorums: HashMap<u32, bool> = HashMap::new();
         for i in 0..blob_header.blob_quorum_params.len() {
             if batch_header.quorum_numbers[i] as u32
                 != blob_header.blob_quorum_params[i].quorum_number
@@ -319,6 +319,29 @@ impl Verifier {
             {
                 return Err(VerificationError::WrongProof);
             }
+
+            if (batch_header.quorum_signed_percentages[i] as u32)
+                < blob_header.blob_quorum_params[i].confirmation_threshold_percentage
+            {
+                return Err(VerificationError::WrongProof);
+            }
+
+            confirmed_quorums.insert(blob_header.blob_quorum_params[i].quorum_number, true);
+        }
+
+        let required_quorums = self
+            .eigenda_svc_manager
+            .quorumNumbersRequired()
+            .call()
+            .await
+            .unwrap()
+            ._0
+            .to_vec();
+
+        for quorum in required_quorums {
+            if !confirmed_quorums.contains_key(&(quorum as u32)) {
+                return Err(VerificationError::WrongProof);
+            }
         }
         Ok(())
     }
@@ -326,7 +349,7 @@ impl Verifier {
     pub async fn verify_certificate(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         self.verify_batch(cert.clone()).await?;
         self.verify_merkle_proof(cert.clone())?;
-        self.verify_security_params(cert.clone())?;
+        self.verify_security_params(cert.clone()).await?;
         todo!()
     }
 }
@@ -589,6 +612,90 @@ mod test {
             },
         };
         let result = verifier.verify_batch(cert).await;
+        assert_eq!(result.is_ok(), true);
+    }
+
+    #[tokio::test]
+    async fn test_verify_security_params() {
+        let verifier = super::Verifier::new(super::VerifierConfig {
+            verify_certs: false,
+            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
+            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
+            eth_confirmation_depth: 0,
+        });
+        let cert = BlobInfo {
+            blob_header: BlobHeader {
+                commitment: G1Commitment {
+                    x: vec![
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0,
+                    ],
+                    y: vec![
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0,
+                    ],
+                },
+                data_length: 4,
+                blob_quorum_params: vec![
+                    BlobQuorumParam {
+                        quorum_number: 0,
+                        adversary_threshold_percentage: 33,
+                        confirmation_threshold_percentage: 55,
+                        chunk_length: 1,
+                    },
+                    BlobQuorumParam {
+                        quorum_number: 1,
+                        adversary_threshold_percentage: 33,
+                        confirmation_threshold_percentage: 55,
+                        chunk_length: 1,
+                    },
+                ],
+            },
+            blob_verification_proof: BlobVerificationProof {
+                batch_id: 66507,
+                blob_index: 92,
+                batch_medatada: BatchMetadata {
+                    batch_header: BatchHeader {
+                        batch_root: vec![
+                            179, 187, 53, 98, 192, 80, 151, 28, 125, 192, 115, 29, 129, 238, 216,
+                            8, 213, 210, 203, 143, 181, 19, 146, 113, 98, 131, 39, 238, 149, 248,
+                            211, 43,
+                        ],
+                        quorum_numbers: vec![0, 1],
+                        quorum_signed_percentages: vec![100, 100],
+                        reference_block_number: 2624794,
+                    },
+                    signatory_record_hash: vec![
+                        172, 32, 172, 142, 197, 52, 84, 143, 120, 26, 190, 9, 143, 217, 62, 19, 17,
+                        107, 105, 67, 203, 5, 172, 249, 6, 60, 105, 240, 134, 34, 66, 133,
+                    ],
+                    fee: vec![0],
+                    confirmation_block_number: 2624876,
+                    batch_header_hash: vec![
+                        122, 115, 2, 85, 233, 75, 121, 85, 51, 81, 248, 170, 198, 252, 42, 16, 1,
+                        146, 96, 218, 159, 44, 41, 40, 94, 247, 147, 11, 255, 68, 40, 177,
+                    ],
+                },
+                inclusion_proof: vec![
+                    203, 160, 237, 48, 117, 255, 75, 254, 117, 144, 164, 77, 29, 146, 36, 48, 190,
+                    140, 50, 100, 144, 237, 125, 125, 75, 54, 210, 247, 147, 23, 48, 189, 120, 4,
+                    125, 123, 195, 244, 207, 239, 145, 109, 0, 21, 11, 162, 109, 79, 192, 100, 138,
+                    157, 203, 22, 17, 114, 234, 72, 174, 231, 209, 133, 99, 118, 201, 160, 137,
+                    128, 112, 84, 34, 136, 174, 139, 96, 26, 246, 148, 134, 52, 200, 229, 160, 145,
+                    5, 120, 18, 187, 51, 11, 109, 91, 237, 171, 215, 207, 90, 95, 146, 54, 135,
+                    166, 66, 157, 255, 237, 69, 183, 141, 45, 162, 145, 71, 16, 87, 184, 120, 84,
+                    156, 220, 159, 4, 99, 48, 191, 203, 136, 112, 127, 226, 192, 184, 110, 6, 177,
+                    182, 109, 207, 197, 239, 161, 132, 17, 89, 56, 137, 205, 202, 101, 97, 60, 162,
+                    253, 23, 169, 75, 236, 211, 126, 121, 132, 191, 68, 167, 200, 16, 154, 149,
+                    202, 197, 7, 191, 26, 8, 67, 3, 37, 137, 16, 153, 30, 209, 238, 53, 233, 148,
+                    198, 253, 94, 216, 73, 25, 190, 205, 132, 208, 255, 219, 170, 98, 17, 160, 179,
+                    183, 200, 17, 99, 36, 130, 216, 223, 72, 222, 250, 73, 78, 79, 72, 253, 105,
+                    245, 84, 244, 196,
+                ],
+                quorum_indexes: vec![0, 1],
+            },
+        };
+        let result = verifier.verify_security_params(cert).await;
         assert_eq!(result.is_ok(), true);
     }
 }
