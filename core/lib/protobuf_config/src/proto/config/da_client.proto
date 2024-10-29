@@ -14,8 +14,6 @@ message AvailConfig {
 }
 
 message MemStoreConfig {
-  repeated uint32 custom_quorum_numbers = 1; // TODO: This should be removed once eigenda proxy is no longer used
-  optional string account_id = 2; // TODO: This should be removed once eigenda proxy is no longer used
   optional uint64 max_blob_size_bytes = 3;
   optional uint64 blob_expiration = 4;
   optional uint64 get_latency = 5;

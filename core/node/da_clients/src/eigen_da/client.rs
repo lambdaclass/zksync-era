@@ -110,8 +110,6 @@ mod test {
     #[tokio::test]
     async fn test_eigenda_memory_disperser() {
         let config = EigenDAConfig::MemStore(MemStoreConfig {
-            custom_quorum_numbers: Some(vec![]),
-            account_id: Some("".to_string()),
             max_blob_size_bytes: 2 * 1024 * 1024, // 2MB,
             blob_expiration: 60 * 2,
             get_latency: 0,

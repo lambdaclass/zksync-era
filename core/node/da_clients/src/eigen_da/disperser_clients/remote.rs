@@ -34,11 +34,11 @@ fn keccak256(input: &[u8]) -> [u8; 32] {
     output
 }
 
-fn sign(challenge: u32, private_key: &SecretKey) -> Vec<u8> {
+fn sign(challenge: u32, private_key: &SecretKey) -> Result<Vec<u8>, anyhow::Error> {
     let mut buf = [0u8; 4];
     BigEndian::write_u32(&mut buf, challenge);
     let hash = keccak256(&buf);
-    let message = Message::from_slice(&hash).unwrap();
+    let message = Message::from_slice(&hash)?;
     let secp = Secp256k1::signing_only();
     let recoverable_sig = secp.sign_ecdsa_recoverable(&message, private_key);
 
@@ -50,7 +50,7 @@ fn sign(challenge: u32, private_key: &SecretKey) -> Vec<u8> {
     full_signature[..64].copy_from_slice(&sig_bytes);
     full_signature[64] = recovery_id.to_i32() as u8; // Append the recovery ID as the last byte
 
-    full_signature.to_vec()
+    Ok(full_signature.to_vec())
 }
 
 impl RemoteClient {
@@ -103,7 +103,7 @@ impl RemoteClient {
                 payload: Some(
                     disperser::authenticated_request::Payload::AuthenticationData(
                         AuthenticationData {
-                            authentication_data: sign(challenge, private_key),
+                            authentication_data: sign(challenge, private_key)?,
                         },
                     ),
                 ),
@@ -134,7 +134,10 @@ impl RemoteClient {
         let secp = Secp256k1::new();
         let secret_key =
             SecretKey::from_str(self.config.account_id.clone().unwrap_or_default().as_str())
-                .unwrap();
+                .map_err(|_| DAError {
+                    error: anyhow!("Failed to parse secret key"),
+                    is_retriable: false,
+                })?;
         let public_key = PublicKey::from_secret_key(&secp, &secret_key);
         let account_id = "0x".to_string() + &hex::encode(public_key.serialize_uncompressed());
         let custom_quorum_numbers = self
@@ -146,7 +149,10 @@ impl RemoteClient {
         let reply = self
             .authentication(blob_data, custom_quorum_numbers, account_id, &secret_key)
             .await
-            .unwrap();
+            .map_err(|_| DAError {
+                error: anyhow!("Failed to authenticate blob"),
+                is_retriable: false,
+            })?;
 
         if self.result_to_status(reply.result) == disperser::BlobStatus::Failed {
             return Err(DAError {
@@ -387,8 +393,14 @@ impl RemoteClient {
         &self,
         blob_id: &str,
     ) -> anyhow::Result<Option<types::InclusionData>, types::DAError> {
-        let rlp_encoded_bytes = hex::decode(blob_id).unwrap();
-        let blob_info: BlobInfo = rlp::decode(&rlp_encoded_bytes).unwrap();
+        let rlp_encoded_bytes = hex::decode(blob_id).map_err(|_| DAError {
+            error: anyhow!("Failed to decode blob_id"),
+            is_retriable: false,
+        })?;
+        let blob_info: BlobInfo = rlp::decode(&rlp_encoded_bytes).map_err(|_| DAError {
+            error: anyhow!("Failed to decode blob_info"),
+            is_retriable: false,
+        })?;
         let inclusion_data = blob_info.blob_verification_proof.inclusion_proof;
         Ok(Some(types::InclusionData {
             data: inclusion_data,

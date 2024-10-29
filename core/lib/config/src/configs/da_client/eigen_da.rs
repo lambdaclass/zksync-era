@@ -9,8 +9,6 @@ pub enum EigenDAConfig {
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Default)]
 pub struct MemStoreConfig {
-    pub custom_quorum_numbers: Option<Vec<u32>>, // todo: This should be removed once eigenda proxy is no longer used
-    pub account_id: Option<String>, // todo: This should be removed once eigenda proxy is no longer used
     pub max_blob_size_bytes: u64,
     /// Blob expiration time in seconds
     pub blob_expiration: u64,

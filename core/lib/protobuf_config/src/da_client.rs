@@ -39,8 +39,6 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 let eigenda_config = match config {
                     proto::eigen_da_config::Config::MemStore(conf) => {
                         EigenDAConfig::MemStore(MemStoreConfig {
-                            custom_quorum_numbers: Some(conf.custom_quorum_numbers.clone()),
-                            account_id: conf.account_id.clone(),
                             max_blob_size_bytes: required(&conf.max_blob_size_bytes)
                                 .context("max_blob_size_bytes")?
                                 .clone(),
@@ -120,11 +118,6 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                         proto::EigenDaConfig {
                             config: Some(proto::eigen_da_config::Config::MemStore(
                                 proto::MemStoreConfig {
-                                    custom_quorum_numbers: config
-                                        .custom_quorum_numbers
-                                        .clone()
-                                        .unwrap_or_default(),
-                                    account_id: config.account_id.clone(),
                                     max_blob_size_bytes: Some(config.max_blob_size_bytes),
                                     blob_expiration: Some(config.blob_expiration),
                                     get_latency: Some(config.get_latency),
