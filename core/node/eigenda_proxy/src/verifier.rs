@@ -24,33 +24,21 @@ use crate::{
 
 #[derive(Debug)]
 pub enum VerificationError {
+    ServiceManagerError,
+    WrongUrl,
+    KzgError,
     WrongProof,
 }
 
-/// Processes the Merkle root proof
-pub fn process_inclusion_proof(
-    proof: &[u8],
-    leaf: &[u8],
-    index: u64,
-) -> Result<Vec<u8>, VerificationError> {
-    todo!()
-}
-
 pub struct VerifierConfig {
-    // kzg_config: KzgConfig,
     verify_certs: bool,
     rpc_url: String,
     svc_manager_addr: String,
-    eth_confirmation_depth: u64,
+    max_blob_size: u32,
 }
 
 pub struct Verifier {
-    g1: Vec<G1Affine>,
     kzg: Kzg,
-    verify_certs: bool,  // TODO: change this.
-    cert_verifier: bool, // TODO: change this.
-    eth_client:
-        RootProvider<alloy::transports::http::Http<alloy::transports::http::Client>, Ethereum>,
     eigenda_svc_manager: EigenDAServiceManager::EigenDAServiceManagerInstance<
         alloy::transports::http::Http<alloy::transports::http::Client>,
         RootProvider<alloy::transports::http::Http<alloy::transports::http::Client>>,
@@ -59,52 +47,40 @@ pub struct Verifier {
 }
 
 impl Verifier {
-    pub fn new(cfg: VerifierConfig) -> Self {
-        let srs_points_to_load = 2097152 / 32; // 2 Mb / 32 (Max blob size)
+    pub fn new(cfg: VerifierConfig) -> Result<Self, VerificationError> {
+        let srs_points_to_load = cfg.max_blob_size / 32;
         let kzg = Kzg::setup(
             "./resources/g1.point",
             "",
             "./resources/g2.point.powerOf2",
-            268435456,
+            268435456, // 2 ^ 32
             srs_points_to_load,
             "".to_string(),
         );
-        let kzg = kzg.unwrap();
-        let g1: Vec<G1Affine> = kzg.get_g1_points();
-        let cert_verifier = if cfg.verify_certs {
-            false
-            // TODO: create CertVerifier
-        } else {
-            true
-        };
-        // TODO: create new kzg verifier
-        // let kzg_verifier = todo!();
-        //
-        let url = alloy::transports::http::reqwest::Url::from_str(&cfg.rpc_url).unwrap();
+        let kzg = kzg.map_err(|_| VerificationError::KzgError)?;
+        let url = alloy::transports::http::reqwest::Url::from_str(&cfg.rpc_url)
+            .map_err(|_| VerificationError::WrongUrl)?;
         let provider: RootProvider<
             alloy::transports::http::Http<alloy::transports::http::Client>,
             Ethereum,
         > = RootProvider::new_http(url);
 
-        let svc_manager_addr = alloy::primitives::Address::from_str(&cfg.svc_manager_addr).unwrap();
+        let svc_manager_addr = alloy::primitives::Address::from_str(&cfg.svc_manager_addr)
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let eigenda_svc_manager = EigenDAServiceManager::new(svc_manager_addr, provider.clone());
-        Self {
-            g1,
+        let eigenda_svc_manager = EigenDAServiceManager::new(svc_manager_addr, provider);
+        Ok(Self {
             kzg,
-            verify_certs: false,
-            cert_verifier: false,
-            eth_client: provider,
             eigenda_svc_manager,
             cfg,
-        }
+        })
     }
 
-    fn commit(&self, blob: Vec<u8>) -> G1Affine {
+    fn commit(&self, blob: Vec<u8>) -> Result<G1Affine, VerificationError> {
         let blob = Blob::from_bytes_and_pad(&blob.to_vec());
         self.kzg
             .blob_to_kzg_commitment(&blob, PolynomialFormat::InEvaluationForm)
-            .unwrap()
+            .map_err(|_| VerificationError::KzgError)
     }
 
     pub fn verify_commitment(
@@ -112,7 +88,7 @@ impl Verifier {
         expected_commitment: G1Commitment,
         blob: Vec<u8>,
     ) -> Result<(), VerificationError> {
-        let actual_commitment = self.commit(blob);
+        let actual_commitment = self.commit(blob)?;
         let expected_commitment = G1Affine::new_unchecked(
             Fq::from(num_bigint::BigUint::from_bytes_be(&expected_commitment.x)),
             Fq::from(num_bigint::BigUint::from_bytes_be(&expected_commitment.y)),
@@ -187,7 +163,7 @@ impl Verifier {
         Ok(computed_hash)
     }
 
-    pub fn verify_merkle_proof(&self, cert: BlobInfo) -> Result<(), VerificationError> {
+    fn verify_merkle_proof(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let inclusion_proof = cert.blob_verification_proof.inclusion_proof;
         let root = cert
             .blob_verification_proof
@@ -249,13 +225,13 @@ impl Verifier {
         hash.to_vec()
     }
 
-    pub async fn verify_batch(&self, cert: BlobInfo) -> Result<(), VerificationError> {
+    async fn verify_batch(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let expected_hash = self
             .eigenda_svc_manager
             .batchIdToBatchMetadataHash(cert.blob_verification_proof.batch_id)
             .call()
             .await
-            .unwrap()
+            .map_err(|_| VerificationError::ServiceManagerError)?
             ._0
             .to_vec();
 
@@ -279,21 +255,24 @@ impl Verifier {
         Ok(())
     }
 
-    async fn get_quorum_adversary_threshold(&self, quorum_number: u32) -> u8 {
+    async fn get_quorum_adversary_threshold(
+        &self,
+        quorum_number: u32,
+    ) -> Result<u8, VerificationError> {
         let percentages = self
             .eigenda_svc_manager
             .quorumAdversaryThresholdPercentages()
             .call()
             .await
-            .unwrap()
+            .map_err(|_| VerificationError::ServiceManagerError)?
             ._0;
         if percentages.len() > quorum_number as usize {
-            return percentages[quorum_number as usize];
+            return Ok(percentages[quorum_number as usize]);
         }
-        0
+        Ok(0)
     }
 
-    pub async fn verify_security_params(&self, cert: BlobInfo) -> Result<(), VerificationError> {
+    async fn verify_security_params(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let blob_header = cert.blob_header;
         let batch_header = cert.blob_verification_proof.batch_medatada.batch_header;
 
@@ -311,7 +290,7 @@ impl Verifier {
             }
             let quorum_adversary_threshold = self
                 .get_quorum_adversary_threshold(blob_header.blob_quorum_params[i].quorum_number)
-                .await;
+                .await?;
 
             if quorum_adversary_threshold > 0
                 && blob_header.blob_quorum_params[i].adversary_threshold_percentage
@@ -334,7 +313,7 @@ impl Verifier {
             .quorumNumbersRequired()
             .call()
             .await
-            .unwrap()
+            .map_err(|_| VerificationError::ServiceManagerError)?
             ._0
             .to_vec();
 
@@ -347,10 +326,13 @@ impl Verifier {
     }
 
     pub async fn verify_certificate(&self, cert: BlobInfo) -> Result<(), VerificationError> {
+        if !self.cfg.verify_certs {
+            return Ok(());
+        }
         self.verify_batch(cert.clone()).await?;
         self.verify_merkle_proof(cert.clone())?;
         self.verify_security_params(cert.clone()).await?;
-        todo!()
+        Ok(())
     }
 }
 
@@ -364,11 +346,12 @@ mod test {
     #[test]
     fn test_verify_commitment() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: false,
+            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "".to_string(),
-            eth_confirmation_depth: 0,
-        });
+            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
+            max_blob_size: 2 * 1024 * 1024,
+        })
+        .unwrap();
         let commitment = super::G1Commitment {
             x: vec![
                 22, 11, 176, 29, 82, 48, 62, 49, 51, 119, 94, 17, 156, 142, 248, 96, 240, 183, 134,
@@ -387,11 +370,12 @@ mod test {
     #[test]
     fn test_verify_merkle_proof() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: false,
+            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "".to_string(),
-            eth_confirmation_depth: 0,
-        });
+            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
+            max_blob_size: 2 * 1024 * 1024,
+        })
+        .unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -471,11 +455,12 @@ mod test {
     #[test]
     fn test_hash_blob_header() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: false,
+            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "".to_string(),
-            eth_confirmation_depth: 0,
-        });
+            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
+            max_blob_size: 2 * 1024 * 1024,
+        })
+        .unwrap();
         let blob_header = BlobHeader {
             commitment: G1Commitment {
                 x: vec![
@@ -511,11 +496,12 @@ mod test {
     #[test]
     fn test_inclusion_proof() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: false,
+            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "".to_string(),
-            eth_confirmation_depth: 0,
-        });
+            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
+            max_blob_size: 2 * 1024 * 1024,
+        })
+        .unwrap();
 
         let proof = hex::decode("c455c1ea0e725d7ea3e5f29e9f48be8fc2787bb0a914d5a86710ba302c166ac4f626d76f67f1055bb960a514fb8923af2078fd84085d712655b58a19612e8cd15c3e4ac1cef57acde3438dbcf63f47c9fefe1221344c4d5c1a4943dd0d1803091ca81a270909dc0e146841441c9bd0e08e69ce6168181a3e4060ffacf3627480bec6abdd8d7bb92b49d33f180c42f49e041752aaded9c403db3a17b85e48a11e9ea9a08763f7f383dab6d25236f1b77c12b4c49c5cdbcbea32554a604e3f1d2f466851cb43fe73617b3d01e665e4c019bf930f92dea7394c25ed6a1e200d051fb0c30a2193c459f1cfef00bf1ba6656510d16725a4d1dc031cb759dbc90bab427b0f60ddc6764681924dda848824605a4f08b7f526fe6bd4572458c94e83fbf2150f2eeb28d3011ec921996dc3e69efa52d5fcf3182b20b56b5857a926aa66605808079b4d52c0c0cfe06923fa92e65eeca2c3e6126108e8c1babf5ac522f4d7").unwrap();
         let leaf = hex::decode("f6106e6ae4631e68abe0fa898cedbe97dbae6c7efb1b088c5aa2e8b91190ff96")
@@ -534,11 +520,12 @@ mod test {
     #[tokio::test]
     async fn test_verify_batch() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: false,
+            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            eth_confirmation_depth: 0,
-        });
+            max_blob_size: 2 * 1024 * 1024,
+        })
+        .unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -618,11 +605,12 @@ mod test {
     #[tokio::test]
     async fn test_verify_security_params() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: false,
+            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            eth_confirmation_depth: 0,
-        });
+            max_blob_size: 2 * 1024 * 1024,
+        })
+        .unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
