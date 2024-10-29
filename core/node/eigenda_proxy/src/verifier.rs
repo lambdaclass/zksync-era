@@ -8,7 +8,11 @@ use alloy::{
 };
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, Token};
-use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
+use rust_kzg_bn254::{
+    blob::{self, Blob},
+    kzg::Kzg,
+    polynomial::PolynomialFormat,
+};
 use sha3::{Digest, Keccak256};
 use tiny_keccak::{Hasher, Keccak};
 
@@ -275,9 +279,54 @@ impl Verifier {
         Ok(())
     }
 
+    async fn get_quorum_adversary_threshold(&self, quorum_number: u32) -> u8 {
+        let percentages = self
+            .eigenda_svc_manager
+            .quorumAdversaryThresholdPercentages()
+            .call()
+            .await
+            .unwrap()
+            ._0;
+        if percentages.len() > quorum_number as usize {
+            return percentages[quorum_number as usize];
+        }
+        0
+    }
+
+    pub async fn verify_security_params(&self, cert: BlobInfo) -> Result<(), VerificationError> {
+        let blob_header = cert.blob_header;
+        let batch_header = cert.blob_verification_proof.batch_medatada.batch_header;
+
+        let confirmed_quorums: Vec<bool> = vec![];
+        for i in 0..blob_header.blob_quorum_params.len() {
+            if batch_header.quorum_numbers[i] as u32
+                != blob_header.blob_quorum_params[i].quorum_number
+            {
+                return Err(VerificationError::WrongProof);
+            }
+            if blob_header.blob_quorum_params[i].adversary_threshold_percentage
+                > blob_header.blob_quorum_params[i].confirmation_threshold_percentage
+            {
+                return Err(VerificationError::WrongProof);
+            }
+            let quorum_adversary_threshold = self
+                .get_quorum_adversary_threshold(blob_header.blob_quorum_params[i].quorum_number)
+                .await;
+
+            if quorum_adversary_threshold > 0
+                && blob_header.blob_quorum_params[i].adversary_threshold_percentage
+                    < quorum_adversary_threshold as u32
+            {
+                return Err(VerificationError::WrongProof);
+            }
+        }
+        Ok(())
+    }
+
     pub async fn verify_certificate(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         self.verify_batch(cert.clone()).await?;
         self.verify_merkle_proof(cert.clone())?;
+        self.verify_security_params(cert.clone())?;
         todo!()
     }
 }
