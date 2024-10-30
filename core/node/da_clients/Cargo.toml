@@ -53,3 +53,8 @@ tonic = { version = "0.12.1", features = ["tls", "channel", "tls-native-roots"]}
 reqwest = { version = "0.12" }
 http = "1"
 kzgpad-rs = { git = "https://github.com/Layr-Labs/kzgpad-rs.git", tag = "v0.1.0" }
+alloy = { version = "0.3", features = ["full"] }
+ethabi = "16.0.0"
+rust-kzg-bn254 = {git = "https://github.com/lambdaclass/rust-kzg-bn254", branch = "bump-ark"}
+ark-bn254 = "0.5.0-alpha.0"
+num-bigint = "0.4.6"

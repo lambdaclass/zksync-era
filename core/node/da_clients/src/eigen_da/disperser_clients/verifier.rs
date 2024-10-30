@@ -16,9 +16,8 @@ use rust_kzg_bn254::{
 use sha3::{Digest, Keccak256};
 use tiny_keccak::{Hasher, Keccak};
 
-use crate::{
-    blob_info::{BatchHeader, BlobHeader, BlobInfo},
-    common::G1Commitment,
+use super::{
+    blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment},
     eigendaservicemanager::EigenDAServiceManager,
 };
 
@@ -338,7 +337,7 @@ impl Verifier {
 
 #[cfg(test)]
 mod test {
-    use crate::blob_info::{
+    use crate::eigen_da::disperser_clients::blob_info::{
         BatchHeader, BatchMetadata, BlobHeader, BlobInfo, BlobQuorumParam, BlobVerificationProof,
         G1Commitment,
     };
@@ -352,7 +351,7 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
         })
         .unwrap();
-        let commitment = super::G1Commitment {
+        let commitment = G1Commitment {
             x: vec![
                 22, 11, 176, 29, 82, 48, 62, 49, 51, 119, 94, 17, 156, 142, 248, 96, 240, 183, 134,
                 85, 152, 5, 74, 27, 175, 83, 162, 148, 17, 110, 201, 74,
