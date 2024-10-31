@@ -142,7 +142,7 @@ mod test {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
             eth_confirmation_depth: -1,
             eigenda_eth_rpc: String::default(),
-            eigenda_svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
+            eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             blob_size_limit: 2 * 1024 * 1024, // 2MB
             status_query_timeout: 1800,       // 30 minutes
             status_query_interval: 5,         // 5 seconds
@@ -178,7 +178,7 @@ mod test {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
             eth_confirmation_depth: -1,
             eigenda_eth_rpc: String::default(),
-            eigenda_svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
+            eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             blob_size_limit: 2 * 1024 * 1024, // 2MB
             status_query_timeout: 1800,       // 30 minutes
             status_query_interval: 5,         // 5 seconds

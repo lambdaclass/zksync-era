@@ -38,7 +38,7 @@ da_client:
       disperser_rpc: <your_desired_disperser>
       eth_confirmation_depth: -1
       eigenda_eth_rpc: <your_desired_rpc>
-      eigenda_svc_manager_addr: '0xD4A7E1Bd8015057293f0D0A557088c286942e84b'
+      eigenda_svc_manager_address: '0xD4A7E1Bd8015057293f0D0A557088c286942e84b'
       blob_size_limit: 2097152
       status_query_timeout: 1800
       status_query_interval: 5

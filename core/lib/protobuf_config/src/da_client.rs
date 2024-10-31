@@ -95,9 +95,11 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                             eigenda_eth_rpc: required(&conf.eigenda_eth_rpc)
                                 .context("eigenda_eth_rpc")?
                                 .clone(),
-                            eigenda_svc_manager_addr: required(&conf.eigenda_svc_manager_addr)
-                                .context("eigenda_svc_manager_addr")?
-                                .clone(),
+                            eigenda_svc_manager_address: required(
+                                &conf.eigenda_svc_manager_address,
+                            )
+                            .context("eigenda_svc_manager_address")?
+                            .clone(),
                             blob_size_limit: required(&conf.blob_size_limit)
                                 .context("blob_size_limit")?
                                 .clone(),
@@ -183,8 +185,8 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                                 disperser_rpc: Some(config.disperser_rpc.clone()),
                                 eth_confirmation_depth: Some(config.eth_confirmation_depth),
                                 eigenda_eth_rpc: Some(config.eigenda_eth_rpc.clone()),
-                                eigenda_svc_manager_addr: Some(
-                                    config.eigenda_svc_manager_addr.clone(),
+                                eigenda_svc_manager_address: Some(
+                                    config.eigenda_svc_manager_address.clone(),
                                 ),
                                 blob_size_limit: Some(config.blob_size_limit),
                                 status_query_timeout: Some(config.status_query_timeout),

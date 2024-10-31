@@ -25,7 +25,7 @@ pub struct DisperserConfig {
     pub disperser_rpc: String,
     pub eth_confirmation_depth: i32,
     pub eigenda_eth_rpc: String,
-    pub eigenda_svc_manager_addr: String,
+    pub eigenda_svc_manager_address: String,
     pub blob_size_limit: u64,
     pub status_query_timeout: u64,
     pub status_query_interval: u64,
