@@ -23,6 +23,7 @@ pub struct RawEigenClient {
     polling_interval: Duration,
     private_key: SecretKey,
     account_id: String,
+    authenticated_dispersal: bool,
 }
 
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
@@ -34,6 +35,7 @@ impl RawEigenClient {
         rpc_node_url: String,
         inclusion_polling_interval_ms: u64,
         private_key: SecretKey,
+        authenticated_dispersal: bool,
     ) -> anyhow::Result<Self> {
         let endpoint =
             Endpoint::from_str(rpc_node_url.as_str())?.tls_config(ClientTlsConfig::new())?;
@@ -49,10 +51,34 @@ impl RawEigenClient {
             polling_interval,
             private_key,
             account_id,
+            authenticated_dispersal,
         })
     }
 
-    pub async fn dispatch_blob(&self, data: Vec<u8>) -> anyhow::Result<String> {
+    async fn dispatch_blob_non_authenticated(&self, data: Vec<u8>) -> anyhow::Result<String> {
+        let padded_data = convert_by_padding_empty_byte(&data);
+        let request = disperser::DisperseBlobRequest {
+            data: padded_data,
+            custom_quorum_numbers: vec![],
+            account_id: String::default(), // Account Id is not used in non-authenticated mode
+        };
+
+        let mut client_clone = self.client.clone();
+        let disperse_reply = client_clone.disperse_blob(request).await?.into_inner();
+
+        let verification_proof = self
+            .await_for_inclusion(client_clone, disperse_reply)
+            .await?;
+        let blob_id = format!(
+            "{}:{}",
+            verification_proof.batch_id, verification_proof.blob_index
+        );
+        tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
+
+        Ok(blob_id)
+    }
+
+    async fn dispatch_blob_authenticated(&self, data: Vec<u8>) -> anyhow::Result<String> {
         let mut client_clone = self.client.clone();
         let (tx, rx) = mpsc::channel(Self::BUFFER_SIZE);
 
@@ -96,6 +122,13 @@ impl RawEigenClient {
         tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
 
         Ok(blob_id)
+    }
+
+    pub async fn dispatch_blob(&self, data: Vec<u8>) -> anyhow::Result<String> {
+        match self.authenticated_dispersal {
+            true => self.dispatch_blob_authenticated(data).await,
+            false => self.dispatch_blob_non_authenticated(data).await,
+        }
     }
 
     async fn disperse_data(

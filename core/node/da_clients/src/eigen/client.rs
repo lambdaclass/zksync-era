@@ -28,6 +28,7 @@ impl EigenClient {
                     config.rpc_node_url,
                     config.inclusion_polling_interval_ms,
                     private_key,
+                    config.authenticated_dispersal,
                 )
                 .await?,
             ),

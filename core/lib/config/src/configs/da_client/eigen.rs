@@ -5,6 +5,7 @@ use zksync_basic_types::secrets::PrivateKey;
 pub struct EigenConfig {
     pub rpc_node_url: String,
     pub inclusion_polling_interval_ms: u64,
+    pub authenticated_dispersal: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]

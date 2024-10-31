@@ -226,4 +226,3 @@ Note that:
 ```bash
 git submodule update --init --recursive && zkstack dev contracts
 ```
-

@@ -39,6 +39,7 @@ message CelestiaConfig {
 message EigenConfig {
   optional string rpc_node_url = 1;
   optional uint64 inclusion_polling_interval_ms = 2;
+  optional bool authenticated_dispersal = 3;
 }
 
 message DataAvailabilityClient {

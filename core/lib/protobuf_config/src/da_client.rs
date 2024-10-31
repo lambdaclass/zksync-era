@@ -58,6 +58,8 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                     .clone(),
                 inclusion_polling_interval_ms: *required(&conf.inclusion_polling_interval_ms)
                     .context("inclusion_polling_interval_ms")?,
+                authenticated_dispersal: *required(&conf.authenticated_dispersal)
+                    .context("authenticated_dispersal")?,
             }),
             proto::data_availability_client::Config::ObjectStore(conf) => {
                 ObjectStore(object_store_proto::ObjectStore::read(conf)?)
@@ -98,6 +100,7 @@ impl ProtoRepr for proto::DataAvailabilityClient {
             Eigen(config) => proto::data_availability_client::Config::Eigen(proto::EigenConfig {
                 rpc_node_url: Some(config.rpc_node_url.clone()),
                 inclusion_polling_interval_ms: Some(config.inclusion_polling_interval_ms),
+                authenticated_dispersal: Some(config.authenticated_dispersal),
             }),
             ObjectStore(config) => proto::data_availability_client::Config::ObjectStore(
                 object_store_proto::ObjectStore::build(config),
