@@ -63,6 +63,9 @@ pub struct ProverAutoscalerScalerConfig {
     pub long_pending_duration: Duration,
     /// List of simple autoscaler targets.
     pub scaler_targets: Vec<ScalerTarget>,
+    /// If dry-run enabled don't send any scale requests.
+    #[serde(default)]
+    pub dry_run: bool,
 }
 
 #[derive(
@@ -97,7 +100,7 @@ pub enum Gpu {
 
 // TODO: generate this enum by QueueReport from https://github.com/matter-labs/zksync-era/blob/main/prover/crates/bin/prover_job_monitor/src/autoscaler_queue_reporter.rs#L23
 // and remove allowing of non_camel_case_types by generating field name parser.
-#[derive(Debug, Display, PartialEq, Eq, Hash, Clone, Deserialize, EnumString, Default)]
+#[derive(Debug, Display, PartialEq, Eq, Hash, Clone, Copy, Deserialize, EnumString, Default)]
 #[allow(non_camel_case_types)]
 pub enum QueueReportFields {
     #[strum(ascii_case_insensitive)]
@@ -122,7 +125,7 @@ pub enum QueueReportFields {
 #[derive(Debug, Clone, PartialEq, Deserialize, Default)]
 pub struct ScalerTarget {
     pub queue_report_field: QueueReportFields,
-    pub pod_name_prefix: String,
+    pub deployment: String,
     /// Max replicas per cluster.
     pub max_replicas: HashMap<String, usize>,
     /// The queue will be divided by the speed and rounded up to get number of replicas.
