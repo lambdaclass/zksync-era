@@ -1,4 +1,4 @@
-use zksync_config::configs::da_client::eigen_da::EigenDAConfig;
+use zksync_config::configs::da_client::{eigen::EigenSecrets, eigen_da::EigenDAConfig};
 use zksync_da_client::DataAvailabilityClient;
 use zksync_da_clients::eigen_da::EigenDAClient;
 
@@ -11,11 +11,12 @@ use crate::{
 #[derive(Debug)]
 pub struct EigenDAWiringLayer {
     config: EigenDAConfig,
+    secrets: EigenSecrets,
 }
 
 impl EigenDAWiringLayer {
-    pub fn new(config: EigenDAConfig) -> Self {
-        Self { config }
+    pub fn new(config: EigenDAConfig, secrets: EigenSecrets) -> Self {
+        Self { config, secrets }
     }
 }
 
@@ -36,7 +37,7 @@ impl WiringLayer for EigenDAWiringLayer {
 
     async fn wire(self, _: Self::Input) -> Result<Self::Output, WiringError> {
         let client: Box<dyn DataAvailabilityClient> =
-            Box::new(EigenDAClient::new(self.config).await?);
+            Box::new(EigenDAClient::new(self.config, self.secrets).await?);
 
         Ok(Self::Output {
             client: DAClientResource(client),

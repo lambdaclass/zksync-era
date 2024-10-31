@@ -24,6 +24,7 @@ use super::{
 pub struct RemoteClient {
     pub disperser: Arc<Mutex<DisperserClient<Channel>>>,
     pub config: DisperserConfig,
+    pub private_key: SecretKey,
 }
 
 fn keccak256(input: &[u8]) -> [u8; 32] {
@@ -72,7 +73,6 @@ impl RemoteClient {
         blob_data: Vec<u8>,
         custom_quorum_numbers: Vec<u32>,
         account_id: String,
-        private_key: &SecretKey,
     ) -> Result<disperser::DisperseBlobReply, anyhow::Error> {
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<AuthenticatedRequest>();
         let request = AuthenticatedRequest {
@@ -103,7 +103,7 @@ impl RemoteClient {
                 payload: Some(
                     disperser::authenticated_request::Payload::AuthenticationData(
                         AuthenticationData {
-                            authentication_data: sign(challenge, private_key)?,
+                            authentication_data: sign(challenge, &self.private_key)?,
                         },
                     ),
                 ),
@@ -132,13 +132,7 @@ impl RemoteClient {
         blob_data: Vec<u8>,
     ) -> Result<types::DispatchResponse, types::DAError> {
         let secp = Secp256k1::new();
-        let secret_key =
-            SecretKey::from_str(self.config.account_id.clone().unwrap_or_default().as_str())
-                .map_err(|_| DAError {
-                    error: anyhow!("Failed to parse secret key"),
-                    is_retriable: false,
-                })?;
-        let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+        let public_key = PublicKey::from_secret_key(&secp, &self.private_key);
         let account_id = "0x".to_string() + &hex::encode(public_key.serialize_uncompressed());
         let custom_quorum_numbers = self
             .config
@@ -147,7 +141,7 @@ impl RemoteClient {
             .unwrap_or_default();
 
         let reply = self
-            .authentication(blob_data, custom_quorum_numbers, account_id, &secret_key)
+            .authentication(blob_data, custom_quorum_numbers, account_id)
             .await
             .map_err(|_| DAError {
                 error: anyhow!("Failed to authenticate blob"),
@@ -264,7 +258,6 @@ impl RemoteClient {
             .custom_quorum_numbers
             .clone()
             .unwrap_or_default();
-        let account_id = self.config.account_id.clone().unwrap_or_default();
         let reply = self
             .disperser
             .lock()
@@ -272,7 +265,7 @@ impl RemoteClient {
             .disperse_blob(DisperseBlobRequest {
                 data: blob_data,
                 custom_quorum_numbers,
-                account_id,
+                account_id: "".to_string(),
             })
             .await
             .map_err(|e| DAError {

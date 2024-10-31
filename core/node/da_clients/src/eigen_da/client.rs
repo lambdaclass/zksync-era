@@ -1,9 +1,11 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
+use secp256k1::SecretKey;
+use subxt_signer::ExposeSecret;
 use tokio::sync::Mutex;
 use tonic::transport::{Channel, ClientTlsConfig};
-use zksync_config::configs::da_client::eigen_da::EigenDAConfig;
+use zksync_config::configs::da_client::{eigen::EigenSecrets, eigen_da::EigenDAConfig};
 use zksync_da_client::{
     types::{self},
     DataAvailabilityClient,
@@ -22,7 +24,7 @@ pub struct EigenDAClient {
 impl EigenDAClient {
     pub const BLOB_SIZE_LIMIT_IN_BYTES: usize = 2 * 1024 * 1024; // 2MB
 
-    pub async fn new(config: EigenDAConfig) -> anyhow::Result<Self> {
+    pub async fn new(config: EigenDAConfig, secrets: EigenSecrets) -> anyhow::Result<Self> {
         let disperser: Disperser = match config.clone() {
             EigenDAConfig::Disperser(config) => {
                 match rustls::crypto::ring::default_provider().install_default() {
@@ -33,7 +35,14 @@ impl EigenDAClient {
                 let inner = Channel::builder(config.disperser_rpc.parse()?)
                     .tls_config(ClientTlsConfig::new())?;
                 let disperser = Arc::new(Mutex::new(DisperserClient::connect(inner).await?));
-                Disperser::Remote(RemoteClient { disperser, config })
+                let private_key =
+                    SecretKey::from_str(secrets.private_key.0.expose_secret().as_str())
+                        .map_err(|e| anyhow::anyhow!("Failed to parse private key: {}", e))?;
+                Disperser::Remote(RemoteClient {
+                    disperser,
+                    config,
+                    private_key,
+                })
             }
             EigenDAConfig::MemStore(config) => Disperser::Memory(MemStore::new(config)),
         };
@@ -102,7 +111,11 @@ pub fn to_non_retriable_error(error: anyhow::Error) -> types::DAError {
 
 #[cfg(test)]
 mod test {
-    use zksync_config::configs::da_client::eigen_da::{DisperserConfig, MemStoreConfig};
+    use zksync_config::configs::{
+        consensus::Secret,
+        da_client::eigen_da::{DisperserConfig, MemStoreConfig},
+    };
+    use zksync_types::secrets::PrivateKey;
 
     use super::*;
     use crate::eigen_da::disperser_clients::blob_info::BlobInfo;
@@ -138,7 +151,6 @@ mod test {
     async fn test_eigenda_remote_disperser_non_authenticated() {
         let config = EigenDAConfig::Disperser(DisperserConfig {
             custom_quorum_numbers: None,
-            account_id: None,
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
             eth_confirmation_depth: -1,
             eigenda_eth_rpc: String::default(),
@@ -149,7 +161,13 @@ mod test {
             wait_for_finalization: false,
             authenticaded: false,
         });
-        let client = EigenDAClient::new(config).await.unwrap();
+        let secrets = EigenSecrets {
+            private_key: PrivateKey::from_str(
+                "3957dbf2beff0cc8163b8068164502da9d739f22e9922338b178b59406124600",
+            )
+            .unwrap(),
+        };
+        let client = EigenDAClient::new(config, secrets).await.unwrap();
         let data = vec![1u8; 100];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
 
@@ -172,9 +190,6 @@ mod test {
     async fn test_eigenda_remote_disperser_authenticated() {
         let config = EigenDAConfig::Disperser(DisperserConfig {
             custom_quorum_numbers: None,
-            account_id: Some(
-                "3957dbf2beff0cc8163b8068164502da9d739f22e9922338b178b59406124600".to_string(),
-            ),
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
             eth_confirmation_depth: -1,
             eigenda_eth_rpc: String::default(),
@@ -185,7 +200,13 @@ mod test {
             wait_for_finalization: false,
             authenticaded: true,
         });
-        let client = EigenDAClient::new(config).await.unwrap();
+        let secrets = EigenSecrets {
+            private_key: PrivateKey::from_str(
+                "3957dbf2beff0cc8163b8068164502da9d739f22e9922338b178b59406124600",
+            )
+            .unwrap(),
+        };
+        let client = EigenDAClient::new(config, secrets).await.unwrap();
         let data = vec![1u8; 100];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
 

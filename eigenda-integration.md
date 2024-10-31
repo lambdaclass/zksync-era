@@ -54,16 +54,16 @@ max_pubdata_per_batch: 2097152
 
 ## Local Setup
 
-1. Install `zk_inception` & `zk_supervisor`
+1. Install `zkstack`
 
 ```bash
-./bin/zkt
+cargo install --path zkstack_cli/crates/zkstack --force --locked
 ```
 
 2. Start containers
 
 ```bash
-zk_inception containers --observability true
+zkstack containers --observability true
 ```
 
 3. Add EigenDA Dashboard
@@ -75,7 +75,7 @@ mv era-observability/additional_dashboards/EigenDA.json era-observability/dashbo
 3. Create `eigen_da` chain
 
 ```bash
-zk_inception chain create \
+zkstack chain create \
           --chain-name eigen_da \
           --chain-id sequential \
           --prover-mode no-proofs \
@@ -90,7 +90,7 @@ zk_inception chain create \
 4. Initialize created ecosystem
 
 ```bash
-zk_inception ecosystem init \
+zkstack ecosystem init \
           --deploy-paymaster true \
           --deploy-erc20 true \
           --deploy-ecosystem true \
@@ -106,7 +106,7 @@ You may enable observability here if you want to.
 5. Start the server
 
 ```bash
-zk_inception server --chain eigen_da
+zkstack server --chain eigen_da
 ```
 
 ### Testing
@@ -121,7 +121,7 @@ And with the server running on one terminal, you can run the server integration 
 following command:
 
 ```bash
-zk_supervisor test integration --chain eigen_da
+zkstack dev test --chain eigen_da
 ```
 
 ### Metrics
@@ -141,7 +141,7 @@ L1Network::Localhost => 17000,
 Then recompile the zk toolbox:
 
 ```bash
-./bin/zkt
+cargo install --path zkstack_cli/crates/zkstack --force --locked
 ```
 
 ### Used wallets
@@ -160,7 +160,7 @@ Modify `etc/env/file_based/wallets.yaml` and `configs/wallets.yaml` with the fol
 (be sure to have postgres container running on the background)
 
 ```bash
-zk_inception chain create \
+zkstack chain create \
           --chain-name holesky_eigen_da \
           --chain-id 114411 \
           --prover-mode no-proofs \
@@ -171,7 +171,7 @@ zk_inception chain create \
           --base-token-price-denominator 1 \
           --set-as-default false
 
-zk_inception ecosystem init \
+zkstack ecosystem init \
           --deploy-paymaster true \
           --deploy-erc20 true \
           --deploy-ecosystem true \
@@ -187,7 +187,7 @@ zk_inception ecosystem init \
 ### Start the server
 
 ```bash
-zk_inception server --chain holesky_eigen_da
+zkstack server --chain holesky_eigen_da
 ```
 
 ## Backup and restoration
@@ -224,5 +224,5 @@ Note that:
 - If no ecosystem has been `init`ialized on this computer before, run this command:
 
 ```bash
-git submodule update --init --recursive && zk_supervisor contracts
+git submodule update --init --recursive && zkstack dev contracts
 ```

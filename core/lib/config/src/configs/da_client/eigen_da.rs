@@ -21,7 +21,6 @@ pub struct MemStoreConfig {
 #[derive(Clone, Debug, PartialEq, Deserialize, Default)]
 pub struct DisperserConfig {
     pub custom_quorum_numbers: Option<Vec<u32>>,
-    pub account_id: Option<String>,
     pub disperser_rpc: String,
     pub eth_confirmation_depth: i32,
     pub eigenda_eth_rpc: String,

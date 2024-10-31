@@ -526,8 +526,8 @@ impl MainNodeBuilder {
                 self.node
                     .add_layer(ObjectStorageClientWiringLayer::new(config));
             }
-            (DAClientConfig::EigenDA(config), _) => {
-                self.node.add_layer(EigenDAWiringLayer::new(config));
+            (DAClientConfig::EigenDA(config), DataAvailabilitySecrets::Eigen(secret)) => {
+                self.node.add_layer(EigenDAWiringLayer::new(config, secret));
             }
             _ => bail!("invalid pair of da_client and da_secrets"),
         }
