@@ -1,8 +1,10 @@
 use serde::Deserialize;
 use zksync_basic_types::secrets::PrivateKey;
 
-#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub const EIGEN_MEMSTORE_CLIENT_NAME: &str = "MemStore";
+pub const EIGEN_DISPERSER_CLIENT_NAME: &str = "Disperser";
 
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 pub enum EigenConfig {
     MemStore(MemStoreConfig),
     Disperser(DisperserConfig),
