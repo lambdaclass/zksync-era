@@ -422,8 +422,8 @@ impl TryFrom<DisperserBlobInfo> for BlobInfo {
 mod test {
     use super::*;
 
-    #[tokio::test]
-    async fn test_blob_info_encoding_and_decoding() {
+    #[test]
+    fn test_blob_info_encoding_and_decoding() {
         let blob_info = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
