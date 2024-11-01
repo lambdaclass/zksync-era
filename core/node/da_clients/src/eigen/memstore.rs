@@ -9,12 +9,9 @@ use rand::{rngs::OsRng, Rng, RngCore};
 use sha3::{Digest, Keccak256};
 use tokio::time::interval;
 use zksync_config::configs::da_client::eigen::MemStoreConfig;
-use zksync_da_client::types::{DAError, DispatchResponse, InclusionData};
+use zksync_da_client::types::{DAError, InclusionData};
 
-use super::{
-    blob_info::{self, BlobInfo},
-    client::to_retriable_error,
-};
+use super::blob_info::{self, BlobInfo};
 
 #[derive(Debug, PartialEq)]
 pub enum MemStoreError {
@@ -45,7 +42,7 @@ struct MemStoreData {
 
 #[derive(Clone, Debug)]
 pub struct MemStore {
-    config: MemStoreConfig,
+    pub config: MemStoreConfig,
     data: Arc<RwLock<MemStoreData>>,
 }
 
