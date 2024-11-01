@@ -77,13 +77,6 @@ impl EigenClient {
         }
     }
 }
-
-pub fn to_retriable_error(error: anyhow::Error) -> DAError {
-    DAError {
-        error,
-        is_retriable: true,
-    }
-}
 #[cfg(test)]
 mod tests {
     use zksync_config::configs::da_client::eigen::{DisperserConfig, MemStoreConfig};
