@@ -40,16 +40,19 @@ impl DataAvailabilityClient for EigenClient {
         _: u32, // batch number
         data: Vec<u8>,
     ) -> Result<DispatchResponse, DAError> {
-        match &self.client {
-            Disperser::Remote(remote_disperser) => {
-                let blob_id = remote_disperser
-                    .dispatch_blob(data)
-                    .await
-                    .map_err(to_non_retriable_da_error)?;
-                Ok(DispatchResponse::from(blob_id))
-            }
-            Disperser::Memory(memstore) => memstore.clone().store_blob(data).await,
-        }
+        let blob_id = match &self.client {
+            Disperser::Remote(remote_disperser) => remote_disperser
+                .dispatch_blob(data)
+                .await
+                .map_err(to_non_retriable_da_error)?,
+            Disperser::Memory(memstore) => memstore
+                .clone()
+                .put_blob(data)
+                .await
+                .map_err(to_non_retriable_da_error)?,
+        };
+
+        Ok(DispatchResponse::from(blob_id))
     }
 
     async fn get_inclusion_data(&self, _: &str) -> Result<Option<InclusionData>, DAError> {
