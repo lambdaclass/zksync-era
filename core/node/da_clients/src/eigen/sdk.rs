@@ -238,7 +238,6 @@ impl RawEigenClient {
                     return Err(anyhow::anyhow!("Insufficient signatures"))
                 }
                 disperser::BlobStatus::Confirmed => {
-                    println!("Blob dispatch confirmed");
                     if !self.config.wait_for_finalization {
                         let blob_info = resp
                             .info
