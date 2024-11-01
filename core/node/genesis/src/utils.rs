@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use zksync_contracts::BaseSystemContracts;
 use zksync_dal::{Connection, Core, CoreDal};
+use zksync_merkle_tree::{domain::ZkSyncTree, TreeInstruction};
 use zksync_multivm::{
     circuit_sequencer_api_latest::sort_storage_access::sort_storage_access_queries,
     zk_evm_latest::aux_structures::{LogQuery as MultiVmLogQuery, Timestamp as MultiVMTimestamp},
@@ -10,7 +11,7 @@ use zksync_multivm::{
 use zksync_system_constants::{DEFAULT_ERA_CHAIN_ID, ETHEREUM_ADDRESS};
 use zksync_types::{
     block::{DeployedContract, L1BatchTreeData},
-    commitment::L1BatchCommitment,
+    commitment::{CommitmentInput, L1BatchCommitment},
     get_code_key, get_known_code_key, get_system_context_init_logs,
     tokens::{TokenInfo, TokenMetadata},
     zk_evm_types::{LogQuery, Timestamp},
@@ -18,7 +19,7 @@ use zksync_types::{
 };
 use zksync_utils::{be_words_to_bytes, bytecode::hash_bytecode, h256_to_u256, u256_to_h256};
 
-use crate::GenesisError;
+use crate::{GenesisError, GenesisParams};
 
 pub(super) async fn add_eth_token(transaction: &mut Connection<'_, Core>) -> anyhow::Result<()> {
     assert!(transaction.in_transaction()); // sanity check
@@ -216,4 +217,39 @@ pub(super) async fn insert_system_contracts(
 
     transaction.commit().await?;
     Ok(())
+}
+
+pub(super) fn calculate_root_hash_and_commitment(
+    new_genesis_params: &GenesisParams,
+) -> (H256, L1BatchCommitment, u64) {
+    let deduped_log_queries =
+        get_deduped_log_queries(&get_storage_logs(new_genesis_params.system_contracts()));
+    let (deduplicated_writes, _): (Vec<_>, Vec<_>) = deduped_log_queries
+        .into_iter()
+        .partition(|log_query| log_query.rw_flag);
+
+    let storage_logs: Vec<TreeInstruction> = deduplicated_writes
+        .iter()
+        .enumerate()
+        .map(|(index, log)| {
+            TreeInstruction::write(
+                StorageKey::new(AccountTreeId::new(log.address), u256_to_h256(log.key))
+                    .hashed_key_u256(),
+                (index + 1) as u64,
+                u256_to_h256(log.written_value),
+            )
+        })
+        .collect();
+
+    let metadata = ZkSyncTree::process_genesis_batch(&storage_logs);
+    let genesis_root_hash = metadata.root_hash;
+    let rollup_last_leaf_index = metadata.leaf_count + 1;
+    let commitment_input = CommitmentInput::for_genesis_batch(
+        genesis_root_hash,
+        rollup_last_leaf_index,
+        new_genesis_params.base_system_contracts().hashes(),
+        new_genesis_params.minor_protocol_version(),
+    );
+    let block_commitment = L1BatchCommitment::new(commitment_input);
+    (genesis_root_hash, block_commitment, rollup_last_leaf_index)
 }
