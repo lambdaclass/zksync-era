@@ -25,7 +25,7 @@ impl fmt::Display for ConversionError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct G1Commitment {
     pub x: Vec<u8>,
     pub y: Vec<u8>,
@@ -69,7 +69,7 @@ impl From<DisperserG1Commitment> for G1Commitment {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BlobQuorumParam {
     pub quorum_number: u32,
     pub adversary_threshold_percentage: u32,
@@ -121,7 +121,7 @@ impl From<DisperserBlobQuorumParam> for BlobQuorumParam {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BlobHeader {
     pub commitment: G1Commitment,
     pub data_length: u32,
@@ -186,7 +186,7 @@ impl TryFrom<DisperserBlobHeader> for BlobHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BatchHeader {
     pub batch_root: Vec<u8>,
     pub quorum_numbers: Vec<u8>,
@@ -241,7 +241,7 @@ impl From<DisperserBatchHeader> for BatchHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BatchMetadata {
     pub batch_header: BatchHeader,
     pub signatory_record_hash: Vec<u8>,
@@ -302,7 +302,7 @@ impl TryFrom<DisperserBatchMetadata> for BatchMetadata {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BlobVerificationProof {
     pub batch_id: u32,
     pub blob_index: u32,
@@ -365,7 +365,7 @@ impl TryFrom<DisperserBlobVerificationProof> for BlobVerificationProof {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BlobInfo {
     pub blob_header: BlobHeader,
     pub blob_verification_proof: BlobVerificationProof,
@@ -415,5 +415,91 @@ impl TryFrom<DisperserBlobInfo> for BlobInfo {
                 value.blob_verification_proof.unwrap(),
             )?,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_blob_info_encoding_and_decoding() {
+        let blob_info = BlobInfo {
+            blob_header: BlobHeader {
+                commitment: G1Commitment {
+                    x: vec![
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0,
+                    ],
+                    y: vec![
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0,
+                    ],
+                },
+                data_length: 4,
+                blob_quorum_params: vec![
+                    BlobQuorumParam {
+                        quorum_number: 0,
+                        adversary_threshold_percentage: 33,
+                        confirmation_threshold_percentage: 55,
+                        chunk_length: 1,
+                    },
+                    BlobQuorumParam {
+                        quorum_number: 1,
+                        adversary_threshold_percentage: 33,
+                        confirmation_threshold_percentage: 55,
+                        chunk_length: 1,
+                    },
+                ],
+            },
+            blob_verification_proof: BlobVerificationProof {
+                batch_id: 66507,
+                blob_index: 92,
+                batch_medatada: BatchMetadata {
+                    batch_header: BatchHeader {
+                        batch_root: vec![
+                            179, 187, 53, 98, 192, 80, 151, 28, 125, 192, 115, 29, 129, 238, 216,
+                            8, 213, 210, 203, 143, 181, 19, 146, 113, 98, 131, 39, 238, 149, 248,
+                            211, 43,
+                        ],
+                        quorum_numbers: vec![0, 1],
+                        quorum_signed_percentages: vec![100, 100],
+                        reference_block_number: 2624794,
+                    },
+                    signatory_record_hash: vec![
+                        172, 32, 172, 142, 197, 52, 84, 143, 120, 26, 190, 9, 143, 217, 62, 19, 17,
+                        107, 105, 67, 203, 5, 172, 249, 6, 60, 105, 240, 134, 34, 66, 133,
+                    ],
+                    fee: vec![0],
+                    confirmation_block_number: 2624876,
+                    batch_header_hash: vec![
+                        122, 115, 2, 85, 233, 75, 121, 85, 51, 81, 248, 170, 198, 252, 42, 16, 1,
+                        146, 96, 218, 159, 44, 41, 40, 94, 247, 147, 11, 255, 68, 40, 177,
+                    ],
+                },
+                inclusion_proof: vec![
+                    203, 160, 237, 48, 117, 255, 75, 254, 117, 144, 164, 77, 29, 146, 36, 48, 190,
+                    140, 50, 100, 144, 237, 125, 125, 75, 54, 210, 247, 147, 23, 48, 189, 120, 4,
+                    125, 123, 195, 244, 207, 239, 145, 109, 0, 21, 11, 162, 109, 79, 192, 100, 138,
+                    157, 203, 22, 17, 114, 234, 72, 174, 231, 209, 133, 99, 118, 201, 160, 137,
+                    128, 112, 84, 34, 136, 174, 139, 96, 26, 246, 148, 134, 52, 200, 229, 160, 145,
+                    5, 120, 18, 187, 51, 11, 109, 91, 237, 171, 215, 207, 90, 95, 146, 54, 135,
+                    166, 66, 157, 255, 237, 69, 183, 141, 45, 162, 145, 71, 16, 87, 184, 120, 84,
+                    156, 220, 159, 4, 99, 48, 191, 203, 136, 112, 127, 226, 192, 184, 110, 6, 177,
+                    182, 109, 207, 197, 239, 161, 132, 17, 89, 56, 137, 205, 202, 101, 97, 60, 162,
+                    253, 23, 169, 75, 236, 211, 126, 121, 132, 191, 68, 167, 200, 16, 154, 149,
+                    202, 197, 7, 191, 26, 8, 67, 3, 37, 137, 16, 153, 30, 209, 238, 53, 233, 148,
+                    198, 253, 94, 216, 73, 25, 190, 205, 132, 208, 255, 219, 170, 98, 17, 160, 179,
+                    183, 200, 17, 99, 36, 130, 216, 223, 72, 222, 250, 73, 78, 79, 72, 253, 105,
+                    245, 84, 244, 196,
+                ],
+                quorum_indexes: vec![0, 1],
+            },
+        };
+
+        let encoded_blob_info = rlp::encode(&blob_info);
+        let decoded_blob_info: BlobInfo = rlp::decode(&encoded_blob_info).unwrap();
+
+        assert_eq!(blob_info, decoded_blob_info);
     }
 }
