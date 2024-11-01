@@ -111,11 +111,12 @@ mod tests {
         };
         let client = EigenClient::new(config, secrets).await.unwrap();
         let data = vec![1; 20];
-        let result = client.dispatch_blob(0, data).await.unwrap();
+        let result = client.dispatch_blob(0, data.clone()).await.unwrap();
         let blob_info: BlobInfo =
             rlp::decode(&hex::decode(result.blob_id.clone()).unwrap()).unwrap();
-        // TODO: once rlp encoding is added to the client, we can check the contents of the blob_id
-        assert!(result.blob_id.len() > 0);
+        // TODO: once get inclusion data is added, check it
+        let retrieved_data = client.get_blob_data(&result.blob_id).await.unwrap();
+        assert_eq!(retrieved_data.unwrap(), data);
     }
     #[tokio::test]
     async fn test_auth_dispersal() {
@@ -139,10 +140,11 @@ mod tests {
         };
         let client = EigenClient::new(config, secrets).await.unwrap();
         let data = vec![1; 20];
-        let result = client.dispatch_blob(0, data).await.unwrap();
+        let result = client.dispatch_blob(0, data.clone()).await.unwrap();
         let blob_info: BlobInfo =
             rlp::decode(&hex::decode(result.blob_id.clone()).unwrap()).unwrap();
-        // TODO: once rlp encoding is added to the client, we can check the contents of the blob_id
-        assert!(result.blob_id.len() > 0);
+        // TODO: once get inclusion data is added, check it
+        let retrieved_data = client.get_blob_data(&result.blob_id).await.unwrap();
+        assert_eq!(retrieved_data.unwrap(), data);
     }
 }
