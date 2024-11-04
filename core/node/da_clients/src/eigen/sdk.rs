@@ -1,6 +1,5 @@
 use std::{str::FromStr, time::Duration};
 
-use futures::TryFutureExt;
 use secp256k1::{ecdsa::RecoverableSignature, SecretKey};
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};

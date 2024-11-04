@@ -1,19 +1,9 @@
 use std::{collections::HashMap, str::FromStr};
 
-use alloy::{
-    network::Ethereum,
-    primitives::BlockNumber,
-    providers::{Provider, RootProvider},
-    rpc::client::{ClientBuilder, ReqwestClient},
-};
+use alloy::{network::Ethereum, providers::RootProvider};
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, Token};
-use rust_kzg_bn254::{
-    blob::{self, Blob},
-    kzg::Kzg,
-    polynomial::PolynomialFormat,
-};
-use sha3::{Digest, Keccak256};
+use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
 
 use super::{
