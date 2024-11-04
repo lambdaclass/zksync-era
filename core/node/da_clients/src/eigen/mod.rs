@@ -1,6 +1,6 @@
 mod blob_info;
 mod client;
-mod eigendaservicemanager;
+mod generated;
 mod memstore;
 mod sdk;
 mod verifier;

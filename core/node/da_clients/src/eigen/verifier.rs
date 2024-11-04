@@ -18,7 +18,7 @@ use tiny_keccak::{Hasher, Keccak};
 
 use super::{
     blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment},
-    eigendaservicemanager::EigenDAServiceManager,
+    generated::eigendaservicemanager::EigenDAServiceManager,
 };
 
 #[derive(Debug)]
