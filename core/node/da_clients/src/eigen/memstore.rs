@@ -11,10 +11,7 @@ use tokio::time::interval;
 use zksync_config::configs::da_client::eigen::MemStoreConfig;
 use zksync_da_client::types::{DAError, DispatchResponse, InclusionData};
 
-use super::{
-    blob_info::{self, BlobInfo},
-    client::to_retriable_error,
-};
+use super::blob_info::{self, BlobInfo};
 
 #[derive(Debug, PartialEq)]
 pub enum MemStoreError {
