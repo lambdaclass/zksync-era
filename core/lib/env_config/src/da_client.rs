@@ -259,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn from_env_eigen_client() {
+    fn from_env_eigen_client_memstore() {
         let mut lock = MUTEX.lock();
         let config = r#"
             DA_CLIENT="Eigen"
