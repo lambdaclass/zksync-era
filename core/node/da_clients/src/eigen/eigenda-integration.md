@@ -46,7 +46,7 @@ da_client:
       authenticated: false
 ```
 
-Note: `authenticated` dispersal requires setting up a private key in `etc/env/file_based/secrets.yaml`:
+Also set the private key in `etc/env/file_based/secrets.yaml`:
 
 ```yaml
 da:
