@@ -179,6 +179,7 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                                 status_query_interval: Some(config.status_query_interval),
                                 wait_for_finalization: Some(config.wait_for_finalization),
                                 authenticated: Some(config.authenticaded),
+                                verify_cert: Some(config.verify_cert),
                             },
                         )),
                     })

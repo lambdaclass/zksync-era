@@ -1,5 +1,6 @@
 use std::{str::FromStr, time::Duration};
 
+use futures::TryFutureExt;
 use secp256k1::{ecdsa::RecoverableSignature, SecretKey};
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
@@ -76,20 +77,23 @@ impl RawEigenClient {
             .await_for_inclusion(client_clone, disperse_reply)
             .await?;
 
-        let verification_proof = blob_info
-            .blob_verification_proof
-            .clone()
-            .ok_or_else(|| anyhow::anyhow!("No blob verification proof in response"))?;
+        let blob_info = blob_info::BlobInfo::try_from(blob_info)
+            .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
+        self.verifier
+            .verify_commitment(blob_info.blob_header.commitment.clone(), data)
+            .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
+        self.verifier
+            .verify_certificate(blob_info.clone())
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to validate certificate"))?;
+        let verification_proof = blob_info.blob_verification_proof.clone();
         let blob_id = format!(
             "{}:{}",
             verification_proof.batch_id, verification_proof.blob_index
         );
         tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
 
-        let blob_id = blob_info::BlobInfo::try_from(blob_info)
-            .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
-
-        Ok(hex::encode(rlp::encode(&blob_id)))
+        Ok(hex::encode(rlp::encode(&blob_info)))
     }
 
     async fn dispatch_blob_authenticated(&self, data: Vec<u8>) -> anyhow::Result<String> {
@@ -130,19 +134,24 @@ impl RawEigenClient {
             .await_for_inclusion(client_clone, disperse_reply)
             .await?;
 
-        let verification_proof = blob_info
-            .blob_verification_proof
-            .clone()
-            .ok_or_else(|| anyhow::anyhow!("No blob verification proof in response"))?;
+        let blob_info = blob_info::BlobInfo::try_from(blob_info)
+            .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
+
+        self.verifier
+            .verify_commitment(blob_info.blob_header.commitment.clone(), data)
+            .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
+        self.verifier
+            .verify_certificate(blob_info.clone())
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to validate certificate"))?;
+
+        let verification_proof = blob_info.blob_verification_proof.clone();
         let blob_id = format!(
             "{}:{}",
             verification_proof.batch_id, verification_proof.blob_index
         );
         tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
-
-        let blob_id = blob_info::BlobInfo::try_from(blob_info)
-            .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
-        Ok(hex::encode(rlp::encode(&blob_id)))
+        Ok(hex::encode(rlp::encode(&blob_info)))
     }
 
     pub async fn dispatch_blob(&self, data: Vec<u8>) -> anyhow::Result<String> {
