@@ -32,6 +32,7 @@ pub struct DisperserConfig {
     pub wait_for_finalization: bool,
     pub authenticaded: bool,
     pub verify_cert: bool,
+    pub path_to_points: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]

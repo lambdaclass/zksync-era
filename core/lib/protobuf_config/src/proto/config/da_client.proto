@@ -55,6 +55,7 @@ message DisperserConfig {
   optional bool wait_for_finalization = 10;
   optional bool authenticated = 11;
   optional bool verify_cert = 12;
+  optional string path_to_points = 13;
 }
 
 message EigenConfig {

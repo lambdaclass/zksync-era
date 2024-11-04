@@ -51,6 +51,7 @@ impl RawEigenClient {
             rpc_url: config.eigenda_eth_rpc.clone(),
             svc_manager_addr: config.eigenda_svc_manager_address.clone(),
             max_blob_size: config.blob_size_limit,
+            path_to_points: config.path_to_points.clone(),
         };
         let verifier = Verifier::new(verifier_config)
             .map_err(|e| anyhow::anyhow!(format!("Failed to create verifier {:?}", e)))?;

@@ -106,6 +106,9 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                             verify_cert: required(&conf.verify_cert)
                                 .context("verify_cert")?
                                 .clone(),
+                            path_to_points: required(&conf.path_to_points)
+                                .context("path_to_points")?
+                                .clone(),
                         })
                     }
                 };
@@ -180,6 +183,7 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                                 wait_for_finalization: Some(config.wait_for_finalization),
                                 authenticated: Some(config.authenticaded),
                                 verify_cert: Some(config.verify_cert),
+                                path_to_points: Some(config.path_to_points.clone()),
                             },
                         )),
                     })

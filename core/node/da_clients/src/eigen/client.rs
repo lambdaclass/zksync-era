@@ -111,6 +111,7 @@ mod tests {
             wait_for_finalization: false,
             authenticaded: false,
             verify_cert: true,
+            path_to_points: "../../../resources".to_string(),
         });
         let secrets = EigenSecrets {
             private_key: PrivateKey::from_str(
@@ -149,6 +150,7 @@ mod tests {
             wait_for_finalization: false,
             authenticaded: true,
             verify_cert: true,
+            path_to_points: "../../../resources".to_string(),
         });
         let secrets = EigenSecrets {
             private_key: PrivateKey::from_str(

@@ -35,6 +35,7 @@ pub struct VerifierConfig {
     pub rpc_url: String,
     pub svc_manager_addr: String,
     pub max_blob_size: u32,
+    pub path_to_points: String,
 }
 
 #[derive(Debug, Clone)]
@@ -51,14 +52,17 @@ impl Verifier {
     pub fn new(cfg: VerifierConfig) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / 32;
         let kzg = Kzg::setup(
-            "./resources/g1.point",
+            &format!("{}{}", cfg.path_to_points, "/g1.point"),
             "",
-            "./resources/g2.point.powerOf2",
+            &format!("{}{}", cfg.path_to_points, "/g2.point.powerOf2"),
             268435456, // 2 ^ 32
             srs_points_to_load,
             "".to_string(),
         );
-        let kzg = kzg.map_err(|_| VerificationError::KzgError)?;
+        let kzg = kzg.map_err(|e| {
+            tracing::error!("Failed to setup KZG: {:?}", e);
+            VerificationError::KzgError
+        })?;
         let url = alloy::transports::http::reqwest::Url::from_str(&cfg.rpc_url)
             .map_err(|_| VerificationError::WrongUrl)?;
         let provider: RootProvider<
@@ -351,6 +355,7 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
+            path_to_points: "../../resources".to_string(),
         })
         .unwrap();
         let commitment = G1Commitment {
@@ -375,6 +380,7 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
+            path_to_points: "../../../resources".to_string(),
         })
         .unwrap();
         let cert = BlobInfo {
@@ -460,6 +466,7 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
+            path_to_points: "../../../resources".to_string(),
         })
         .unwrap();
         let blob_header = BlobHeader {
@@ -501,6 +508,7 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
+            path_to_points: "../../../resources".to_string(),
         })
         .unwrap();
 
@@ -525,6 +533,7 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
+            path_to_points: "../../../resources".to_string(),
         })
         .unwrap();
         let cert = BlobInfo {
@@ -610,6 +619,7 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
+            path_to_points: "../../../resources".to_string(),
         })
         .unwrap();
         let cert = BlobInfo {
