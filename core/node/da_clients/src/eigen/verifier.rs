@@ -28,6 +28,9 @@ pub struct VerifierConfig {
     pub path_to_points: String,
 }
 
+/// Verifier used to verify the integrity of the blob info
+/// Kzg is used for commitment verification
+/// EigenDA service manager is used to connect to the service manager contract
 #[derive(Debug, Clone)]
 pub struct Verifier {
     kzg: Kzg,
@@ -71,6 +74,7 @@ impl Verifier {
         })
     }
 
+    /// Return the commitment from a blob
     fn commit(&self, blob: Vec<u8>) -> Result<G1Affine, VerificationError> {
         let blob = Blob::from_bytes_and_pad(&blob.to_vec());
         self.kzg
@@ -78,6 +82,7 @@ impl Verifier {
             .map_err(|_| VerificationError::KzgError)
     }
 
+    /// Compare the given commitment with the commitment generated with the blob
     pub fn verify_commitment(
         &self,
         expected_commitment: G1Commitment,
@@ -158,6 +163,7 @@ impl Verifier {
         Ok(computed_hash)
     }
 
+    /// Verifies the certificate's batch root
     fn verify_merkle_proof(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let inclusion_proof = cert.blob_verification_proof.inclusion_proof;
         let root = cert
@@ -220,6 +226,7 @@ impl Verifier {
         hash.to_vec()
     }
 
+    /// Verifies the certificate batch hash
     async fn verify_batch(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let expected_hash = self
             .eigenda_svc_manager
@@ -267,6 +274,7 @@ impl Verifier {
         Ok(0)
     }
 
+    /// Verifies that the certificate's blob quorum params are correct
     async fn verify_security_params(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let blob_header = cert.blob_header;
         let batch_header = cert.blob_verification_proof.batch_medatada.batch_header;
@@ -320,6 +328,7 @@ impl Verifier {
         Ok(())
     }
 
+    /// Verifies that the certificate is valid
     pub async fn verify_certificate(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         if !self.cfg.verify_certs {
             return Ok(());
