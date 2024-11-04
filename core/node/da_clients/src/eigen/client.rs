@@ -106,7 +106,7 @@ mod tests {
             eigenda_eth_rpc: String::default(),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             blob_size_limit: 2 * 1024 * 1024, // 2MB
-            status_query_timeout: 1800,       // 30 minutes
+            status_query_timeout: 1800000,    // 30 minutes
             status_query_interval: 5,         // 5 ms
             wait_for_finalization: false,
             authenticaded: false,
@@ -143,7 +143,7 @@ mod tests {
             eigenda_eth_rpc: String::default(),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             blob_size_limit: 2 * 1024 * 1024, // 2MB
-            status_query_timeout: 1800,       // 30 minutes
+            status_query_timeout: 1800000,    // 30 minutes
             status_query_interval: 5,         // 5 ms
             wait_for_finalization: false,
             authenticaded: true,
@@ -213,7 +213,7 @@ mod tests {
             eigenda_eth_rpc: String::default(),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             blob_size_limit: 2 * 1024 * 1024, // 2MB
-            status_query_timeout: 1800,       // 30 minutes
+            status_query_timeout: 1800000,    // 30 minutes
             status_query_interval: 5000,      // 5000 ms
             wait_for_finalization: true,
             authenticaded: true,

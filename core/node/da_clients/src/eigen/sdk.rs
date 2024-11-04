@@ -222,7 +222,8 @@ impl RawEigenClient {
         };
 
         let start_time = Instant::now();
-        while Instant::now() - start_time < Duration::from_secs(self.config.status_query_timeout) {
+        while Instant::now() - start_time < Duration::from_millis(self.config.status_query_timeout)
+        {
             tokio::time::sleep(Duration::from_millis(self.config.status_query_interval)).await;
             let resp = client
                 .get_blob_status(polling_request.clone())
