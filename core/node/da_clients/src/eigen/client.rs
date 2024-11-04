@@ -229,7 +229,14 @@ mod tests {
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
         let blob_info: BlobInfo =
             rlp::decode(&hex::decode(result.blob_id.clone()).unwrap()).unwrap();
-        // TODO: once get inclusion data is added, check it
+        let expected_inclusion_data = blob_info.blob_verification_proof.inclusion_proof;
+        let actual_inclusion_data = client
+            .get_inclusion_data(&result.blob_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .data;
+        assert_eq!(expected_inclusion_data, actual_inclusion_data);
         let retrieved_data = client.get_blob_data(&result.blob_id).await.unwrap();
         assert_eq!(retrieved_data.unwrap(), data);
     }
