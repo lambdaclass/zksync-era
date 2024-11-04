@@ -11,10 +11,7 @@ use tokio::time::interval;
 use zksync_config::configs::da_client::eigen::MemStoreConfig;
 use zksync_da_client::types::{DAError, DispatchResponse, InclusionData};
 
-use super::{
-    blob_info::{self, BlobInfo},
-    client::to_retriable_error,
-};
+use super::blob_info::{self, BlobInfo};
 
 #[derive(Debug, PartialEq)]
 pub enum MemStoreError {
@@ -65,13 +62,11 @@ impl MemStore {
         memstore
     }
 
-    async fn put_blob(self: Arc<Self>, value: Vec<u8>) -> Result<Vec<u8>, MemStoreError> {
+    pub async fn put_blob(self: Arc<Self>, value: Vec<u8>) -> Result<String, MemStoreError> {
         tokio::time::sleep(Duration::from_millis(self.config.put_latency)).await;
         if value.len() as u64 > self.config.max_blob_size_bytes {
             return Err(MemStoreError::BlobToLarge.into());
         }
-
-        // todo: Encode blob?
 
         let mut entropy = [0u8; 10];
         OsRng.fill_bytes(&mut entropy);
@@ -136,20 +131,7 @@ impl MemStore {
 
         data.key_starts.insert(key.clone(), Instant::now());
         data.store.insert(key, value);
-        Ok(cert_bytes)
-    }
-
-    pub async fn store_blob(
-        self: Arc<Self>,
-        blob_data: Vec<u8>,
-    ) -> Result<DispatchResponse, DAError> {
-        let request_id = self
-            .put_blob(blob_data)
-            .await
-            .map_err(|err| to_retriable_error(err.into()))?;
-        Ok(DispatchResponse {
-            blob_id: hex::encode(request_id),
-        })
+        Ok(hex::encode(cert_bytes))
     }
 
     pub async fn get_inclusion_data(

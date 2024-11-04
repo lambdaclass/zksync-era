@@ -1,5 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use secp256k1::SecretKey;
 use subxt_signer::ExposeSecret;
@@ -9,7 +10,7 @@ use zksync_da_client::{
     DataAvailabilityClient,
 };
 
-use super::{memstore::MemStore, sdk::RawEigenClient, Disperser};
+use super::{blob_info::BlobInfo, memstore::MemStore, sdk::RawEigenClient, Disperser};
 use crate::utils::to_non_retriable_da_error;
 
 #[derive(Debug, Clone)]
@@ -40,20 +41,34 @@ impl DataAvailabilityClient for EigenClient {
         _: u32, // batch number
         data: Vec<u8>,
     ) -> Result<DispatchResponse, DAError> {
-        match &self.client {
-            Disperser::Remote(remote_disperser) => {
-                let blob_id = remote_disperser
-                    .dispatch_blob(data)
-                    .await
-                    .map_err(to_non_retriable_da_error)?;
-                Ok(DispatchResponse::from(blob_id))
-            }
-            Disperser::Memory(memstore) => memstore.clone().store_blob(data).await,
-        }
+        let blob_id = match &self.client {
+            Disperser::Remote(remote_disperser) => remote_disperser
+                .dispatch_blob(data)
+                .await
+                .map_err(to_non_retriable_da_error)?,
+            Disperser::Memory(memstore) => memstore
+                .clone()
+                .put_blob(data)
+                .await
+                .map_err(to_non_retriable_da_error)?,
+        };
+
+        Ok(DispatchResponse::from(blob_id))
     }
 
-    async fn get_inclusion_data(&self, _: &str) -> Result<Option<InclusionData>, DAError> {
-        Ok(Some(InclusionData { data: vec![] }))
+    async fn get_inclusion_data(&self, blob_id: &str) -> Result<Option<InclusionData>, DAError> {
+        let rlp_encoded_bytes = hex::decode(blob_id).map_err(|_| DAError {
+            error: anyhow!("Failed to decode blob_id"),
+            is_retriable: false,
+        })?;
+        let blob_info: BlobInfo = rlp::decode(&rlp_encoded_bytes).map_err(|_| DAError {
+            error: anyhow!("Failed to decode blob_info"),
+            is_retriable: false,
+        })?;
+        let inclusion_data = blob_info.blob_verification_proof.inclusion_proof;
+        Ok(Some(InclusionData {
+            data: inclusion_data,
+        }))
     }
 
     fn clone_boxed(&self) -> Box<dyn DataAvailabilityClient> {
@@ -74,13 +89,6 @@ impl EigenClient {
         }
     }
 }
-
-pub fn to_retriable_error(error: anyhow::Error) -> DAError {
-    DAError {
-        error,
-        is_retriable: true,
-    }
-}
 #[cfg(test)]
 mod tests {
     use zksync_config::configs::da_client::eigen::{DisperserConfig, MemStoreConfig};
@@ -88,32 +96,6 @@ mod tests {
 
     use super::*;
     use crate::eigen::blob_info::BlobInfo;
-
-    #[tokio::test]
-    async fn test_eigenda_memory_disperser() {
-        let config = EigenConfig::MemStore(MemStoreConfig {
-            max_blob_size_bytes: 2 * 1024 * 1024, // 2MB,
-            blob_expiration: 60 * 2,
-            get_latency: 0,
-            put_latency: 0,
-        });
-        let secrets = EigenSecrets {
-            private_key: PrivateKey::from_str(
-                "d08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
-            )
-            .unwrap(),
-        };
-        let client = EigenClient::new(config, secrets).await.unwrap();
-        let data = vec![1u8; 100];
-        let result = client.dispatch_blob(0, data.clone()).await.unwrap();
-
-        let blob_info: BlobInfo =
-            rlp::decode(&hex::decode(result.blob_id.clone()).unwrap()).unwrap();
-        // TODO: once get inclusion data is added, check it
-
-        let retrieved_data = client.get_blob_data(&result.blob_id).await.unwrap();
-        assert_eq!(retrieved_data.unwrap(), data);
-    }
 
     #[tokio::test]
     async fn test_non_auth_dispersal() {
@@ -140,10 +122,18 @@ mod tests {
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
         let blob_info: BlobInfo =
             rlp::decode(&hex::decode(result.blob_id.clone()).unwrap()).unwrap();
-        // TODO: once get inclusion data is added, check it
+        let expected_inclusion_data = blob_info.blob_verification_proof.inclusion_proof;
+        let actual_inclusion_data = client
+            .get_inclusion_data(&result.blob_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .data;
+        assert_eq!(expected_inclusion_data, actual_inclusion_data);
         let retrieved_data = client.get_blob_data(&result.blob_id).await.unwrap();
         assert_eq!(retrieved_data.unwrap(), data);
     }
+
     #[tokio::test]
     async fn test_auth_dispersal() {
         let config = EigenConfig::Disperser(DisperserConfig {
@@ -169,7 +159,47 @@ mod tests {
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
         let blob_info: BlobInfo =
             rlp::decode(&hex::decode(result.blob_id.clone()).unwrap()).unwrap();
-        // TODO: once get inclusion data is added, check it
+        let expected_inclusion_data = blob_info.blob_verification_proof.inclusion_proof;
+        let actual_inclusion_data = client
+            .get_inclusion_data(&result.blob_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .data;
+        assert_eq!(expected_inclusion_data, actual_inclusion_data);
+        let retrieved_data = client.get_blob_data(&result.blob_id).await.unwrap();
+        assert_eq!(retrieved_data.unwrap(), data);
+    }
+
+    #[tokio::test]
+    async fn test_eigenda_memory_disperser() {
+        let config = EigenConfig::MemStore(MemStoreConfig {
+            max_blob_size_bytes: 2 * 1024 * 1024, // 2MB,
+            blob_expiration: 60 * 2,
+            get_latency: 0,
+            put_latency: 0,
+        });
+        let secrets = EigenSecrets {
+            private_key: PrivateKey::from_str(
+                "d08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
+            )
+            .unwrap(),
+        };
+        let client = EigenClient::new(config, secrets).await.unwrap();
+        let data = vec![1u8; 100];
+        let result = client.dispatch_blob(0, data.clone()).await.unwrap();
+
+        let blob_info: BlobInfo =
+            rlp::decode(&hex::decode(result.blob_id.clone()).unwrap()).unwrap();
+        let expected_inclusion_data = blob_info.blob_verification_proof.inclusion_proof;
+        let actual_inclusion_data = client
+            .get_inclusion_data(&result.blob_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .data;
+        assert_eq!(expected_inclusion_data, actual_inclusion_data);
+
         let retrieved_data = client.get_blob_data(&result.blob_id).await.unwrap();
         assert_eq!(retrieved_data.unwrap(), data);
     }
