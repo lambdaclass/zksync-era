@@ -216,7 +216,7 @@ mod tests {
             status_query_timeout: 1800000,    // 30 minutes
             status_query_interval: 5000,      // 5000 ms
             wait_for_finalization: true,
-            authenticaded: true,
+            authenticated: true,
         });
         let secrets = EigenSecrets {
             private_key: PrivateKey::from_str(
