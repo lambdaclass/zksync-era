@@ -11,7 +11,10 @@ use zksync_config::configs::da_client::eigen::DisperserConfig;
 #[cfg(test)]
 use zksync_da_client::types::DAError;
 
-use super::disperser::BlobInfo;
+use super::{
+    disperser::BlobInfo,
+    verifier::{Verifier, VerifierConfig},
+};
 use crate::eigen::{
     blob_info,
     disperser::{
@@ -27,6 +30,7 @@ pub struct RawEigenClient {
     client: DisperserClient<Channel>,
     private_key: SecretKey,
     config: DisperserConfig,
+    verifier: Verifier,
 }
 
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
@@ -41,10 +45,19 @@ impl RawEigenClient {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to connect to Disperser server: {}", e))?;
 
+        let verifier_config = VerifierConfig {
+            verify_certs: true,
+            rpc_url: config.eigenda_eth_rpc.clone(),
+            svc_manager_addr: config.eigenda_svc_manager_address.clone(),
+            max_blob_size: config.blob_size_limit,
+        };
+        let verifier = Verifier::new(verifier_config)
+            .map_err(|e| anyhow::anyhow!(format!("Failed to create verifier {:?}", e)))?;
         Ok(RawEigenClient {
             client,
             private_key,
             config,
+            verifier,
         })
     }
 

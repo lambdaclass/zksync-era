@@ -103,6 +103,9 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                             authenticaded: required(&conf.authenticated)
                                 .context("authenticaded")?
                                 .clone(),
+                            verify_cert: required(&conf.verify_cert)
+                                .context("verify_cert")?
+                                .clone(),
                         })
                     }
                 };
