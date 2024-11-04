@@ -100,8 +100,8 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                             wait_for_finalization: required(&conf.wait_for_finalization)
                                 .context("wait_for_finalization")?
                                 .clone(),
-                            authenticaded: required(&conf.authenticated)
-                                .context("authenticaded")?
+                            authenticated: required(&conf.authenticated)
+                                .context("authenticated")?
                                 .clone(),
                             verify_cert: required(&conf.verify_cert)
                                 .context("verify_cert")?
@@ -181,7 +181,7 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                                 status_query_timeout: Some(config.status_query_timeout),
                                 status_query_interval: Some(config.status_query_interval),
                                 wait_for_finalization: Some(config.wait_for_finalization),
-                                authenticated: Some(config.authenticaded),
+                                authenticated: Some(config.authenticated),
                                 verify_cert: Some(config.verify_cert),
                                 path_to_points: Some(config.path_to_points.clone()),
                             },

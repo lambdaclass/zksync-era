@@ -109,7 +109,7 @@ mod tests {
             status_query_timeout: 1800,       // 30 minutes
             status_query_interval: 5,         // 5 seconds
             wait_for_finalization: false,
-            authenticaded: false,
+            authenticated: false,
             verify_cert: true,
             path_to_points: "../../../resources".to_string(),
         });
@@ -148,7 +148,7 @@ mod tests {
             status_query_timeout: 1800,       // 30 minutes
             status_query_interval: 5,         // 5 seconds
             wait_for_finalization: false,
-            authenticaded: true,
+            authenticated: true,
             verify_cert: true,
             path_to_points: "../../../resources".to_string(),
         });
