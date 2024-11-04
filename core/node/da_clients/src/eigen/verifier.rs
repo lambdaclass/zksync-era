@@ -355,7 +355,7 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../resources".to_string(),
+            path_to_points: "../../../resources".to_string(),
         })
         .unwrap();
         let commitment = G1Commitment {
