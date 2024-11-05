@@ -183,12 +183,12 @@ async function getTransactions(validatorTimelockAddress, commitBatchesSharedBrid
         );
     }
     if (jsonArray.length == 0) {
-        console.error("No transactions found.");
+        console.error('No transactions found.');
         return;
     }
     const jsonString = JSON.stringify(jsonArray, null, 2);
     fs.writeFileSync('blob_data.json', jsonString, 'utf8');
-    console.log("Data stored in blob_data.json file.");
+    console.log('Data stored in blob_data.json file.');
 }
 
 async function get(commitment) {
