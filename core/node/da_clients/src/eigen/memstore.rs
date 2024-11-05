@@ -9,7 +9,7 @@ use rand::{rngs::OsRng, Rng, RngCore};
 use sha3::{Digest, Keccak256};
 use tokio::time::interval;
 use zksync_config::configs::da_client::eigen::MemStoreConfig;
-use zksync_da_client::types::{DAError, InclusionData};
+use zksync_da_client::types::{DAError, DispatchResponse, InclusionData};
 
 use super::blob_info::{self, BlobInfo};
 
@@ -40,9 +40,11 @@ struct MemStoreData {
     key_starts: HashMap<String, Instant>,
 }
 
+/// This struct represents a memory store for blobs.
+/// It should be used for testing purposes only.
 #[derive(Clone, Debug)]
 pub struct MemStore {
-    config: MemStoreConfig,
+    pub config: MemStoreConfig,
     data: Arc<RwLock<MemStoreData>>,
 }
 
@@ -62,6 +64,7 @@ impl MemStore {
         memstore
     }
 
+    /// Saves a blob to the memory store, it harcodes the blob info, since we don't care about it in a memory based store
     pub async fn put_blob(self: Arc<Self>, value: Vec<u8>) -> Result<String, MemStoreError> {
         tokio::time::sleep(Duration::from_millis(self.config.put_latency)).await;
         if value.len() as u64 > self.config.max_blob_size_bytes {
@@ -134,6 +137,7 @@ impl MemStore {
         Ok(hex::encode(cert_bytes))
     }
 
+    /// It returns the inclusion proof
     pub async fn get_inclusion_data(
         self: Arc<Self>,
         blob_id: &str,
@@ -152,6 +156,7 @@ impl MemStore {
         }))
     }
 
+    /// This function is only used on tests, it returns the blob data
     #[cfg(test)]
     pub async fn get_blob_data(
         self: Arc<Self>,
@@ -188,6 +193,7 @@ impl MemStore {
         }
     }
 
+    /// After some time has passed, blobs are removed from the store
     async fn prune_expired(self: Arc<Self>) {
         let mut data = self.data.write().unwrap();
         let mut to_remove = vec![];
@@ -202,6 +208,7 @@ impl MemStore {
         }
     }
 
+    /// Loop used to prune expired blobs
     async fn pruning_loop(self: Arc<Self>) {
         let mut interval = interval(Duration::from_secs(self.config.blob_expiration));
 
