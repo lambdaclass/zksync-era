@@ -133,7 +133,7 @@ impl RawEigenClient {
     }
 
     pub async fn dispatch_blob(&self, data: Vec<u8>) -> anyhow::Result<String> {
-        match self.config.authenticaded {
+        match self.config.authenticated {
             true => self.dispatch_blob_authenticated(data).await,
             false => self.dispatch_blob_non_authenticated(data).await,
         }
