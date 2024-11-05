@@ -23,6 +23,8 @@ pub enum VerificationError {
     DifferentHashes,
     WrongQuorumParams,
     QuorumNotConfirmed,
+    CommitmentNotOnCurve,
+    CommitmentNotOnCorrectSubgroup,
 }
 
 #[derive(Debug, Clone)]
@@ -54,7 +56,7 @@ impl Verifier {
             &format!("{}{}", cfg.path_to_points, "/g1.point"),
             "",
             &format!("{}{}", cfg.path_to_points, "/g2.point.powerOf2"),
-            268435456, // 2 ^ 32
+            268435456, // 2 ^ 28
             srs_points_to_load,
             "".to_string(),
         );
@@ -99,6 +101,12 @@ impl Verifier {
             Fq::from(num_bigint::BigUint::from_bytes_be(&expected_commitment.x)),
             Fq::from(num_bigint::BigUint::from_bytes_be(&expected_commitment.y)),
         );
+        if !expected_commitment.is_on_curve() {
+            return Err(VerificationError::CommitmentNotOnCurve);
+        }
+        if !expected_commitment.is_in_correct_subgroup_assuming_on_curve() {
+            return Err(VerificationError::CommitmentNotOnCorrectSubgroup);
+        }
         if actual_commitment != expected_commitment {
             return Err(VerificationError::DifferentCommitments);
         }
