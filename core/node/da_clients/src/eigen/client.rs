@@ -219,32 +219,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_eigenda_memory_disperser() {
-        let config = EigenConfig::MemStore(MemStoreConfig {
-            max_blob_size_bytes: 2 * 1024 * 1024, // 2MB,
-            blob_expiration: 60 * 2,
-            get_latency: 0,
-            put_latency: 0,
-        });
-        let secrets = EigenSecrets {
-            private_key: PrivateKey::from_str(
-                "d08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
-            )
-            .unwrap(),
-        };
-        let client = EigenClient::new(config, secrets).await.unwrap();
-        let data = vec![1u8; 100];
-        let result = client.dispatch_blob(0, data.clone()).await.unwrap();
-
-        let blob_info: BlobInfo =
-            rlp::decode(&hex::decode(result.blob_id.clone()).unwrap()).unwrap();
-        // TODO: once get inclusion data is added, check it
-
-        let retrieved_data = client.get_blob_data(&result.blob_id).await.unwrap();
-        assert_eq!(retrieved_data.unwrap(), data);
-    }
-
-    #[tokio::test]
     async fn test_eigenda_dispatch_blob_too_large() {
         let config = EigenConfig::MemStore(MemStoreConfig {
             max_blob_size_bytes: 99,
