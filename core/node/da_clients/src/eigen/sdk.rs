@@ -1,16 +1,20 @@
 use std::{str::FromStr, time::Duration};
 
 use secp256k1::{ecdsa::RecoverableSignature, SecretKey};
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, time::Instant};
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::{
     transport::{Channel, ClientTlsConfig, Endpoint},
     Streaming,
 };
+use zksync_config::configs::da_client::eigen::DisperserConfig;
 #[cfg(test)]
 use zksync_da_client::types::DAError;
 
-use super::disperser::BlobInfo;
+use super::{
+    disperser::BlobInfo,
+    verifier::{Verifier, VerifierConfig},
+};
 use crate::eigen::{
     blob_info,
     disperser::{
@@ -24,10 +28,9 @@ use crate::eigen::{
 #[derive(Debug, Clone)]
 pub struct RawEigenClient {
     client: DisperserClient<Channel>,
-    polling_interval: Duration,
     private_key: SecretKey,
-    account_id: String,
-    authenticated_dispersal: bool,
+    pub config: DisperserConfig,
+    verifier: Verifier,
 }
 
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
@@ -35,27 +38,27 @@ pub(crate) const DATA_CHUNK_SIZE: usize = 32;
 impl RawEigenClient {
     pub(crate) const BUFFER_SIZE: usize = 1000;
 
-    pub async fn new(
-        rpc_node_url: String,
-        inclusion_polling_interval_ms: u64,
-        private_key: SecretKey,
-        authenticated_dispersal: bool,
-    ) -> anyhow::Result<Self> {
-        let endpoint =
-            Endpoint::from_str(rpc_node_url.as_str())?.tls_config(ClientTlsConfig::new())?;
+    pub async fn new(private_key: SecretKey, config: DisperserConfig) -> anyhow::Result<Self> {
+        let endpoint = Endpoint::from_str(&config.disperser_rpc.as_str())?
+            .tls_config(ClientTlsConfig::new())?;
         let client = DisperserClient::connect(endpoint)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to connect to Disperser server: {}", e))?;
-        let polling_interval = Duration::from_millis(inclusion_polling_interval_ms);
 
-        let account_id = get_account_id(&private_key);
-
+        let verifier_config = VerifierConfig {
+            verify_certs: true,
+            rpc_url: config.eigenda_eth_rpc.clone(),
+            svc_manager_addr: config.eigenda_svc_manager_address.clone(),
+            max_blob_size: config.blob_size_limit,
+            path_to_points: config.path_to_points.clone(),
+        };
+        let verifier = Verifier::new(verifier_config)
+            .map_err(|e| anyhow::anyhow!(format!("Failed to create verifier {:?}", e)))?;
         Ok(RawEigenClient {
             client,
-            polling_interval,
             private_key,
-            account_id,
-            authenticated_dispersal,
+            config,
+            verifier,
         })
     }
 
@@ -74,20 +77,23 @@ impl RawEigenClient {
             .await_for_inclusion(client_clone, disperse_reply)
             .await?;
 
-        let verification_proof = blob_info
-            .blob_verification_proof
-            .clone()
-            .ok_or_else(|| anyhow::anyhow!("No blob verification proof in response"))?;
+        let blob_info = blob_info::BlobInfo::try_from(blob_info)
+            .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
+        self.verifier
+            .verify_commitment(blob_info.blob_header.commitment.clone(), data)
+            .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
+        self.verifier
+            .verify_certificate(blob_info.clone())
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to validate certificate"))?;
+        let verification_proof = blob_info.blob_verification_proof.clone();
         let blob_id = format!(
             "{}:{}",
             verification_proof.batch_id, verification_proof.blob_index
         );
         tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
 
-        let blob_id = blob_info::BlobInfo::try_from(blob_info)
-            .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
-
-        Ok(hex::encode(rlp::encode(&blob_id)))
+        Ok(hex::encode(rlp::encode(&blob_info)))
     }
 
     async fn dispatch_blob_authenticated(&self, data: Vec<u8>) -> anyhow::Result<String> {
@@ -128,23 +134,28 @@ impl RawEigenClient {
             .await_for_inclusion(client_clone, disperse_reply)
             .await?;
 
-        let verification_proof = blob_info
-            .blob_verification_proof
-            .clone()
-            .ok_or_else(|| anyhow::anyhow!("No blob verification proof in response"))?;
+        let blob_info = blob_info::BlobInfo::try_from(blob_info)
+            .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
+
+        self.verifier
+            .verify_commitment(blob_info.blob_header.commitment.clone(), data)
+            .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
+        self.verifier
+            .verify_certificate(blob_info.clone())
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to validate certificate"))?;
+
+        let verification_proof = blob_info.blob_verification_proof.clone();
         let blob_id = format!(
             "{}:{}",
             verification_proof.batch_id, verification_proof.blob_index
         );
         tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
-
-        let blob_id = blob_info::BlobInfo::try_from(blob_info)
-            .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
-        Ok(hex::encode(rlp::encode(&blob_id)))
+        Ok(hex::encode(rlp::encode(&blob_info)))
     }
 
     pub async fn dispatch_blob(&self, data: Vec<u8>) -> anyhow::Result<String> {
-        match self.authenticated_dispersal {
+        match self.config.authenticated {
             true => self.dispatch_blob_authenticated(data).await,
             false => self.dispatch_blob_non_authenticated(data).await,
         }
@@ -159,7 +170,7 @@ impl RawEigenClient {
             payload: Some(DisperseRequest(disperser::DisperseBlobRequest {
                 data,
                 custom_quorum_numbers: vec![],
-                account_id: self.account_id.clone(),
+                account_id: get_account_id(&self.private_key),
             })),
         };
 
@@ -232,8 +243,10 @@ impl RawEigenClient {
             request_id: disperse_blob_reply.request_id,
         };
 
-        loop {
-            tokio::time::sleep(self.polling_interval).await;
+        let start_time = Instant::now();
+        while Instant::now() - start_time < Duration::from_millis(self.config.status_query_timeout)
+        {
+            tokio::time::sleep(Duration::from_millis(self.config.status_query_interval)).await;
             let resp = client
                 .get_blob_status(polling_request.clone())
                 .await?
@@ -247,7 +260,15 @@ impl RawEigenClient {
                 disperser::BlobStatus::InsufficientSignatures => {
                     return Err(anyhow::anyhow!("Insufficient signatures"))
                 }
-                disperser::BlobStatus::Confirmed | disperser::BlobStatus::Finalized => {
+                disperser::BlobStatus::Confirmed => {
+                    if !self.config.wait_for_finalization {
+                        let blob_info = resp
+                            .info
+                            .ok_or_else(|| anyhow::anyhow!("No blob header in response"))?;
+                        return Ok(blob_info);
+                    }
+                }
+                disperser::BlobStatus::Finalized => {
                     let blob_info = resp
                         .info
                         .ok_or_else(|| anyhow::anyhow!("No blob header in response"))?;
@@ -257,6 +278,8 @@ impl RawEigenClient {
                 _ => return Err(anyhow::anyhow!("Received unknown blob status")),
             }
         }
+
+        Err(anyhow::anyhow!("Failed to disperse blob (timeout)"))
     }
 
     #[cfg(test)]
