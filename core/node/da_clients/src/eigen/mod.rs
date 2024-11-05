@@ -10,11 +10,6 @@ use std::sync::Arc;
 use memstore::MemStore;
 use sdk::RawEigenClient;
 
-use std::sync::Arc;
-
-use memstore::MemStore;
-use sdk::RawEigenClient;
-
 pub use self::client::EigenClient;
 
 #[allow(clippy::all)]

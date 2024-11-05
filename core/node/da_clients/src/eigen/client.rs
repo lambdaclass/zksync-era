@@ -231,6 +231,11 @@ mod tests {
             status_query_interval: 5000,      // 5000 ms
             wait_for_finalization: true,
             authenticated: true,
+            verify_cert: true,
+            path_to_points: "../../../resources".to_string(),
+            eth_confirmation_depth: 0,
+            eigenda_eth_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
+            eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
         });
         let secrets = EigenSecrets {
             private_key: PrivateKey::from_str(
