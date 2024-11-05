@@ -17,6 +17,12 @@ pub enum VerificationError {
     WrongUrl,
     KzgError,
     WrongProof,
+    DifferentCommitments,
+    DifferentRoots,
+    EmptyHash,
+    DifferentHashes,
+    WrongQuorumParams,
+    QuorumNotConfirmed,
 }
 
 #[derive(Debug, Clone)]
@@ -94,7 +100,7 @@ impl Verifier {
             Fq::from(num_bigint::BigUint::from_bytes_be(&expected_commitment.y)),
         );
         if actual_commitment != expected_commitment {
-            return Err(VerificationError::WrongProof);
+            return Err(VerificationError::DifferentCommitments);
         }
         Ok(())
     }
@@ -184,7 +190,7 @@ impl Verifier {
             self.process_inclusion_proof(&inclusion_proof, &leaf_hash, blob_index)?;
 
         if generated_root != root {
-            return Err(VerificationError::WrongProof);
+            return Err(VerificationError::DifferentRoots);
         }
         Ok(())
     }
@@ -238,7 +244,7 @@ impl Verifier {
             .to_vec();
 
         if expected_hash == vec![0u8; 32] {
-            return Err(VerificationError::WrongProof);
+            return Err(VerificationError::EmptyHash);
         }
 
         let actual_hash = self.hash_batch_metadata(
@@ -252,7 +258,7 @@ impl Verifier {
         );
 
         if expected_hash != actual_hash {
-            return Err(VerificationError::WrongProof);
+            return Err(VerificationError::DifferentHashes);
         }
         Ok(())
     }
@@ -284,12 +290,12 @@ impl Verifier {
             if batch_header.quorum_numbers[i] as u32
                 != blob_header.blob_quorum_params[i].quorum_number
             {
-                return Err(VerificationError::WrongProof);
+                return Err(VerificationError::WrongQuorumParams);
             }
             if blob_header.blob_quorum_params[i].adversary_threshold_percentage
                 > blob_header.blob_quorum_params[i].confirmation_threshold_percentage
             {
-                return Err(VerificationError::WrongProof);
+                return Err(VerificationError::WrongQuorumParams);
             }
             let quorum_adversary_threshold = self
                 .get_quorum_adversary_threshold(blob_header.blob_quorum_params[i].quorum_number)
@@ -299,13 +305,13 @@ impl Verifier {
                 && blob_header.blob_quorum_params[i].adversary_threshold_percentage
                     < quorum_adversary_threshold as u32
             {
-                return Err(VerificationError::WrongProof);
+                return Err(VerificationError::WrongQuorumParams);
             }
 
             if (batch_header.quorum_signed_percentages[i] as u32)
                 < blob_header.blob_quorum_params[i].confirmation_threshold_percentage
             {
-                return Err(VerificationError::WrongProof);
+                return Err(VerificationError::WrongQuorumParams);
             }
 
             confirmed_quorums.insert(blob_header.blob_quorum_params[i].quorum_number, true);
@@ -322,7 +328,7 @@ impl Verifier {
 
         for quorum in required_quorums {
             if !confirmed_quorums.contains_key(&(quorum as u32)) {
-                return Err(VerificationError::WrongProof);
+                return Err(VerificationError::QuorumNotConfirmed);
             }
         }
         Ok(())
