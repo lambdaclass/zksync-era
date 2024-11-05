@@ -254,7 +254,7 @@ mod tests {
         let retrieved_data = client.get_blob_data(&result.blob_id).await.unwrap();
         assert_eq!(retrieved_data.unwrap(), data);
     }
-    
+
     #[tokio::test]
     async fn test_eigenda_dispatch_blob_too_large() {
         let config = EigenConfig::MemStore(MemStoreConfig {
