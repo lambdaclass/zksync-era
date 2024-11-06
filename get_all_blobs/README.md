@@ -26,7 +26,7 @@ This generates a `blob_data.json` file, where blobs and commitments are stored.
 
 ### Environment Variables
 
-`VALIDATOR_TIMELOCK_ADDR`: The address of the validator timelock. Check the value in `zkstack init` if running a local
+`VALIDATOR_TIMELOCK_ADDR`: The address of the validator timelock. Check for `ValidatorTimelock deployed at: <ADDR>` in `zkstack init` if running a local
 node.
 
 `COMMIT_BATCHES_SB_FUNC_SELECTOR`: The function selector for commitBatchesSharedBridge. For a local node, this is

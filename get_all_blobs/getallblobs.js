@@ -193,7 +193,7 @@ async function getTransactions(validatorTimelockAddress, commitBatchesSharedBrid
 
 async function get(commitment) {
     try {
-        const url = `http://localhost:4242/get/0x${commitment}`;
+        const url = `http://127.0.0.1:4242/get/0x${commitment}`;
 
         const response = await fetch(url);
 
