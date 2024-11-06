@@ -87,7 +87,8 @@ impl RawEigenClient {
             .verify_commitment(blob_info.blob_header.commitment.clone(), data)
             .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
 
-        self.loop_verify_certificate(blob_info.clone(), disperse_elapsed);
+        self.loop_verify_certificate(blob_info.clone(), disperse_elapsed)
+            .await?;
         let verification_proof = blob_info.blob_verification_proof.clone();
         let blob_id = format!(
             "{}:{}",
@@ -163,7 +164,8 @@ impl RawEigenClient {
             .verify_commitment(blob_info.blob_header.commitment.clone(), data)
             .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
 
-        self.loop_verify_certificate(blob_info.clone(), disperse_elapsed);
+        self.loop_verify_certificate(blob_info.clone(), disperse_elapsed)
+            .await?;
 
         let verification_proof = blob_info.blob_verification_proof.clone();
         let blob_id = format!(
