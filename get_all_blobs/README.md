@@ -11,7 +11,7 @@ Before running the command, you need to start the proxy. To do so, first export 
 Then run the following command:
 
 ```
-make start-proxy
+make run-proxy
 ```
 
 ### Run command:
@@ -32,4 +32,4 @@ node.
 `COMMIT_BATCHES_SB_FUNC_SELECTOR`: The function selector for commitBatchesSharedBridge. For a local node, this is
 typically 0x6edd4f12.
 
-This variables can be exported in the shell in order to run `make getallblobs` without passing them as arguments.
+This variables can be exported in the shell in order to run `make get-all-blobs` without passing them as arguments.
