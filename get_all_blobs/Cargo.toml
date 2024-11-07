@@ -1,5 +1,5 @@
 [package]
-name = "get_all_blobs_rs"
+name = "get_all_blobs"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
