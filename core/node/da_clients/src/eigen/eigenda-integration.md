@@ -113,6 +113,34 @@ You may enable observability here if you want to.
 zkstack server --chain eigen_da
 ```
 
+### Data Availability Grafana Metrics
+
+1. Get the running port of the eigen_da chain in the `chains/eigen_da/configs/general.yaml` file:
+
+```yaml
+prometheus:
+  listener_port: 3414 # <- this is the port
+```
+
+(around line 108)
+
+Then modify the `era-observability/etc/prometheus/prometheus.yml` with the retrieved port:
+
+```yaml
+scrape_interval: 5s
+honor_labels: true
+static_configs:
+  - targets: ['host.docker.internal:3312'] # <- change this to the port
+```
+
+2. Enable the Data Availability Grafana dashboard
+
+```bash
+mv era-observability/additional_dashboards/EigenDA.json era-observability/dashboards/EigenDA.json
+```
+
+3. Restart the era-observability container
+
 ### Testing
 
 Modify the following flag in `core/lib/config/src/configs/da_dispatcher.rs` (then restart the server)
