@@ -233,25 +233,20 @@ impl DataAvailabilityDispatcher {
                 }
 
                 let mut conn = pool_clone.connection_tagged("da_dispatcher").await?;
-
-                // TODO: this query might always return the same blob if the blob is not included
-                // we should probably change the query to return all blobs that are not included
-                let blob_info = conn
+                let pending_blobs = conn
                     .data_availability_dal()
-                    .get_first_da_blob_awaiting_inclusion()
+                    .get_da_blob_ids_awaiting_inclusion()
                     .await?;
                 drop(conn);
 
-                let Some(blob_info) = blob_info else {
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue;
-                };
-
-                if pending_inclusions.contains(&blob_info.blob_id) {
-                    continue;
+                for blob_info in pending_blobs.into_iter().flatten() {
+                    if pending_inclusions.contains(&blob_info.blob_id) {
+                        continue;
+                    }
+                    pending_inclusions.insert(blob_info.blob_id.clone());
+                    tx.send(blob_info).await?;
                 }
-                pending_inclusions.insert(blob_info.blob_id.clone());
-                tx.send(blob_info).await?;
+                tokio::time::sleep(Duration::from_secs(5)).await;
             }
             Ok::<(), anyhow::Error>(())
         });
