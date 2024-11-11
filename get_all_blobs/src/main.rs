@@ -21,6 +21,9 @@ struct BlobData {
 }
 
 const EIGENDA_API_URL: &str = "https://disperser-holesky.eigenda.xyz:443";
+const BLOB_DATA_JSON: &str = "blob_data.json";
+const ABI_JSON: &str = "./abi/commitBatchesSharedBridge.json";
+const COMMIT_BATCHES_SELECTOR: &str = "6edd4f12";
 
 async fn get_blob(commitment: &str) -> anyhow::Result<Vec<u8>> {
     let client = EigenClientRetriever::new(EIGENDA_API_URL).await?;
@@ -37,7 +40,6 @@ async fn get_transactions(
         Ethereum,
     >,
     validator_timelock_address: Address,
-    commit_batches_selector: &str,
     block_start: u64,
 ) -> anyhow::Result<()> {
     let latest_block = provider.get_block_number().await?;
@@ -61,7 +63,7 @@ async fn get_transactions(
                     if to == validator_timelock_address {
                         let input = tx.input;
                         let selector = &input[0..4];
-                        if selector == hex::decode(commit_batches_selector)? {
+                        if selector == hex::decode(COMMIT_BATCHES_SELECTOR)? {
                             if let Ok(decoded) = decode_blob_data_input(&input[4..]).await {
                                 for blob in decoded {
                                     json_array.push(blob);
@@ -80,15 +82,14 @@ async fn get_transactions(
     }
 
     let json_string = serde_json::to_string_pretty(&json_array)?;
-    fs::write("blob_data.json", json_string)?;
+    fs::write(BLOB_DATA_JSON, json_string)?;
     println!("\x1b[32mData stored in blob_data.json file.\x1b[0m");
 
     Ok(())
 }
 
 async fn decode_blob_data_input(input: &[u8]) -> anyhow::Result<Vec<BlobData>> {
-    let path = "./abi/commitBatchesSharedBridge.json";
-    let json = std::fs::read_to_string(path)?;
+    let json = std::fs::read_to_string(ABI_JSON)?;
     let json_abi: JsonAbi = serde_json::from_str(&json)?;
     let function = json_abi
         .functions
@@ -148,8 +149,6 @@ async fn main() -> anyhow::Result<()> {
 
     let validator_timelock_address = Address::from_str(&args[1])?;
 
-    let commit_batches_selector = "6edd4f12";
-
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
     let url = alloy::transports::http::reqwest::Url::from_str(&args[2])?;
@@ -160,13 +159,7 @@ async fn main() -> anyhow::Result<()> {
 
     let block_start = args[3].parse::<u64>()?;
 
-    get_transactions(
-        &provider,
-        validator_timelock_address,
-        commit_batches_selector,
-        block_start,
-    )
-    .await?;
+    get_transactions(&provider, validator_timelock_address, block_start).await?;
 
     Ok(())
 }
