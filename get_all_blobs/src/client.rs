@@ -23,9 +23,9 @@ impl EigenClientRetriever {
     }
 
     pub async fn get_blob_data(&self, blob_id: &str) -> anyhow::Result<Option<Vec<u8>>> {
-        let commit = hex::decode(blob_id).unwrap();
+        let commit = hex::decode(blob_id)?;
 
-        let blob_info: BlobInfo = rlp::decode(&commit).unwrap();
+        let blob_info: BlobInfo = rlp::decode(&commit)?;
         let blob_index = blob_info.blob_verification_proof.blob_index;
         let batch_header_hash = blob_info
             .blob_verification_proof

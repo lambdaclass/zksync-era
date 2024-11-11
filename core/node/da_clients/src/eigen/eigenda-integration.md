@@ -115,7 +115,8 @@ zkstack server --chain eigen_da
 
 ### Get Blobs from L1
 
-In order to retrieve the blobs sent to EigenDA whose commitments are stored on L1 in order to be able to rebuild the chain from them run:
+In order to retrieve the blobs sent to EigenDA whose commitments are stored on L1 in order to be able to rebuild the
+chain from them run:
 
 ```bash
 cd get_all_blobs

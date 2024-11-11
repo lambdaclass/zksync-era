@@ -55,7 +55,9 @@ async fn get_transactions(
                         let selector = &input[0..4];
                         if selector == hex::decode(commit_batches_selector)? {
                             if let Ok(decoded) = decode_blob_data_input(&input[4..]).await {
-                                json_array.push(decoded);
+                                for blob in decoded {
+                                    json_array.push(blob);
+                                }
                             }
                         }
                     }
@@ -76,7 +78,7 @@ async fn get_transactions(
     Ok(())
 }
 
-async fn decode_blob_data_input(input: &[u8]) -> anyhow::Result<BlobData> {
+async fn decode_blob_data_input(input: &[u8]) -> anyhow::Result<Vec<BlobData>> {
     let path = "./abi/commitBatchesSharedBridge.json";
     let json = std::fs::read_to_string(path)?;
     let json_abi: JsonAbi = serde_json::from_str(&json)?;
@@ -95,17 +97,32 @@ async fn decode_blob_data_input(input: &[u8]) -> anyhow::Result<BlobData> {
         .ok_or(anyhow::anyhow!(
             "CommitBatchInfo components cannot be represented as a tuple"
         ))?;
-    let pubdata_commitments = commit_batch_info.last().ok_or(anyhow::anyhow!(
-        "pubdata_commitments not found in commitBatchesSharedBridge input"
-    ))?;
-    let pubdata_commitments_bytes = pubdata_commitments
-        .as_bytes()
-        .ok_or(anyhow::anyhow!("pubdata_commitments is not a bytes array"))?;
 
+    let mut blobs = vec![];
+
+    for pubdata_commitments in commit_batch_info.iter() {
+        let pubdata_commitments_bytes = pubdata_commitments.as_bytes();
+        match get_blob_from_pubdata_commitment(pubdata_commitments_bytes).await {
+            Ok(blob_data) => blobs.push(blob_data),
+            Err(_) => (),
+        }
+    }
+
+    Ok(blobs)
+}
+
+async fn get_blob_from_pubdata_commitment(
+    pubdata_commitments_bytes: Option<&[u8]>,
+) -> anyhow::Result<BlobData> {
+    if pubdata_commitments_bytes.is_none() {
+        return Err(anyhow::anyhow!(
+            "CommitBatchInfo components cannot be represented as a tuple"
+        ));
+    }
+    let pubdata_commitments_bytes = pubdata_commitments_bytes.unwrap();
     let commitment = hex::decode(&pubdata_commitments_bytes[1..])?;
     let commitment = hex::encode(&commitment);
     let blob = get_blob(&commitment).await?;
-
     Ok(BlobData {
         commitment,
         blob: hex::encode(blob),
