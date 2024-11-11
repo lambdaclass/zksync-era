@@ -38,11 +38,12 @@ async fn get_transactions(
     >,
     validator_timelock_address: Address,
     commit_batches_selector: &str,
+    block_start: u64,
 ) -> anyhow::Result<()> {
     let latest_block = provider.get_block_number().await?;
     let mut json_array = Vec::new();
 
-    for block_number in 0..=latest_block {
+    for block_number in block_start..=latest_block {
         if let Ok(Some(block)) = provider
             .get_block_by_number(block_number.into(), true)
             .await
@@ -113,28 +114,32 @@ async fn decode_blob_data_input(input: &[u8]) -> anyhow::Result<BlobData> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // let args: Vec<String> = std::env::args().collect();
+    let args: Vec<String> = std::env::args().collect();
 
-    // if args.len() != 3 {
-    //     eprintln!("Usage: {} validatorTimelockAddress=<address> commitBatchesSharedBridge_functionSelector=<selector>", args[0]);
-    //     std::process::exit(1);
-    // }
-    let validator_timelock_address =
-        Address::from_str("0x95af79aAB990f9740c029013ef18f3D3d666B4e8")?;
+    if args.len() != 4 {
+        eprintln!("Usage: cargo run <validatorTimelockAddress> <rpc_url> <block_start>");
+        std::process::exit(1);
+    }
+
+    let validator_timelock_address = Address::from_str(&args[1])?;
+
     let commit_batches_selector = "6edd4f12";
 
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
-    let url = alloy::transports::http::reqwest::Url::from_str(&"http://127.0.0.1:8545")?;
+    let url = alloy::transports::http::reqwest::Url::from_str(&args[2])?;
     let provider: RootProvider<
         alloy::transports::http::Http<alloy::transports::http::Client>,
         Ethereum,
     > = RootProvider::new_http(url);
 
+    let block_start = args[3].parse::<u64>()?;
+
     get_transactions(
         &provider,
         validator_timelock_address,
         commit_batches_selector,
+        block_start,
     )
     .await?;
 
