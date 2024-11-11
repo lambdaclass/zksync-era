@@ -43,7 +43,15 @@ async fn get_transactions(
     let latest_block = provider.get_block_number().await?;
     let mut json_array = Vec::new();
 
+    let mut i = 0;
     for block_number in block_start..=latest_block {
+        i += 1;
+        if i % 50 == 0 {
+            println!(
+                "\x1b[32mProcessed up to block {} of {}\x1b[0m",
+                block_number, latest_block
+            );
+        }
         if let Ok(Some(block)) = provider
             .get_block_by_number(block_number.into(), true)
             .await
