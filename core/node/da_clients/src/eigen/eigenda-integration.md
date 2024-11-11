@@ -127,10 +127,11 @@ prometheus:
 Then modify the `era-observability/etc/prometheus/prometheus.yml` with the retrieved port:
 
 ```yaml
-scrape_interval: 5s
-honor_labels: true
-static_configs:
-  - targets: ['host.docker.internal:3312'] # <- change this to the port
+- job_name: 'zksync'
+  scrape_interval: 5s
+  honor_labels: true
+  static_configs:
+    - targets: ['host.docker.internal:3312'] # <- change this to the port
 ```
 
 2. Enable the Data Availability Grafana dashboard
@@ -140,6 +141,12 @@ mv era-observability/additional_dashboards/EigenDA.json era-observability/dashbo
 ```
 
 3. Restart the era-observability container
+
+```bash
+docker ps --filter "label=com.docker.compose.project=era-observability" -q | xargs docker restart
+```
+
+(this can also be done through the docker dashboard)
 
 ### Testing
 
