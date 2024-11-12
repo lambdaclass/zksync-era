@@ -38,29 +38,3 @@ pub fn pull(shell: &Shell, link_to_code: PathBuf) -> anyhow::Result<()> {
     Cmd::new(cmd!(shell, "git pull origin {current_branch}")).run()?;
     Ok(())
 }
-
-pub fn add_remote(
-    shell: &Shell,
-    link_to_code: PathBuf,
-    remote_name: &str,
-    remote_url: &str,
-) -> anyhow::Result<()> {
-    let _dir_guard = shell.push_dir(link_to_code);
-    match Cmd::new(cmd!(shell, "git remote add {remote_name} {remote_url}")).run() {
-        Ok(_) => {}
-        Err(e) => {
-            if !e.to_string().contains("already exists") {
-                return Err(e.into());
-            }
-        }
-    }
-
-    Cmd::new(cmd!(shell, "git fetch {remote_name}")).run()?;
-    Ok(())
-}
-
-pub fn checkout(shell: &Shell, link_to_code: PathBuf, branch: &str) -> anyhow::Result<()> {
-    let _dir_guard = shell.push_dir(link_to_code);
-    Cmd::new(cmd!(shell, "git checkout {branch}")).run()?;
-    Ok(())
-}

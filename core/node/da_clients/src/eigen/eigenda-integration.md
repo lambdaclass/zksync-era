@@ -115,6 +115,28 @@ zkstack server --chain eigen_da
 
 ### Data Availability Grafana Metrics
 
+#### Temporary setup (until `era-observabilty` changes are also merged)
+
+1. Setup the observability container at least once so the `era-observability` directory is cloned.
+
+```bash
+zkstack containers --observability true
+```
+
+2. Add `lambda` remote to the `era-observability` project:
+
+```bash
+cd era-observability && git remote add lambda https://github.com/lambdaclass/era-observability.git
+```
+
+3. Fetch and checkout the `eigenda` branch:
+
+```bash
+git fetch lambda && git checkout eigenda
+```
+
+#### Steps
+
 1. Get the running port of the eigen_da chain in the `chains/eigen_da/configs/general.yaml` file:
 
 ```yaml

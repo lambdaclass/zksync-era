@@ -20,16 +20,7 @@ pub fn run(shell: &Shell) -> anyhow::Result<()> {
         ERA_OBSERBAVILITY_GIT_REPO,
         ERA_OBSERBAVILITY_DIR,
     )?;
-
-    // Add lambda remote and checkout to `eigenda` for DA metrics
-    git::add_remote(
-        shell,
-        path_to_era_observability.clone(),
-        "lambda",
-        "https://github.com/lambdaclass/era-observability.git",
-    )?;
-    git::checkout(shell, path_to_era_observability.clone(), "eigenda")?;
-
     spinner.finish();
+
     Ok(())
 }
