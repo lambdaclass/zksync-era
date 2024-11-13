@@ -1,13 +1,17 @@
-use std::{collections::HashSet, future::Future, sync::Arc, time::Duration};
+use std::{collections::HashSet, future::Future, sync::Arc, thread::spawn, time::Duration};
 
 use anyhow::Context;
 use chrono::Utc;
-use futures::future::join_all;
+use futures::future::{join_all, try_join_all};
 use rand::Rng;
-use tokio::sync::{
-    mpsc,
-    watch::{self, Receiver},
-    Mutex, Notify,
+use tokio::{
+    sync::{
+        mpsc,
+        watch::{self, Receiver},
+        Mutex, Notify,
+    },
+    task::JoinSet,
+    try_join,
 };
 use zksync_config::{configs::da_dispatcher::DEFAULT_MAX_CONCURRENT_REQUESTS, DADispatcherConfig};
 use zksync_da_client::{
@@ -80,7 +84,8 @@ impl DataAvailabilityDispatcher {
         let pool_clone = self.pool.clone();
         let config_clone = self.config.clone();
         let next_expected_batch_clone = next_expected_batch.clone();
-        let pending_blobs_reader = tokio::spawn(async move {
+        let mut pending_blobs = JoinSet::new();
+        pending_blobs.spawn(async move {
             // Used to avoid sending the same batch multiple times
             let mut pending_batches = HashSet::new();
             loop {
@@ -123,8 +128,8 @@ impl DataAvailabilityDispatcher {
         let client = self.client.clone();
         let request_semaphore = self.request_semaphore.clone();
         let notifier = Arc::new(Notify::new());
-        let pending_blobs_sender = tokio::spawn(async move {
-            let mut spawned_requests = vec![];
+        pending_blobs.spawn(async move {
+            let mut spawned_requests = JoinSet::new();
             let notifier = notifier.clone();
             loop {
                 if *stop_receiver.borrow() {
@@ -132,6 +137,7 @@ impl DataAvailabilityDispatcher {
                 }
                 tokio::select! {
                         Some(batch) = rx.recv() => {
+                            tracing::warn!("Received a batch for dispatch: {}", batch.l1_batch_number);
                             let permit = request_semaphore.clone().acquire_owned().await?;
                             let client = client.clone();
                             let pool = pool.clone();
@@ -139,16 +145,19 @@ impl DataAvailabilityDispatcher {
                             let next_expected_batch = next_expected_batch.clone();
                             let notifier = notifier.clone();
                             let shutdown_tx = shutdown_tx.clone();
-                            let request = tokio::spawn(async move {
+                            let shutdown_rx = shutdown_rx.clone();
+                            let request = spawned_requests.spawn(async move {
+                                tracing::warn!("Started request for batch {}", batch.l1_batch_number);
                                 let _permit = permit; // move permit into scope
                                 let dispatch_latency = METRICS.blob_dispatch_latency.start();
                                 let result = retry(config.max_retries(), batch.l1_batch_number, || {
-                                    let foo = client.dispatch_blob(batch.l1_batch_number.0, batch.pubdata.clone());
-                                    foo
+                                    client.dispatch_blob(batch.l1_batch_number.0, batch.pubdata.clone())
                                 })
                                 .await;
                                 if result.is_err() {
+                                    tracing::warn!("Batch {} failed to dispatch", batch.l1_batch_number);
                                     shutdown_tx.send(true)?;
+                                    notifier.notify_waiters();
                                 };
                                 let dispatch_response =
                                     result
@@ -172,6 +181,10 @@ impl DataAvailabilityDispatcher {
                                     batch.l1_batch_number > next_expected_batch
                                 })
                                 {
+                                    if *shutdown_rx.borrow() {
+                                        tracing::warn!("Batch {} failed to disperse: Shutdown signal received", batch.l1_batch_number);
+                                        return Err(anyhow::anyhow!("Batch {} failed to disperse: Shutdown signal received", batch.l1_batch_number));
+                                    }
                                     notifier.clone().notified().await;
                                 }
 
@@ -205,7 +218,6 @@ impl DataAvailabilityDispatcher {
                                 );
                                 Ok::<(), anyhow::Error>(())
                             });
-                            spawned_requests.push(request);
                         }
                         // Check for shutdown signal
                         _ = shutdown_rx.changed() => {
@@ -216,22 +228,42 @@ impl DataAvailabilityDispatcher {
                         }
                 }
             }
-            let res = join_all(spawned_requests).await;
-            for result in res {
-                result??;
+            while let Some(next) = spawned_requests.join_next().await {
+                match next {
+                    Ok(value) =>
+                        match value {
+                            Ok(_) => (),
+                            Err(err) => {
+                                spawned_requests.shutdown().await;
+                                return Err(err.into());
+                            }
+                        }
+                    ,
+                    Err(err) => {
+                        spawned_requests.shutdown().await;
+                        return Err(err.into());
+                    }
+                }
             }
             Ok::<(), anyhow::Error>(())
         });
 
-        let results = join_all(vec![pending_blobs_sender]).await;
-        for result in results {
-            result??;
+        while let Some(next) = pending_blobs.join_next().await {
+            match next {
+                Ok(value) => match value {
+                    Ok(_) => (),
+                    Err(err) => {
+                        pending_blobs.shutdown().await;
+                        return Err(err.into());
+                    }
+                },
+                Err(err) => {
+                    pending_blobs.shutdown().await;
+                    return Err(err.into());
+                }
+            }
         }
-        let results = join_all(vec![pending_blobs_reader]).await;
 
-        for result in results {
-            result??;
-        }
         Ok(())
     }
 
