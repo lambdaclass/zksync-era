@@ -1,8 +1,8 @@
-use std::{collections::HashSet, future::Future, sync::Arc, thread::spawn, time::Duration};
+use std::{collections::HashSet, future::Future, sync::Arc, time::Duration};
 
 use anyhow::Context;
 use chrono::Utc;
-use futures::future::{join_all, try_join_all};
+use futures::future::join_all;
 use rand::Rng;
 use tokio::{
     sync::{
@@ -11,7 +11,6 @@ use tokio::{
         Mutex, Notify,
     },
     task::JoinSet,
-    try_join,
 };
 use zksync_config::{configs::da_dispatcher::DEFAULT_MAX_CONCURRENT_REQUESTS, DADispatcherConfig};
 use zksync_da_client::{
@@ -137,7 +136,6 @@ impl DataAvailabilityDispatcher {
                 }
                 tokio::select! {
                         Some(batch) = rx.recv() => {
-                            tracing::warn!("Received a batch for dispatch: {}", batch.l1_batch_number);
                             let permit = request_semaphore.clone().acquire_owned().await?;
                             let client = client.clone();
                             let pool = pool.clone();
@@ -146,8 +144,7 @@ impl DataAvailabilityDispatcher {
                             let notifier = notifier.clone();
                             let shutdown_tx = shutdown_tx.clone();
                             let shutdown_rx = shutdown_rx.clone();
-                            let request = spawned_requests.spawn(async move {
-                                tracing::warn!("Started request for batch {}", batch.l1_batch_number);
+                            spawned_requests.spawn(async move {
                                 let _permit = permit; // move permit into scope
                                 let dispatch_latency = METRICS.blob_dispatch_latency.start();
                                 let result = retry(config.max_retries(), batch.l1_batch_number, || {
@@ -155,7 +152,6 @@ impl DataAvailabilityDispatcher {
                                 })
                                 .await;
                                 if result.is_err() {
-                                    tracing::warn!("Batch {} failed to dispatch", batch.l1_batch_number);
                                     shutdown_tx.send(true)?;
                                     notifier.notify_waiters();
                                 };
@@ -182,7 +178,6 @@ impl DataAvailabilityDispatcher {
                                 })
                                 {
                                     if *shutdown_rx.borrow() {
-                                        tracing::warn!("Batch {} failed to disperse: Shutdown signal received", batch.l1_batch_number);
                                         return Err(anyhow::anyhow!("Batch {} failed to disperse: Shutdown signal received", batch.l1_batch_number));
                                     }
                                     notifier.clone().notified().await;
