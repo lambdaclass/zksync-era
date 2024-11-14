@@ -2,7 +2,7 @@ use std::{str::FromStr, time::Duration};
 
 use secp256k1::{ecdsa::RecoverableSignature, SecretKey};
 use tokio::{sync::mpsc, time::Instant};
-use tokio_stream::{wrappers::ReceiverStream, StreamExt};
+use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 use tonic::{
     transport::{Channel, ClientTlsConfig, Endpoint},
     Streaming,
@@ -37,8 +37,6 @@ pub(crate) struct RawEigenClient {
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
 
 impl RawEigenClient {
-    pub(crate) const BUFFER_SIZE: usize = 1000;
-
     pub async fn new(private_key: SecretKey, config: DisperserConfig) -> anyhow::Result<Self> {
         let endpoint =
             Endpoint::from_str(config.disperser_rpc.as_str())?.tls_config(ClientTlsConfig::new())?;
@@ -119,24 +117,25 @@ impl RawEigenClient {
 
     async fn dispatch_blob_authenticated(&self, data: Vec<u8>) -> anyhow::Result<String> {
         let mut client_clone = self.client.clone();
-        let (tx, rx) = mpsc::channel(Self::BUFFER_SIZE);
+        let (tx, rx) = mpsc::unbounded_channel();
 
         let disperse_time = Instant::now();
-        let response_stream = client_clone.disperse_blob_authenticated(ReceiverStream::new(rx));
+        let response_stream =
+            client_clone.disperse_blob_authenticated(UnboundedReceiverStream::new(rx));
         let padded_data = convert_by_padding_empty_byte(&data);
 
         // 1. send DisperseBlobRequest
-        self.disperse_data(padded_data, &tx).await?;
+        self.disperse_data(padded_data, &tx)?;
 
         // this await is blocked until the first response on the stream, so we only await after sending the `DisperseBlobRequest`
-        let mut response_stream = response_stream.await?.into_inner();
+        let mut response_stream = response_stream.await?;
+        let response_stream = response_stream.get_mut();
 
         // 2. receive BlobAuthHeader
-        let blob_auth_header = self.receive_blob_auth_header(&mut response_stream).await?;
+        let blob_auth_header = self.receive_blob_auth_header(response_stream).await?;
 
         // 3. sign and send BlobAuthHeader
-        self.submit_authentication_data(blob_auth_header.clone(), &tx)
-            .await?;
+        self.submit_authentication_data(blob_auth_header.clone(), &tx)?;
 
         // 4. receive DisperseBlobReply
         let reply = response_stream
@@ -183,10 +182,10 @@ impl RawEigenClient {
         }
     }
 
-    async fn disperse_data(
+    fn disperse_data(
         &self,
         data: Vec<u8>,
-        tx: &mpsc::Sender<disperser::AuthenticatedRequest>,
+        tx: &mpsc::UnboundedSender<disperser::AuthenticatedRequest>,
     ) -> anyhow::Result<()> {
         let req = disperser::AuthenticatedRequest {
             payload: Some(DisperseRequest(disperser::DisperseBlobRequest {
@@ -197,14 +196,13 @@ impl RawEigenClient {
         };
 
         tx.send(req)
-            .await
             .map_err(|e| anyhow::anyhow!("Failed to send DisperseBlobRequest: {}", e))
     }
 
-    async fn submit_authentication_data(
+    fn submit_authentication_data(
         &self,
         blob_auth_header: BlobAuthHeader,
-        tx: &mpsc::Sender<disperser::AuthenticatedRequest>,
+        tx: &mpsc::UnboundedSender<disperser::AuthenticatedRequest>,
     ) -> anyhow::Result<()> {
         // TODO: replace challenge_parameter with actual auth header when it is available
         let digest = zksync_basic_types::web3::keccak256(
@@ -228,7 +226,6 @@ impl RawEigenClient {
         };
 
         tx.send(req)
-            .await
             .map_err(|e| anyhow::anyhow!("Failed to send AuthenticationData: {}", e))
     }
 
