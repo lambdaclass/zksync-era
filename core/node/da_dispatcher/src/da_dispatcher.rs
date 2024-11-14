@@ -83,8 +83,9 @@ impl DataAvailabilityDispatcher {
         let pool_clone = self.pool.clone();
         let config_clone = self.config.clone();
         let next_expected_batch_clone = next_expected_batch.clone();
-        let mut pending_blobs = JoinSet::new();
-        pending_blobs.spawn(async move {
+        let mut dispatcher_tasks = JoinSet::new();
+        // This task reads pending blocks from the database
+        dispatcher_tasks.spawn(async move {
             // Used to avoid sending the same batch multiple times
             let mut pending_batches = HashSet::new();
             loop {
@@ -127,7 +128,8 @@ impl DataAvailabilityDispatcher {
         let client = self.client.clone();
         let request_semaphore = self.request_semaphore.clone();
         let notifier = Arc::new(Notify::new());
-        pending_blobs.spawn(async move {
+        // This task sends blobs to the dispatcher
+        dispatcher_tasks.spawn(async move {
             let mut spawned_requests = JoinSet::new();
             let notifier = notifier.clone();
             loop {
@@ -243,17 +245,17 @@ impl DataAvailabilityDispatcher {
             Ok::<(), anyhow::Error>(())
         });
 
-        while let Some(next) = pending_blobs.join_next().await {
+        while let Some(next) = dispatcher_tasks.join_next().await {
             match next {
                 Ok(value) => match value {
                     Ok(_) => (),
                     Err(err) => {
-                        pending_blobs.shutdown().await;
+                        dispatcher_tasks.shutdown().await;
                         return Err(err.into());
                     }
                 },
                 Err(err) => {
-                    pending_blobs.shutdown().await;
+                    dispatcher_tasks.shutdown().await;
                     return Err(err.into());
                 }
             }
