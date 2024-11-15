@@ -58,9 +58,10 @@ message DisperserConfig {
 }
 
 message EigenConfig {
+  reserved 1,2;
   oneof config {
-    MemStoreConfig mem_store = 1;
-    DisperserConfig disperser = 2;
+    MemStoreConfig mem_store = 3;
+    DisperserConfig disperser = 4;
   }
 }
 
