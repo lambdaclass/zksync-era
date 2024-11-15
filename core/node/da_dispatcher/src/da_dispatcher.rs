@@ -70,12 +70,7 @@ impl DataAvailabilityDispatcher {
     }
 
     async fn dispatch_batches(&self, stop_receiver: Receiver<bool>) -> anyhow::Result<()> {
-        let (tx, mut rx) = mpsc::channel(
-            self.config
-                .max_concurrent_requests
-                .unwrap_or(DEFAULT_MAX_CONCURRENT_REQUESTS) as usize,
-        );
-        let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
         let next_expected_batch = Arc::new(Mutex::new(None));
 
@@ -83,167 +78,124 @@ impl DataAvailabilityDispatcher {
         let pool_clone = self.pool.clone();
         let config_clone = self.config.clone();
         let next_expected_batch_clone = next_expected_batch.clone();
-        let mut dispatcher_tasks = JoinSet::new();
-        // This task reads pending blocks from the database
-        dispatcher_tasks.spawn(async move {
-            // Used to avoid sending the same batch multiple times
-            let mut pending_batches = HashSet::new();
-            loop {
-                if *stop_receiver_clone.borrow() {
-                    tracing::info!("Stop signal received, da_dispatcher is shutting down");
-                    break;
-                }
-                let mut conn = pool_clone.connection_tagged("da_dispatcher").await?;
-                let batches = conn
-                    .data_availability_dal()
-                    .get_ready_for_da_dispatch_l1_batches(
-                        config_clone.max_rows_to_dispatch() as usize
-                    )
-                    .await?;
-                drop(conn);
-                for batch in batches {
-                    if pending_batches.contains(&batch.l1_batch_number.0) {
-                        continue;
-                    }
-                    // This should only happen once.
-                    // We can't assume that the first batch is always 1 because the dispatcher can be restarted
-                    // and resume from a different batch.
-                    let mut next_expected_batch_lock = next_expected_batch_clone.lock().await;
-                    if next_expected_batch_lock.is_none() {
-                        next_expected_batch_lock.replace(batch.l1_batch_number);
-                    }
+        let mut dispatcher_tasks: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
-                    pending_batches.insert(batch.l1_batch_number.0);
-                    METRICS.blobs_pending_dispatch.inc_by(1);
-                    tx.send(batch).await?;
-                }
-
-                tokio::time::sleep(Duration::from_secs(5)).await;
-            }
-            Ok::<(), anyhow::Error>(())
-        });
-
-        let pool = self.pool.clone();
-        let config = self.config.clone();
-        let client = self.client.clone();
-        let request_semaphore = self.request_semaphore.clone();
+        let mut pending_batches = HashSet::new();
         let notifier = Arc::new(Notify::new());
-        // This task sends blobs to the dispatcher
-        dispatcher_tasks.spawn(async move {
-            let mut spawned_requests = JoinSet::new();
-            let notifier = notifier.clone();
-            loop {
-                if *stop_receiver.borrow() {
-                    break;
-                }
-                tokio::select! {
-                        Some(batch) = rx.recv() => {
-                            let permit = request_semaphore.clone().acquire_owned().await?;
-                            let client = client.clone();
-                            let pool = pool.clone();
-                            let config = config.clone();
-                            let next_expected_batch = next_expected_batch.clone();
-                            let notifier = notifier.clone();
-                            let shutdown_tx = shutdown_tx.clone();
-                            let shutdown_rx = shutdown_rx.clone();
-                            spawned_requests.spawn(async move {
-                                let _permit = permit; // move permit into scope
-                                let dispatch_latency = METRICS.blob_dispatch_latency.start();
-                                let result = retry(config.max_retries(), batch.l1_batch_number, || {
-                                    client.dispatch_blob(batch.l1_batch_number.0, batch.pubdata.clone())
-                                })
-                                .await;
-                                if result.is_err() {
-                                    shutdown_tx.send(true)?;
-                                    notifier.notify_waiters();
-                                };
-                                let dispatch_response =
-                                    result
-                                    .with_context(|| {
-                                        format!(
-                                            "failed to dispatch a blob with batch_number: {}, pubdata_len: {}",
-                                            batch.l1_batch_number,
-                                            batch.pubdata.len()
-                                        )
-                                    })?;
-                                let dispatch_latency_duration = dispatch_latency.observe();
-
-                                let sent_at = Utc::now().naive_utc();
-
-                                // Before saving the blob in the database, we need to be sure that we are doing it
-                                // in the correct order.
-                                while next_expected_batch
-                                .lock()
-                                .await
-                                .map_or(true, |next_expected_batch| {
-                                    batch.l1_batch_number > next_expected_batch
-                                })
-                                {
-                                    if *shutdown_rx.borrow() {
-                                        return Err(anyhow::anyhow!("Batch {} failed to disperse: Shutdown signal received", batch.l1_batch_number));
-                                    }
-                                    notifier.clone().notified().await;
-                                }
-
-                                let mut conn = pool.connection_tagged("da_dispatcher").await?;
-                                conn.data_availability_dal()
-                                .insert_l1_batch_da(
-                                    batch.l1_batch_number,
-                                    dispatch_response.blob_id.as_str(),
-                                    sent_at,
-                                )
-                                .await?;
-                                drop(conn);
-
-                                // Update the next expected batch number
-                                next_expected_batch
-                                .lock()
-                                .await
-                                .replace(batch.l1_batch_number + 1);
-                                notifier.notify_waiters();
-
-                                METRICS
-                                .last_dispatched_l1_batch
-                                .set(batch.l1_batch_number.0 as usize);
-                                METRICS.blob_size.observe(batch.pubdata.len());
-                                METRICS.blobs_dispatched.inc_by(1);
-                                METRICS.blobs_pending_dispatch.dec_by(1);
-                                tracing::info!(
-                                    "Dispatched a DA for batch_number: {}, pubdata_size: {}, dispatch_latency: {dispatch_latency_duration:?}",
-                                    batch.l1_batch_number,
-                                    batch.pubdata.len(),
-                                );
-                                Ok::<(), anyhow::Error>(())
-                            });
-                        }
-                        // Check for shutdown signal
-                        _ = shutdown_rx.changed() => {
-                            if *shutdown_rx.borrow() {
-                                println!("Shutdown signal received. Exiting message loop.");
-                                break;
-                            }
-                        }
-                }
+        loop {
+            if *stop_receiver_clone.borrow() {
+                tracing::info!("Stop signal received, da_dispatcher is shutting down");
+                break;
             }
-            while let Some(next) = spawned_requests.join_next().await {
-                match next {
-                    Ok(value) =>
-                        match value {
-                            Ok(_) => (),
-                            Err(err) => {
-                                spawned_requests.shutdown().await;
-                                return Err(err.into());
-                            }
+
+            let mut conn = pool_clone.connection_tagged("da_dispatcher").await?;
+            let batches = conn
+                .data_availability_dal()
+                .get_ready_for_da_dispatch_l1_batches(config_clone.max_rows_to_dispatch() as usize)
+                .await?;
+            drop(conn);
+            let shutdown_tx = shutdown_tx.clone();
+            for batch in batches {
+                if pending_batches.contains(&batch.l1_batch_number.0) {
+                    continue;
+                }
+
+                // This should only happen once.
+                // We can't assume that the first batch is always 1 because the dispatcher can be restarted
+                // and resume from a different batch.
+                let mut next_expected_batch_lock = next_expected_batch_clone.lock().await;
+                if next_expected_batch_lock.is_none() {
+                    next_expected_batch_lock.replace(batch.l1_batch_number);
+                }
+
+                pending_batches.insert(batch.l1_batch_number.0);
+                METRICS.blobs_pending_dispatch.inc_by(1);
+
+                let request_semaphore = self.request_semaphore.clone();
+                let client = self.client.clone();
+                let config = self.config.clone();
+                let notifier = notifier.clone();
+                let shutdown_rx = shutdown_rx.clone();
+                let shutdown_tx = shutdown_tx.clone();
+                let next_expected_batch = next_expected_batch_clone.clone();
+                let pool = self.pool.clone();
+                dispatcher_tasks.spawn(async move {
+                    let _permit = request_semaphore.clone().acquire_owned().await?;
+                    let dispatch_latency = METRICS.blob_dispatch_latency.start();
+
+                    let result = retry(config.max_retries(), batch.l1_batch_number, || {
+                        client.dispatch_blob(batch.l1_batch_number.0, batch.pubdata.clone())
+                    })
+                    .await;
+                    if result.is_err() {
+                        shutdown_tx.clone().send(true)?;
+                        notifier.notify_waiters();
+                    };
+
+                    let dispatch_response = result.with_context(|| {
+                        format!(
+                            "failed to dispatch a blob with batch_number: {}, pubdata_len: {}",
+                            batch.l1_batch_number,
+                            batch.pubdata.len()
+                        )
+                    })?;
+                    let dispatch_latency_duration = dispatch_latency.observe();
+
+                    let sent_at = Utc::now().naive_utc();
+
+                    // Before saving the blob in the database, we need to be sure that we are doing it
+                    // in the correct order.
+                    while next_expected_batch
+                        .lock()
+                        .await
+                        .map_or(true, |next_expected_batch| {
+                            batch.l1_batch_number > next_expected_batch
+                        })
+                    {
+                        if *shutdown_rx.clone().borrow() {
+                            return Err(anyhow::anyhow!(
+                                "Batch {} failed to disperse: Shutdown signal received",
+                                batch.l1_batch_number
+                            ));
                         }
-                    ,
-                    Err(err) => {
-                        spawned_requests.shutdown().await;
-                        return Err(err.into());
+                        notifier.clone().notified().await;
                     }
-                }
+
+                    let mut conn = pool.connection_tagged("da_dispatcher").await?;
+                    conn.data_availability_dal()
+                        .insert_l1_batch_da(
+                            batch.l1_batch_number,
+                            dispatch_response.blob_id.as_str(),
+                            sent_at,
+                        )
+                        .await?;
+                    drop(conn);
+
+                    // Update the next expected batch number
+                    next_expected_batch
+                    .lock()
+                    .await
+                    .replace(batch.l1_batch_number + 1);
+                    notifier.notify_waiters();
+
+                    METRICS
+                    .last_dispatched_l1_batch
+                    .set(batch.l1_batch_number.0 as usize);
+                    METRICS.blob_size.observe(batch.pubdata.len());
+                    METRICS.blobs_dispatched.inc_by(1);
+                    METRICS.blobs_pending_dispatch.dec_by(1);
+                    tracing::info!(
+                        "Dispatched a DA for batch_number: {}, pubdata_size: {}, dispatch_latency: {dispatch_latency_duration:?}",
+                        batch.l1_batch_number,
+                        batch.pubdata.len(),
+                    );
+                    Ok(())
+                });
             }
-            Ok::<(), anyhow::Error>(())
-        });
+
+            // Sleep so we prevent hammering the database
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        }
 
         while let Some(next) = dispatcher_tasks.join_next().await {
             match next {
@@ -415,3 +367,45 @@ where
         }
     }
 }
+
+// async fn fetch_and_enqueue_batches(
+//     tx: mpsc::Sender<L1BatchDA>,
+//     stop_receiver: Receiver<bool>,
+//     pool: ConnectionPool<Core>,
+//     config: DADispatcherConfig,
+//     next_expected_batch: Arc<Mutex<Option<L1BatchNumber>>>,
+// ) -> anyhow::Result<()> {
+//     // Used to avoid sending the same batch multiple times
+//     let mut pending_batches = HashSet::new();
+//     loop {
+//         if *stop_receiver.borrow() {
+//             tracing::info!("Stop signal received, da_dispatcher is shutting down");
+//             break;
+//         }
+//         let mut conn = pool.connection_tagged("da_dispatcher").await?;
+//         let batches = conn
+//             .data_availability_dal()
+//             .get_ready_for_da_dispatch_l1_batches(config.max_rows_to_dispatch() as usize)
+//             .await?;
+//         drop(conn);
+//         for batch in batches {
+//             if pending_batches.contains(&batch.l1_batch_number.0) {
+//                 continue;
+//             }
+//             // This should only happen once.
+//             // We can't assume that the first batch is always 1 because the dispatcher can be restarted
+//             // and resume from a different batch.
+//             let mut next_expected_batch_lock = next_expected_batch.lock().await;
+//             if next_expected_batch_lock.is_none() {
+//                 next_expected_batch_lock.replace(batch.l1_batch_number);
+//             }
+
+//             pending_batches.insert(batch.l1_batch_number.0);
+//             METRICS.blobs_pending_dispatch.inc_by(1);
+//             tx.send(batch).await?;
+//         }
+
+//         tokio::time::sleep(Duration::from_secs(5)).await;
+//     }
+//     Ok::<(), anyhow::Error>(())
+// }
