@@ -79,6 +79,10 @@ impl DataAvailabilityDispatcher {
                 tracing::info!("Stop signal received, da_dispatcher is shutting down");
                 break;
             }
+            if *shutdown_rx.borrow() {
+                tracing::error!("A blob dispatch failed, da_dispatcher is shutting down");
+                break;
+            }
 
             let mut conn = self.pool.connection_tagged("da_dispatcher").await?;
             let batches = conn
