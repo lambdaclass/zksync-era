@@ -70,28 +70,22 @@ impl DataAvailabilityDispatcher {
     }
 
     async fn dispatch_batches(&self, stop_receiver: Receiver<bool>) -> anyhow::Result<()> {
-        let (shutdown_tx, shutdown_rx) = watch::channel(false);
-
         let next_expected_batch = Arc::new(Mutex::new(None));
-
-        let stop_receiver_clone = stop_receiver.clone();
-        let pool_clone = self.pool.clone();
-        let config_clone = self.config.clone();
-        let next_expected_batch_clone = next_expected_batch.clone();
+        let mut pending_batches = HashSet::new();
         let mut dispatcher_tasks: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
-        let mut pending_batches = HashSet::new();
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
         let notifier = Arc::new(Notify::new());
         loop {
-            if *stop_receiver_clone.borrow() {
+            if *stop_receiver.clone().borrow() {
                 tracing::info!("Stop signal received, da_dispatcher is shutting down");
                 break;
             }
 
-            let mut conn = pool_clone.connection_tagged("da_dispatcher").await?;
+            let mut conn = self.pool.connection_tagged("da_dispatcher").await?;
             let batches = conn
                 .data_availability_dal()
-                .get_ready_for_da_dispatch_l1_batches(config_clone.max_rows_to_dispatch() as usize)
+                .get_ready_for_da_dispatch_l1_batches(self.config.max_rows_to_dispatch() as usize)
                 .await?;
             drop(conn);
             let shutdown_tx = shutdown_tx.clone();
@@ -103,10 +97,11 @@ impl DataAvailabilityDispatcher {
                 // This should only happen once.
                 // We can't assume that the first batch is always 1 because the dispatcher can be restarted
                 // and resume from a different batch.
-                let mut next_expected_batch_lock = next_expected_batch_clone.lock().await;
+                let mut next_expected_batch_lock = next_expected_batch.lock().await;
                 if next_expected_batch_lock.is_none() {
                     next_expected_batch_lock.replace(batch.l1_batch_number);
                 }
+                drop(next_expected_batch_lock);
 
                 pending_batches.insert(batch.l1_batch_number.0);
                 METRICS.blobs_pending_dispatch.inc_by(1);
@@ -117,7 +112,7 @@ impl DataAvailabilityDispatcher {
                 let notifier = notifier.clone();
                 let shutdown_rx = shutdown_rx.clone();
                 let shutdown_tx = shutdown_tx.clone();
-                let next_expected_batch = next_expected_batch_clone.clone();
+                let next_expected_batch = next_expected_batch.clone();
                 let pool = self.pool.clone();
                 dispatcher_tasks.spawn(async move {
                     let _permit = request_semaphore.clone().acquire_owned().await?;
@@ -203,7 +198,7 @@ impl DataAvailabilityDispatcher {
                     Ok(_) => (),
                     Err(err) => {
                         dispatcher_tasks.shutdown().await;
-                        return Err(err.into());
+                        return Err(err);
                     }
                 },
                 Err(err) => {
