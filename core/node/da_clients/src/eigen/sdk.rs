@@ -177,9 +177,10 @@ impl RawEigenClient {
     }
 
     pub async fn dispatch_blob(&self, data: Vec<u8>) -> anyhow::Result<String> {
-        match self.config.authenticated {
-            true => self.dispatch_blob_authenticated(data).await,
-            false => self.dispatch_blob_non_authenticated(data).await,
+        if self.config.authenticated {
+            self.dispatch_blob_authenticated(data).await
+        } else {
+            self.dispatch_blob_non_authenticated(data).await
         }
     }
 
@@ -423,6 +424,14 @@ mod test {
     #[test]
     fn test_pad_and_unpad_large() {
         let data = vec![1; 1000];
+        let padded_data = super::convert_by_padding_empty_byte(&data);
+        let unpadded_data = super::remove_empty_byte_from_padded_bytes(&padded_data);
+        assert_eq!(data, unpadded_data);
+    }
+
+    #[test]
+    fn test_pad_and_unpad_empty() {
+        let data = Vec::new();
         let padded_data = super::convert_by_padding_empty_byte(&data);
         let unpadded_data = super::remove_empty_byte_from_padded_bytes(&padded_data);
         assert_eq!(data, unpadded_data);
