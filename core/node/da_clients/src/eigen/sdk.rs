@@ -427,4 +427,12 @@ mod test {
         let unpadded_data = super::remove_empty_byte_from_padded_bytes(&padded_data);
         assert_eq!(data, unpadded_data);
     }
+
+    #[test]
+    fn test_pad_and_unpad_empty() {
+        let data = Vec::new();
+        let padded_data = super::convert_by_padding_empty_byte(&data);
+        let unpadded_data = super::remove_empty_byte_from_padded_bytes(&padded_data);
+        assert_eq!(data, unpadded_data);
+    }
 }
