@@ -36,6 +36,7 @@ pub(crate) struct RawEigenClient {
 }
 
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
+pub(crate) const AVG_BLOCK_TIME: u64 = 12;
 
 impl RawEigenClient {
     pub(crate) const BUFFER_SIZE: usize = 1000;
@@ -108,10 +109,10 @@ impl RawEigenClient {
         (|| async { self.verifier.verify_certificate(blob_info.clone()).await })
             .retry(
                 &ConstantBuilder::default()
-                    .with_delay(Duration::from_secs(12))
+                    .with_delay(Duration::from_secs(AVG_BLOCK_TIME))
                     .with_max_times(
                         (self.config.status_query_timeout
-                            - disperse_elapsed.as_millis() as u64 / 12)
+                            - disperse_elapsed.as_millis() as u64 / AVG_BLOCK_TIME)
                             as usize,
                     ),
             )
