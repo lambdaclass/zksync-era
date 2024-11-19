@@ -1,6 +1,9 @@
 use std::{collections::HashMap, str::FromStr};
 
-use alloy::{network::Ethereum, providers::RootProvider};
+use alloy::{
+    network::Ethereum,
+    providers::{Provider, RootProvider},
+};
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
@@ -27,6 +30,7 @@ pub enum VerificationError {
     CommitmentNotOnCorrectSubgroup,
 }
 
+/// Configuration for the verifier used for authenticated dispersals
 #[derive(Debug, Clone)]
 pub struct VerifierConfig {
     pub verify_certs: bool,
@@ -34,6 +38,7 @@ pub struct VerifierConfig {
     pub svc_manager_addr: String,
     pub max_blob_size: u32,
     pub path_to_points: String,
+    pub eth_confirmation_depth: u32,
 }
 
 /// Verifier used to verify the integrity of the blob info
@@ -149,7 +154,7 @@ impl Verifier {
         index: u32,
     ) -> Result<Vec<u8>, VerificationError> {
         let mut index = index;
-        if proof.len() == 0 || proof.len() % 32 != 0 {
+        if proof.is_empty() || proof.len() % 32 != 0 {
             return Err(VerificationError::WrongProof);
         }
         let mut computed_hash = leaf.to_vec();
@@ -240,11 +245,28 @@ impl Verifier {
         hash.to_vec()
     }
 
+    /// Retrieves the block to make the request to the service manager
+    async fn get_context_block(&self) -> Result<u64, VerificationError> {
+        let latest = self
+            .eigenda_svc_manager
+            .provider()
+            .get_block_number()
+            .await
+            .map_err(|_| VerificationError::ServiceManagerError)?;
+
+        if self.cfg.eth_confirmation_depth == 0 {
+            return Ok(latest);
+        }
+        Ok(latest - (self.cfg.eth_confirmation_depth as u64 - 1))
+    }
+
     /// Verifies the certificate batch hash
     async fn verify_batch(&self, cert: BlobInfo) -> Result<(), VerificationError> {
+        let context_block = self.get_context_block().await?;
         let expected_hash = self
             .eigenda_svc_manager
             .batchIdToBatchMetadataHash(cert.blob_verification_proof.batch_id)
+            .block(context_block.into())
             .call()
             .await
             .map_err(|_| VerificationError::ServiceManagerError)?
@@ -369,6 +391,7 @@ mod test {
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
+            eth_confirmation_depth: 0,
         })
         .unwrap();
         let commitment = G1Commitment {
@@ -383,7 +406,7 @@ mod test {
         };
         let blob = vec![1u8; 100]; // Actual blob sent was this blob but kzg-padded, but Blob::from_bytes_and_pad padds it inside, so we don't need to pad it here.
         let result = verifier.verify_commitment(commitment, blob);
-        assert_eq!(result.is_ok(), true);
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -394,6 +417,7 @@ mod test {
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
+            eth_confirmation_depth: 0,
         })
         .unwrap();
         let cert = BlobInfo {
@@ -469,7 +493,7 @@ mod test {
             },
         };
         let result = verifier.verify_merkle_proof(cert);
-        assert_eq!(result.is_ok(), true);
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -480,6 +504,7 @@ mod test {
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
+            eth_confirmation_depth: 0,
         })
         .unwrap();
         let blob_header = BlobHeader {
@@ -522,6 +547,7 @@ mod test {
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
+            eth_confirmation_depth: 0,
         })
         .unwrap();
 
@@ -547,6 +573,7 @@ mod test {
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
+            eth_confirmation_depth: 0,
         })
         .unwrap();
         let cert = BlobInfo {
@@ -622,7 +649,7 @@ mod test {
             },
         };
         let result = verifier.verify_batch(cert).await;
-        assert_eq!(result.is_ok(), true);
+        assert!(result.is_ok());
     }
 
     #[tokio::test]
@@ -633,6 +660,7 @@ mod test {
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
+            eth_confirmation_depth: 0,
         })
         .unwrap();
         let cert = BlobInfo {
@@ -708,6 +736,6 @@ mod test {
             },
         };
         let result = verifier.verify_security_params(cert).await;
-        assert_eq!(result.is_ok(), true);
+        assert!(result.is_ok());
     }
 }

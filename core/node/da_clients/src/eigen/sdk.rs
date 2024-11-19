@@ -12,7 +12,8 @@ use zksync_config::configs::da_client::eigen::DisperserConfig;
 use zksync_da_client::types::DAError;
 
 use super::{
-    disperser::BlobInfo,
+    blob_info::BlobInfo,
+    disperser::BlobInfo as DisperserBlobInfo,
     verifier::{Verifier, VerifierConfig},
 };
 use crate::eigen::{
@@ -26,7 +27,7 @@ use crate::eigen::{
 };
 
 #[derive(Debug, Clone)]
-pub struct RawEigenClient {
+pub(crate) struct RawEigenClient {
     client: DisperserClient<Channel>,
     private_key: SecretKey,
     pub config: DisperserConfig,
@@ -39,8 +40,8 @@ impl RawEigenClient {
     pub(crate) const BUFFER_SIZE: usize = 1000;
 
     pub async fn new(private_key: SecretKey, config: DisperserConfig) -> anyhow::Result<Self> {
-        let endpoint = Endpoint::from_str(&config.disperser_rpc.as_str())?
-            .tls_config(ClientTlsConfig::new())?;
+        let endpoint =
+            Endpoint::from_str(config.disperser_rpc.as_str())?.tls_config(ClientTlsConfig::new())?;
         let client = DisperserClient::connect(endpoint)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to connect to Disperser server: {}", e))?;
@@ -51,6 +52,7 @@ impl RawEigenClient {
             svc_manager_addr: config.eigenda_svc_manager_address.clone(),
             max_blob_size: config.blob_size_limit,
             path_to_points: config.path_to_points.clone(),
+            eth_confirmation_depth: config.eth_confirmation_depth.max(0) as u32,
         };
         let verifier = Verifier::new(verifier_config)
             .map_err(|e| anyhow::anyhow!(format!("Failed to create verifier {:?}", e)))?;
@@ -73,19 +75,20 @@ impl RawEigenClient {
         let mut client_clone = self.client.clone();
         let disperse_reply = client_clone.disperse_blob(request).await?.into_inner();
 
+        let disperse_time = Instant::now();
         let blob_info = self
             .await_for_inclusion(client_clone, disperse_reply)
             .await?;
+        let disperse_elapsed = Instant::now() - disperse_time;
 
         let blob_info = blob_info::BlobInfo::try_from(blob_info)
             .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
         self.verifier
             .verify_commitment(blob_info.blob_header.commitment.clone(), data)
             .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
-        self.verifier
-            .verify_certificate(blob_info.clone())
-            .await
-            .map_err(|_| anyhow::anyhow!("Failed to validate certificate"))?;
+
+        self.loop_verify_certificate(blob_info.clone(), disperse_elapsed)
+            .await?;
         let verification_proof = blob_info.blob_verification_proof.clone();
         let blob_id = format!(
             "{}:{}",
@@ -96,10 +99,29 @@ impl RawEigenClient {
         Ok(hex::encode(rlp::encode(&blob_info)))
     }
 
+    async fn loop_verify_certificate(
+        &self,
+        blob_info: BlobInfo,
+        disperse_elapsed: Duration,
+    ) -> anyhow::Result<()> {
+        let start = Instant::now();
+        while Instant::now() - start
+            < (Duration::from_millis(self.config.status_query_timeout) - disperse_elapsed)
+        {
+            tokio::time::sleep(Duration::from_secs(12)).await; // avg block time
+            match self.verifier.verify_certificate(blob_info.clone()).await {
+                Ok(_) => return Ok(()),
+                Err(_) => continue,
+            }
+        }
+        Err(anyhow::anyhow!("Failed to validate certificate"))
+    }
+
     async fn dispatch_blob_authenticated(&self, data: Vec<u8>) -> anyhow::Result<String> {
         let mut client_clone = self.client.clone();
         let (tx, rx) = mpsc::channel(Self::BUFFER_SIZE);
 
+        let disperse_time = Instant::now();
         let response_stream = client_clone.disperse_blob_authenticated(ReceiverStream::new(rx));
         let padded_data = convert_by_padding_empty_byte(&data);
 
@@ -137,13 +159,13 @@ impl RawEigenClient {
         let blob_info = blob_info::BlobInfo::try_from(blob_info)
             .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
 
+        let disperse_elapsed = Instant::now() - disperse_time;
         self.verifier
             .verify_commitment(blob_info.blob_header.commitment.clone(), data)
             .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
-        self.verifier
-            .verify_certificate(blob_info.clone())
-            .await
-            .map_err(|_| anyhow::anyhow!("Failed to validate certificate"))?;
+
+        self.loop_verify_certificate(blob_info.clone(), disperse_elapsed)
+            .await?;
 
         let verification_proof = blob_info.blob_verification_proof.clone();
         let blob_id = format!(
@@ -238,7 +260,7 @@ impl RawEigenClient {
         &self,
         mut client: DisperserClient<Channel>,
         disperse_blob_reply: DisperseBlobReply,
-    ) -> anyhow::Result<BlobInfo> {
+    ) -> anyhow::Result<DisperserBlobInfo> {
         let polling_request = disperser::BlobStatusRequest {
             request_id: disperse_blob_reply.request_id,
         };
@@ -316,7 +338,7 @@ impl RawEigenClient {
             })?
             .into_inner();
 
-        if get_response.data.len() == 0 {
+        if get_response.data.is_empty() {
             return Err(DAError {
                 error: anyhow!("Failed to get blob data"),
                 is_retriable: false,
@@ -324,7 +346,7 @@ impl RawEigenClient {
         }
         //TODO: remove zkgpad_rs
         let data = kzgpad_rs::remove_empty_byte_from_padded_bytes(&get_response.data);
-        return Ok(Some(data));
+        Ok(Some(data))
     }
 }
 
