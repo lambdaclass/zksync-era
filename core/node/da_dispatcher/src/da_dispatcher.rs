@@ -10,7 +10,10 @@ use tokio::{
     },
     task::JoinSet,
 };
-use zksync_config::{configs::da_dispatcher::DEFAULT_MAX_CONCURRENT_REQUESTS, DADispatcherConfig};
+use zksync_config::{
+    configs::da_dispatcher::{DEFAULT_MAX_CONCURRENT_REQUESTS, DEFAULT_POLLING_INTERVAL_MS},
+    DADispatcherConfig,
+};
 use zksync_da_client::{
     types::{DAError, InclusionData},
     DataAvailabilityClient,
@@ -192,7 +195,12 @@ impl DataAvailabilityDispatcher {
             }
 
             // Sleep so we prevent hammering the database
-            tokio::time::sleep(Duration::from_secs(5)).await;
+            tokio::time::sleep(Duration::from_secs(
+                self.config
+                    .polling_interval_ms
+                    .unwrap_or(DEFAULT_POLLING_INTERVAL_MS) as u64,
+            ))
+            .await;
         }
 
         while let Some(next) = dispatcher_tasks.join_next().await {
@@ -290,7 +298,12 @@ impl DataAvailabilityDispatcher {
             }
 
             // Sleep so we prevent hammering the database
-            tokio::time::sleep(Duration::from_secs(5)).await;
+            tokio::time::sleep(Duration::from_secs(
+                self.config
+                    .polling_interval_ms
+                    .unwrap_or(DEFAULT_POLLING_INTERVAL_MS) as u64,
+            ))
+            .await;
         }
 
         while let Some(next) = inclusion_tasks.join_next().await {
