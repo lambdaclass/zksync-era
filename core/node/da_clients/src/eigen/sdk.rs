@@ -127,17 +127,19 @@ impl RawEigenClient {
         let (tx, rx) = mpsc::unbounded_channel();
 
         let disperse_time = Instant::now();
-        let client_clone = self.client.clone();
-        let mut client_lock = client_clone.lock().await;
-        let response_stream =
-            client_lock.disperse_blob_authenticated(UnboundedReceiverStream::new(rx));
-        let padded_data = convert_by_padding_empty_byte(&data);
 
         // 1. send DisperseBlobRequest
+        let padded_data = convert_by_padding_empty_byte(&data);
         self.disperse_data(padded_data, &tx)?;
 
         // this await is blocked until the first response on the stream, so we only await after sending the `DisperseBlobRequest`
-        let mut response_stream = response_stream.await?;
+        let mut response_stream = self
+            .client
+            .clone()
+            .lock()
+            .await
+            .disperse_blob_authenticated(UnboundedReceiverStream::new(rx))
+            .await?;
         let response_stream = response_stream.get_mut();
 
         // 2. receive BlobAuthHeader
@@ -154,7 +156,6 @@ impl RawEigenClient {
             .unwrap()
             .payload
             .ok_or_else(|| anyhow::anyhow!("No payload in response"))?;
-        drop(client_lock);
 
         let disperser::authenticated_reply::Payload::DisperseReply(disperse_reply) = reply else {
             return Err(anyhow::anyhow!("Unexpected response from server"));
