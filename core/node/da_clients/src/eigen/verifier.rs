@@ -8,6 +8,9 @@ use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
+use zksync_eth_client::{clients::PKSigningClient, BoundEthInterface};
+use zksync_types::{url::SensitiveUrl, K256PrivateKey, SLChainId, H160};
+use zksync_web3_decl::client::{Client, DynClient, L1};
 
 use super::{
     blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment},
@@ -54,6 +57,7 @@ pub struct Verifier {
     kzg: Kzg,
     eigenda_svc_manager: EigenDAServiceManagerContract,
     cfg: VerifierConfig,
+    signing_client: PKSigningClient,
 }
 
 impl Verifier {
@@ -82,10 +86,31 @@ impl Verifier {
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
         let eigenda_svc_manager = EigenDAServiceManager::new(svc_manager_addr, provider);
+
+        let url = SensitiveUrl::from_str(&cfg.rpc_url).unwrap();
+        let client: Client<L1> = Client::http(url).unwrap().build();
+        let client = Box::new(client) as Box<DynClient<L1>>;
+        let signing_client = PKSigningClient::new_raw(
+            K256PrivateKey::from_bytes(
+                zksync_types::H256::from_str(
+                    "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
+                )
+                .unwrap(),
+            )
+            .unwrap(), //tms_private_key.clone(),
+            H160::from_str(&cfg.svc_manager_addr).unwrap(), // self.contracts_config.diamond_proxy_addr,
+            100,              // self.config.default_priority_fee_per_gas,
+            SLChainId(17000), //chain id
+            client,
+        );
+        //signing_client.sign_prepared_tx_for_addr(data, contract_addr, options);
+        //signing_client.as_ref().send_raw_tx(tx);
+
         Ok(Self {
             kzg,
             eigenda_svc_manager,
             cfg,
+            signing_client,
         })
     }
 
@@ -250,11 +275,12 @@ impl Verifier {
     /// Retrieves the block to make the request to the service manager
     async fn get_context_block(&self) -> Result<u64, VerificationError> {
         let latest = self
-            .eigenda_svc_manager
-            .provider()
-            .get_block_number()
+            .signing_client
+            .as_ref()
+            .block_number()
             .await
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+            .map_err(|_| VerificationError::ServiceManagerError)?
+            .as_u64();
 
         if self.cfg.eth_confirmation_depth == 0 {
             return Ok(latest);
