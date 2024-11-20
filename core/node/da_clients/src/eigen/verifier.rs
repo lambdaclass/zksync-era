@@ -302,15 +302,46 @@ impl Verifier {
     /// Verifies the certificate batch hash
     async fn verify_batch(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let context_block = self.get_context_block().await?;
-        let expected_hash = self
-            .eigenda_svc_manager
-            .batchIdToBatchMetadataHash(cert.blob_verification_proof.batch_id)
-            .block(context_block.into())
-            .call()
+
+        let fn_batch_id_to_batch_metadata_hash = self
+            .contract
+            .function("batchIdToBatchMetadataHash")
+            .unwrap();
+
+        let data = fn_batch_id_to_batch_metadata_hash
+            .encode_input(&vec![Token::Uint(U256::from(
+                cert.blob_verification_proof.batch_id,
+            ))])
+            .unwrap();
+
+        let call_request = CallRequest {
+            to: Some(H160::from_str(&self.cfg.svc_manager_addr).unwrap()),
+            data: Some(zksync_basic_types::web3::Bytes(data)),
+            ..Default::default()
+        };
+
+        let res = self
+            .signing_client
+            .as_ref()
+            .call_contract_function(
+                call_request,
+                Some(BlockId::Number(BlockNumber::Number(context_block.into()))),
+            )
             .await
-            .map_err(|_| VerificationError::ServiceManagerError)?
-            ._0
-            .to_vec();
+            .unwrap();
+
+        let expected_hash = fn_batch_id_to_batch_metadata_hash
+            .decode_output(&res.0)
+            .unwrap();
+
+        if expected_hash.len() != 1 {
+            return Err(VerificationError::ServiceManagerError);
+        }
+
+        let expected_hash: Vec<u8> = match expected_hash[0].clone() {
+            Token::FixedBytes(hash) => hash,
+            _ => return Err(VerificationError::ServiceManagerError),
+        };
 
         if expected_hash == vec![0u8; 32] {
             return Err(VerificationError::EmptyHash);
@@ -410,20 +441,40 @@ impl Verifier {
             confirmed_quorums.insert(blob_header.blob_quorum_params[i].quorum_number, true);
         }
 
-        let required_quorums = self
-            .eigenda_svc_manager
-            .quorumNumbersRequired()
-            .call()
-            .await
-            .map_err(|_| VerificationError::ServiceManagerError)?
-            ._0
-            .to_vec();
+        let fn_quorum_numbers_required = self.contract.function("quorumNumbersRequired").unwrap();
 
-        for quorum in required_quorums {
-            if !confirmed_quorums.contains_key(&(quorum as u32)) {
-                return Err(VerificationError::QuorumNotConfirmed);
-            }
+        let data = fn_quorum_numbers_required.encode_input(&vec![]).unwrap();
+
+        let call_request = CallRequest {
+            to: Some(H160::from_str(&self.cfg.svc_manager_addr).unwrap()),
+            data: Some(zksync_basic_types::web3::Bytes(data)),
+            ..Default::default()
+        };
+
+        let res = self
+            .signing_client
+            .as_ref()
+            .call_contract_function(call_request, None)
+            .await
+            .unwrap();
+
+        let required_quorums = fn_quorum_numbers_required.decode_output(&res.0).unwrap();
+
+        if required_quorums.len() != 1 {
+            return Err(VerificationError::ServiceManagerError);
         }
+
+        match required_quorums[0].clone() {
+            Token::Bytes(quorums) => {
+                for quorum in quorums {
+                    if !confirmed_quorums.contains_key(&(quorum as u32)) {
+                        return Err(VerificationError::QuorumNotConfirmed);
+                    }
+                }
+            }
+            _ => return Err(VerificationError::ServiceManagerError),
+        }
+
         Ok(())
     }
 
