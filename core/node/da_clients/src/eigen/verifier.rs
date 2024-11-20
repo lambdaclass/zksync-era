@@ -1,15 +1,20 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, fs::File, io::BufReader, str::FromStr};
 
 use alloy::{
     network::Ethereum,
     providers::{Provider, RootProvider},
 };
 use ark_bn254::{Fq, G1Affine};
-use ethabi::{encode, Token};
+use ethabi::{encode, Contract, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
-use zksync_eth_client::{clients::PKSigningClient, BoundEthInterface};
-use zksync_types::{url::SensitiveUrl, K256PrivateKey, SLChainId, H160};
+use zksync_basic_types::web3::CallRequest;
+use zksync_eth_client::{clients::PKSigningClient, BoundEthInterface, Options};
+use zksync_types::{
+    url::SensitiveUrl,
+    web3::{BlockId, BlockNumber},
+    K256PrivateKey, SLChainId, H160, U256,
+};
 use zksync_web3_decl::client::{Client, DynClient, L1};
 
 use super::{
@@ -58,6 +63,7 @@ pub struct Verifier {
     eigenda_svc_manager: EigenDAServiceManagerContract,
     cfg: VerifierConfig,
     signing_client: PKSigningClient,
+    contract: Contract,
 }
 
 impl Verifier {
@@ -103,6 +109,10 @@ impl Verifier {
             SLChainId(17000), //chain id
             client,
         );
+        let file = File::open("./src/eigen/generated/EigenDAServiceManager.json")
+            .expect("Unable to open ABI file");
+        let reader = BufReader::new(file);
+        let contract = Contract::load(reader).unwrap();
         //signing_client.sign_prepared_tx_for_addr(data, contract_addr, options);
         //signing_client.as_ref().send_raw_tx(tx);
 
@@ -111,6 +121,7 @@ impl Verifier {
             eigenda_svc_manager,
             cfg,
             signing_client,
+            contract,
         })
     }
 
@@ -325,15 +336,39 @@ impl Verifier {
         &self,
         quorum_number: u32,
     ) -> Result<u8, VerificationError> {
-        let percentages = self
-            .eigenda_svc_manager
-            .quorumAdversaryThresholdPercentages()
-            .call()
+        let fn_quorum_adv_percentages = self
+            .contract
+            .function("quorumAdversaryThresholdPercentages")
+            .unwrap();
+
+        let data = fn_quorum_adv_percentages.encode_input(&vec![]).unwrap();
+
+        let call_request = CallRequest {
+            to: Some(H160::from_str(&self.cfg.svc_manager_addr).unwrap()),
+            data: Some(zksync_basic_types::web3::Bytes(data)),
+            ..Default::default()
+        };
+
+        let res = self
+            .signing_client
+            .as_ref()
+            .call_contract_function(call_request, None)
             .await
-            .map_err(|_| VerificationError::ServiceManagerError)?
-            ._0;
-        if percentages.len() > quorum_number as usize {
-            return Ok(percentages[quorum_number as usize]);
+            .unwrap();
+
+        let percentages = fn_quorum_adv_percentages.decode_output(&res.0).unwrap();
+
+        if percentages.len() != 1 {
+            return Err(VerificationError::ServiceManagerError);
+        }
+
+        match percentages[0].clone() {
+            Token::Bytes(percentages) => {
+                if percentages.len() > quorum_number as usize {
+                    return Ok(percentages[quorum_number as usize]);
+                }
+            }
+            _ => return Err(VerificationError::ServiceManagerError),
         }
         Ok(0)
     }
