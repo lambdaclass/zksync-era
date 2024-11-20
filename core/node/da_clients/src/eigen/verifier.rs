@@ -1,15 +1,11 @@
 use std::{collections::HashMap, fs::File, io::BufReader, str::FromStr};
 
-use alloy::{
-    network::Ethereum,
-    providers::{Provider, RootProvider},
-};
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, Contract, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
 use zksync_basic_types::web3::CallRequest;
-use zksync_eth_client::{clients::PKSigningClient, BoundEthInterface, Options};
+use zksync_eth_client::clients::PKSigningClient;
 use zksync_types::{
     url::SensitiveUrl,
     web3::{BlockId, BlockNumber},
@@ -17,15 +13,7 @@ use zksync_types::{
 };
 use zksync_web3_decl::client::{Client, DynClient, L1};
 
-use super::{
-    blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment},
-    generated::eigendaservicemanager::EigenDAServiceManager,
-};
-
-type EigenDAServiceManagerContract = EigenDAServiceManager::EigenDAServiceManagerInstance<
-    alloy::transports::http::Http<alloy::transports::http::Client>,
-    RootProvider<alloy::transports::http::Http<alloy::transports::http::Client>>,
->;
+use super::blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment};
 
 #[derive(Debug)]
 pub enum VerificationError {
@@ -60,7 +48,6 @@ pub struct VerifierConfig {
 #[derive(Debug, Clone)]
 pub struct Verifier {
     kzg: Kzg,
-    eigenda_svc_manager: EigenDAServiceManagerContract,
     cfg: VerifierConfig,
     signing_client: PKSigningClient,
     contract: Contract,
@@ -81,17 +68,6 @@ impl Verifier {
             tracing::error!("Failed to setup KZG: {:?}", e);
             VerificationError::KzgError
         })?;
-        let url = alloy::transports::http::reqwest::Url::from_str(&cfg.rpc_url)
-            .map_err(|_| VerificationError::WrongUrl)?;
-        let provider: RootProvider<
-            alloy::transports::http::Http<alloy::transports::http::Client>,
-            Ethereum,
-        > = RootProvider::new_http(url);
-
-        let svc_manager_addr = alloy::primitives::Address::from_str(&cfg.svc_manager_addr)
-            .map_err(|_| VerificationError::ServiceManagerError)?;
-
-        let eigenda_svc_manager = EigenDAServiceManager::new(svc_manager_addr, provider);
 
         let url = SensitiveUrl::from_str(&cfg.rpc_url).unwrap();
         let client: Client<L1> = Client::http(url).unwrap().build();
@@ -118,7 +94,6 @@ impl Verifier {
 
         Ok(Self {
             kzg,
-            eigenda_svc_manager,
             cfg,
             signing_client,
             contract,
