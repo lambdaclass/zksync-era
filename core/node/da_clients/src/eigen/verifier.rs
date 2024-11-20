@@ -57,6 +57,9 @@ pub struct Verifier {
 
 impl Verifier {
     const DEFAULT_PRIORITY_FEE_PER_GAS: u64 = 100;
+    const BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR: [u8; 4] = [236, 203, 191, 201];
+    const QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR: [u8; 4] = [134, 135, 254, 174];
+    const QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR: [u8; 4] = [225, 82, 52, 255];
     #[cfg(test)]
     const FILE_PATH: &str = "./src/eigen/generated/EigenDAServiceManager.json";
 
@@ -292,11 +295,10 @@ impl Verifier {
             .function("batchIdToBatchMetadataHash")
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let data = fn_batch_id_to_batch_metadata_hash
-            .encode_input(&vec![Token::Uint(U256::from(
-                cert.blob_verification_proof.batch_id,
-            ))])
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+        let mut data = Self::BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR.to_vec();
+        let mut batch_id_vec = [0u8; 32];
+        U256::from(cert.blob_verification_proof.batch_id).to_big_endian(&mut batch_id_vec);
+        data.append(batch_id_vec.to_vec().as_mut());
 
         let call_request = CallRequest {
             to: Some(
@@ -354,14 +356,7 @@ impl Verifier {
         &self,
         quorum_number: u32,
     ) -> Result<u8, VerificationError> {
-        let fn_quorum_adv_percentages = self
-            .contract
-            .function("quorumAdversaryThresholdPercentages")
-            .map_err(|_| VerificationError::ServiceManagerError)?;
-
-        let data = fn_quorum_adv_percentages
-            .encode_input(&vec![])
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+        let data = Self::QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR.to_vec();
 
         let call_request = CallRequest {
             to: Some(
@@ -377,6 +372,11 @@ impl Verifier {
             .as_ref()
             .call_contract_function(call_request, None)
             .await
+            .map_err(|_| VerificationError::ServiceManagerError)?;
+
+        let fn_quorum_adv_percentages = self
+            .contract
+            .function("quorumAdversaryThresholdPercentages")
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
         let percentages = fn_quorum_adv_percentages
@@ -435,15 +435,7 @@ impl Verifier {
             confirmed_quorums.insert(blob_header.blob_quorum_params[i].quorum_number, true);
         }
 
-        let fn_quorum_numbers_required = self
-            .contract
-            .function("quorumNumbersRequired")
-            .map_err(|_| VerificationError::ServiceManagerError)?;
-
-        let data = fn_quorum_numbers_required
-            .encode_input(&vec![])
-            .map_err(|_| VerificationError::ServiceManagerError)?;
-
+        let data = Self::QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR.to_vec();
         let call_request = CallRequest {
             to: Some(
                 H160::from_str(&self.cfg.svc_manager_addr)
@@ -458,6 +450,11 @@ impl Verifier {
             .as_ref()
             .call_contract_function(call_request, None)
             .await
+            .map_err(|_| VerificationError::ServiceManagerError)?;
+
+        let fn_quorum_numbers_required = self
+            .contract
+            .function("quorumNumbersRequired")
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
         let required_quorums = fn_quorum_numbers_required
