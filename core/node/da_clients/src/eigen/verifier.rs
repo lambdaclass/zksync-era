@@ -69,28 +69,30 @@ impl Verifier {
             VerificationError::KzgError
         })?;
 
-        let url = SensitiveUrl::from_str(&cfg.rpc_url).unwrap();
-        let client: Client<L1> = Client::http(url).unwrap().build();
+        let url = SensitiveUrl::from_str(&cfg.rpc_url).map_err(|_| VerificationError::WrongUrl)?;
+        let client: Client<L1> = Client::http(url)
+            .map_err(|_| VerificationError::WrongUrl)?
+            .build();
         let client = Box::new(client) as Box<DynClient<L1>>;
         let signing_client = PKSigningClient::new_raw(
             K256PrivateKey::from_bytes(
                 zksync_types::H256::from_str(
-                    "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
+                    "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6", // todo
                 )
-                .unwrap(),
+                .map_err(|_| VerificationError::ServiceManagerError)?,
             )
-            .unwrap(), //tms_private_key.clone(),
-            H160::from_str(&cfg.svc_manager_addr).unwrap(), // self.contracts_config.diamond_proxy_addr,
+            .map_err(|_| VerificationError::ServiceManagerError)?, //tms_private_key.clone(),
+            H160::from_str(&cfg.svc_manager_addr)
+                .map_err(|_| VerificationError::ServiceManagerError)?, // self.contracts_config.diamond_proxy_addr,
             100,              // self.config.default_priority_fee_per_gas,
             SLChainId(17000), //chain id
             client,
         );
-        let file = File::open("./src/eigen/generated/EigenDAServiceManager.json")
-            .expect("Unable to open ABI file");
+        let file = File::open("./src/eigen/generated/EigenDAServiceManager.json") // todo
+            .map_err(|_| VerificationError::ServiceManagerError)?;
         let reader = BufReader::new(file);
-        let contract = Contract::load(reader).unwrap();
-        //signing_client.sign_prepared_tx_for_addr(data, contract_addr, options);
-        //signing_client.as_ref().send_raw_tx(tx);
+        let contract =
+            Contract::load(reader).map_err(|_| VerificationError::ServiceManagerError)?;
 
         Ok(Self {
             kzg,
@@ -281,16 +283,19 @@ impl Verifier {
         let fn_batch_id_to_batch_metadata_hash = self
             .contract
             .function("batchIdToBatchMetadataHash")
-            .unwrap();
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
         let data = fn_batch_id_to_batch_metadata_hash
             .encode_input(&vec![Token::Uint(U256::from(
                 cert.blob_verification_proof.batch_id,
             ))])
-            .unwrap();
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
         let call_request = CallRequest {
-            to: Some(H160::from_str(&self.cfg.svc_manager_addr).unwrap()),
+            to: Some(
+                H160::from_str(&self.cfg.svc_manager_addr)
+                    .map_err(|_| VerificationError::ServiceManagerError)?,
+            ),
             data: Some(zksync_basic_types::web3::Bytes(data)),
             ..Default::default()
         };
@@ -303,11 +308,11 @@ impl Verifier {
                 Some(BlockId::Number(BlockNumber::Number(context_block.into()))),
             )
             .await
-            .unwrap();
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
         let expected_hash = fn_batch_id_to_batch_metadata_hash
             .decode_output(&res.0)
-            .unwrap();
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
         if expected_hash.len() != 1 {
             return Err(VerificationError::ServiceManagerError);
@@ -345,12 +350,17 @@ impl Verifier {
         let fn_quorum_adv_percentages = self
             .contract
             .function("quorumAdversaryThresholdPercentages")
-            .unwrap();
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let data = fn_quorum_adv_percentages.encode_input(&vec![]).unwrap();
+        let data = fn_quorum_adv_percentages
+            .encode_input(&vec![])
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
         let call_request = CallRequest {
-            to: Some(H160::from_str(&self.cfg.svc_manager_addr).unwrap()),
+            to: Some(
+                H160::from_str(&self.cfg.svc_manager_addr)
+                    .map_err(|_| VerificationError::ServiceManagerError)?,
+            ),
             data: Some(zksync_basic_types::web3::Bytes(data)),
             ..Default::default()
         };
@@ -360,9 +370,11 @@ impl Verifier {
             .as_ref()
             .call_contract_function(call_request, None)
             .await
-            .unwrap();
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let percentages = fn_quorum_adv_percentages.decode_output(&res.0).unwrap();
+        let percentages = fn_quorum_adv_percentages
+            .decode_output(&res.0)
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
         if percentages.len() != 1 {
             return Err(VerificationError::ServiceManagerError);
@@ -416,12 +428,20 @@ impl Verifier {
             confirmed_quorums.insert(blob_header.blob_quorum_params[i].quorum_number, true);
         }
 
-        let fn_quorum_numbers_required = self.contract.function("quorumNumbersRequired").unwrap();
+        let fn_quorum_numbers_required = self
+            .contract
+            .function("quorumNumbersRequired")
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let data = fn_quorum_numbers_required.encode_input(&vec![]).unwrap();
+        let data = fn_quorum_numbers_required
+            .encode_input(&vec![])
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
         let call_request = CallRequest {
-            to: Some(H160::from_str(&self.cfg.svc_manager_addr).unwrap()),
+            to: Some(
+                H160::from_str(&self.cfg.svc_manager_addr)
+                    .map_err(|_| VerificationError::ServiceManagerError)?,
+            ),
             data: Some(zksync_basic_types::web3::Bytes(data)),
             ..Default::default()
         };
@@ -431,9 +451,11 @@ impl Verifier {
             .as_ref()
             .call_contract_function(call_request, None)
             .await
-            .unwrap();
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let required_quorums = fn_quorum_numbers_required.decode_output(&res.0).unwrap();
+        let required_quorums = fn_quorum_numbers_required
+            .decode_output(&res.0)
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
         if required_quorums.len() != 1 {
             return Err(VerificationError::ServiceManagerError);
