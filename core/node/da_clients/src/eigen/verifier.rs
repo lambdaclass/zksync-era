@@ -40,6 +40,8 @@ pub struct VerifierConfig {
     pub max_blob_size: u32,
     pub path_to_points: String,
     pub eth_confirmation_depth: u32,
+    pub private_key: String,
+    pub chain_id: u64,
 }
 
 /// Verifier used to verify the integrity of the blob info
@@ -54,6 +56,12 @@ pub struct Verifier {
 }
 
 impl Verifier {
+    const DEFAULT_PRIORITY_FEE_PER_GAS: u64 = 100;
+    #[cfg(test)]
+    const FILE_PATH: &str = "./src/eigen/generated/EigenDAServiceManager.json";
+
+    #[cfg(not(test))]
+    const FILE_PATH: &str = "./core/node/da_clients/src/eigen/generated/EigenDAServiceManager.json";
     pub fn new(cfg: VerifierConfig) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / 32;
         let kzg = Kzg::setup(
@@ -76,20 +84,19 @@ impl Verifier {
         let client = Box::new(client) as Box<DynClient<L1>>;
         let signing_client = PKSigningClient::new_raw(
             K256PrivateKey::from_bytes(
-                zksync_types::H256::from_str(
-                    "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6", // todo
-                )
-                .map_err(|_| VerificationError::ServiceManagerError)?,
+                zksync_types::H256::from_str(&cfg.private_key)
+                    .map_err(|_| VerificationError::ServiceManagerError)?,
             )
-            .map_err(|_| VerificationError::ServiceManagerError)?, //tms_private_key.clone(),
+            .map_err(|_| VerificationError::ServiceManagerError)?,
             H160::from_str(&cfg.svc_manager_addr)
-                .map_err(|_| VerificationError::ServiceManagerError)?, // self.contracts_config.diamond_proxy_addr,
-            100,              // self.config.default_priority_fee_per_gas,
-            SLChainId(17000), //chain id
+                .map_err(|_| VerificationError::ServiceManagerError)?,
+            Self::DEFAULT_PRIORITY_FEE_PER_GAS,
+            SLChainId(cfg.chain_id),
             client,
         );
-        let file = File::open("./src/eigen/generated/EigenDAServiceManager.json") // todo
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+
+        let file =
+            File::open(Self::FILE_PATH).map_err(|_| VerificationError::ServiceManagerError)?;
         let reader = BufReader::new(file);
         let contract =
             Contract::load(reader).map_err(|_| VerificationError::ServiceManagerError)?;
@@ -503,6 +510,9 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
+            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
+                .to_string(),
+            chain_id: 17000,
         })
         .unwrap();
         let commitment = G1Commitment {
@@ -529,6 +539,9 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
+            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
+                .to_string(),
+            chain_id: 17000,
         })
         .unwrap();
         let cert = BlobInfo {
@@ -616,6 +629,9 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
+            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
+                .to_string(),
+            chain_id: 17000,
         })
         .unwrap();
         let blob_header = BlobHeader {
@@ -659,6 +675,9 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
+            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
+                .to_string(),
+            chain_id: 17000,
         })
         .unwrap();
 
@@ -685,6 +704,9 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
+            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
+                .to_string(),
+            chain_id: 17000,
         })
         .unwrap();
         let cert = BlobInfo {
@@ -772,6 +794,9 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
+            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
+                .to_string(),
+            chain_id: 17000,
         })
         .unwrap();
         let cert = BlobInfo {
