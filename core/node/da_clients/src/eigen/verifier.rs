@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs::File, io::BufReader, str::FromStr};
 
 use ark_bn254::{Fq, G1Affine};
-use ethabi::{encode, Contract, Token};
+use ethabi::{encode, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
 use zksync_basic_types::web3::CallRequest;
@@ -52,7 +52,6 @@ pub struct Verifier {
     kzg: Kzg,
     cfg: VerifierConfig,
     signing_client: PKSigningClient,
-    contract: Contract,
 }
 
 impl Verifier {
@@ -60,11 +59,6 @@ impl Verifier {
     const BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR: [u8; 4] = [236, 203, 191, 201];
     const QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR: [u8; 4] = [134, 135, 254, 174];
     const QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR: [u8; 4] = [225, 82, 52, 255];
-    #[cfg(test)]
-    const FILE_PATH: &str = "./src/eigen/generated/EigenDAServiceManager.json";
-
-    #[cfg(not(test))]
-    const FILE_PATH: &str = "./core/node/da_clients/src/eigen/generated/EigenDAServiceManager.json";
     pub fn new(cfg: VerifierConfig) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / 32;
         let kzg = Kzg::setup(
@@ -98,17 +92,10 @@ impl Verifier {
             client,
         );
 
-        let file =
-            File::open(Self::FILE_PATH).map_err(|_| VerificationError::ServiceManagerError)?;
-        let reader = BufReader::new(file);
-        let contract =
-            Contract::load(reader).map_err(|_| VerificationError::ServiceManagerError)?;
-
         Ok(Self {
             kzg,
             cfg,
             signing_client,
-            contract,
         })
     }
 
@@ -290,11 +277,6 @@ impl Verifier {
     async fn verify_batch(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let context_block = self.get_context_block().await?;
 
-        let fn_batch_id_to_batch_metadata_hash = self
-            .contract
-            .function("batchIdToBatchMetadataHash")
-            .map_err(|_| VerificationError::ServiceManagerError)?;
-
         let mut data = Self::BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR.to_vec();
         let mut batch_id_vec = [0u8; 32];
         U256::from(cert.blob_verification_proof.batch_id).to_big_endian(&mut batch_id_vec);
@@ -319,18 +301,7 @@ impl Verifier {
             .await
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let expected_hash = fn_batch_id_to_batch_metadata_hash
-            .decode_output(&res.0)
-            .map_err(|_| VerificationError::ServiceManagerError)?;
-
-        if expected_hash.len() != 1 {
-            return Err(VerificationError::ServiceManagerError);
-        }
-
-        let expected_hash: Vec<u8> = match expected_hash[0].clone() {
-            Token::FixedBytes(hash) => hash,
-            _ => return Err(VerificationError::ServiceManagerError),
-        };
+        let expected_hash = res.0.to_vec();
 
         if expected_hash == vec![0u8; 32] {
             return Err(VerificationError::EmptyHash);
@@ -350,6 +321,49 @@ impl Verifier {
             return Err(VerificationError::DifferentHashes);
         }
         Ok(())
+    }
+
+    fn decode_bytes(&self, encoded: Vec<u8>) -> Result<Vec<u8>, String> {
+        // Ensure the input has at least 64 bytes (offset + length)
+        if encoded.len() < 64 {
+            return Err("Encoded data is too short".to_string());
+        }
+
+        // Read the offset (first 32 bytes)
+        let offset = {
+            let mut offset_bytes = [0u8; 32];
+            offset_bytes.copy_from_slice(&encoded[0..32]);
+            usize::from_be_bytes(
+                offset_bytes[24..32]
+                    .try_into()
+                    .map_err(|_| "Offset is too large")?,
+            )
+        };
+
+        // Check if offset is valid
+        if offset + 32 > encoded.len() {
+            return Err("Offset points outside the encoded data".to_string());
+        }
+
+        // Read the length (32 bytes at the offset position)
+        let length = {
+            let mut length_bytes = [0u8; 32];
+            length_bytes.copy_from_slice(&encoded[offset..offset + 32]);
+            usize::from_be_bytes(
+                length_bytes[24..32]
+                    .try_into()
+                    .map_err(|_| "Offset is too large")?,
+            )
+        };
+
+        // Check if the length is valid
+        if offset + 32 + length > encoded.len() {
+            return Err("Length extends beyond the encoded data".to_string());
+        }
+
+        // Extract the bytes data
+        let data = encoded[offset + 32..offset + 32 + length].to_vec();
+        Ok(data)
     }
 
     async fn get_quorum_adversary_threshold(
@@ -374,26 +388,12 @@ impl Verifier {
             .await
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let fn_quorum_adv_percentages = self
-            .contract
-            .function("quorumAdversaryThresholdPercentages")
+        let percentages = self
+            .decode_bytes(res.0.to_vec())
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let percentages = fn_quorum_adv_percentages
-            .decode_output(&res.0)
-            .map_err(|_| VerificationError::ServiceManagerError)?;
-
-        if percentages.len() != 1 {
-            return Err(VerificationError::ServiceManagerError);
-        }
-
-        match percentages[0].clone() {
-            Token::Bytes(percentages) => {
-                if percentages.len() > quorum_number as usize {
-                    return Ok(percentages[quorum_number as usize]);
-                }
-            }
-            _ => return Err(VerificationError::ServiceManagerError),
+        if percentages.len() > quorum_number as usize {
+            return Ok(percentages[quorum_number as usize]);
         }
         Ok(0)
     }
@@ -452,30 +452,15 @@ impl Verifier {
             .await
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let fn_quorum_numbers_required = self
-            .contract
-            .function("quorumNumbersRequired")
+        let required_quorums = self
+            .decode_bytes(res.0.to_vec())
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let required_quorums = fn_quorum_numbers_required
-            .decode_output(&res.0)
-            .map_err(|_| VerificationError::ServiceManagerError)?;
-
-        if required_quorums.len() != 1 {
-            return Err(VerificationError::ServiceManagerError);
-        }
-
-        match required_quorums[0].clone() {
-            Token::Bytes(quorums) => {
-                for quorum in quorums {
-                    if !confirmed_quorums.contains_key(&(quorum as u32)) {
-                        return Err(VerificationError::QuorumNotConfirmed);
-                    }
-                }
+        for quorum in required_quorums {
+            if !confirmed_quorums.contains_key(&(quorum as u32)) {
+                return Err(VerificationError::QuorumNotConfirmed);
             }
-            _ => return Err(VerificationError::ServiceManagerError),
         }
-
         Ok(())
     }
 
