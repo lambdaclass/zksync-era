@@ -37,6 +37,7 @@ message CelestiaConfig {
 }
 
 message EigenConfig {
+  reserved 1,2;
   optional string disperser_rpc = 3;
   optional int32 eth_confirmation_depth = 4;
   optional string eigenda_eth_rpc = 5;
