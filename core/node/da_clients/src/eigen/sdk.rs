@@ -280,13 +280,11 @@ impl RawEigenClient {
 
             match disperser::BlobStatus::try_from(resp.status)? {
                 disperser::BlobStatus::Processing | disperser::BlobStatus::Dispersing => {
-                    return Err(anyhow::anyhow!("Blob is still processing"))
+                    Err(anyhow::anyhow!("Blob is still processing"))
                 }
-                disperser::BlobStatus::Failed => {
-                    return Err(anyhow::anyhow!("Blob dispatch failed"))
-                }
+                disperser::BlobStatus::Failed => Err(anyhow::anyhow!("Blob dispatch failed")),
                 disperser::BlobStatus::InsufficientSignatures => {
-                    return Err(anyhow::anyhow!("Insufficient signatures"))
+                    Err(anyhow::anyhow!("Insufficient signatures"))
                 }
                 disperser::BlobStatus::Confirmed => {
                     if !self.config.wait_for_finalization {
@@ -295,16 +293,16 @@ impl RawEigenClient {
                             .ok_or_else(|| anyhow::anyhow!("No blob header in response"))?;
                         return Ok(blob_info);
                     }
-                    return Err(anyhow::anyhow!("Blob is still processing"));
+                    Err(anyhow::anyhow!("Blob is still processing"))
                 }
                 disperser::BlobStatus::Finalized => {
                     let blob_info = resp
                         .info
                         .ok_or_else(|| anyhow::anyhow!("No blob header in response"))?;
-                    return Ok(blob_info);
+                    Ok(blob_info)
                 }
 
-                _ => return Err(anyhow::anyhow!("Received unknown blob status")),
+                _ => Err(anyhow::anyhow!("Received unknown blob status")),
             }
         })
         .retry(
@@ -317,7 +315,7 @@ impl RawEigenClient {
         .when(|e| e.to_string().contains("Blob is still processing"))
         .await?;
 
-        return Ok(blob_info);
+        Ok(blob_info)
     }
 
     #[cfg(test)]

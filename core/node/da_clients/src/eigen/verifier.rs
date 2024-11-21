@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::BufReader, str::FromStr};
+use std::{collections::HashMap, str::FromStr};
 
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, Token};
