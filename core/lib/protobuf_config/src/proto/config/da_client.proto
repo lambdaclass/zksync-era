@@ -36,14 +36,7 @@ message CelestiaConfig {
   optional uint64 timeout_ms = 4;
 }
 
-message MemStoreConfig {
-  optional uint64 max_blob_size_bytes = 3;
-  optional uint64 blob_expiration = 4;
-  optional uint64 get_latency = 5;
-  optional uint64 put_latency = 6;
-}
-
-message DisperserConfig {
+message EigenConfig {
   optional string disperser_rpc = 3;
   optional int32 eth_confirmation_depth = 4;
   optional string eigenda_eth_rpc = 5;
