@@ -916,7 +916,7 @@ mod test {
         assert_eq!(actual_root, expected_root);
     }
 
-    // #[ignore = "remote dependency"]
+    #[ignore = "remote dependency"]
     #[tokio::test]
     async fn test_verify_batch() {
         let cfg = get_verifier_config();
