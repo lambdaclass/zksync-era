@@ -56,7 +56,7 @@ message EigenConfig {
   optional bool wait_for_finalization = 10;
   optional bool authenticated = 11;
   optional bool verify_cert = 12;
-  oneof points {
+  oneof points_source {
     Path path = 13;
     Link link = 14;
   }

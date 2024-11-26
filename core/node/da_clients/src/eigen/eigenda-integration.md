@@ -30,7 +30,7 @@ da_client:
     wait_for_finalization: false
     authenticated: false
     verify_cert: true
-    points:
+    link:
       link: <link_to_points>
     chain_id: <your_chain_id>
 ```

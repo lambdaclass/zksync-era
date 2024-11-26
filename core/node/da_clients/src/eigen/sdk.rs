@@ -53,7 +53,7 @@ impl RawEigenClient {
             rpc_url: config.eigenda_eth_rpc.clone(),
             svc_manager_addr: config.eigenda_svc_manager_address.clone(),
             max_blob_size: config.blob_size_limit,
-            points: config.points.clone(),
+            points: config.points_source.clone(),
             eth_confirmation_depth: config.eth_confirmation_depth.max(0) as u32,
             private_key: hex::encode(private_key.secret_bytes()),
             chain_id: config.chain_id,

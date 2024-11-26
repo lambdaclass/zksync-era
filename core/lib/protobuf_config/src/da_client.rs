@@ -76,14 +76,14 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                     .context("wait_for_finalization")?,
                 authenticated: *required(&conf.authenticated).context("authenticated")?,
                 verify_cert: *required(&conf.verify_cert).context("verify_cert")?,
-                points: match conf.points.clone() {
-                    Some(proto::eigen_config::Points::Path(path)) => {
+                points_source: match conf.points_source.clone() {
+                    Some(proto::eigen_config::PointsSource::Path(path)) => {
                         let path = required(&path.path).context("path")?;
-                        zksync_config::configs::da_client::eigen::Points::Path(path.clone())
+                        zksync_config::configs::da_client::eigen::PointsSource::Path(path.clone())
                     }
-                    Some(proto::eigen_config::Points::Link(link)) => {
+                    Some(proto::eigen_config::PointsSource::Link(link)) => {
                         let link = required(&link.link).context("link")?;
-                        zksync_config::configs::da_client::eigen::Points::Link(link.clone())
+                        zksync_config::configs::da_client::eigen::PointsSource::Link(link.clone())
                     }
                     None => return Err(anyhow::anyhow!("Invalid Eigen DA configuration")),
                 },
@@ -136,14 +136,14 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 wait_for_finalization: Some(config.wait_for_finalization),
                 authenticated: Some(config.authenticated),
                 verify_cert: Some(config.verify_cert),
-                points: Some(match &config.points {
-                    zksync_config::configs::da_client::eigen::Points::Path(path) => {
-                        proto::eigen_config::Points::Path(Path {
+                points_source: Some(match &config.points_source {
+                    zksync_config::configs::da_client::eigen::PointsSource::Path(path) => {
+                        proto::eigen_config::PointsSource::Path(Path {
                             path: Some(path.to_string()),
                         })
                     }
-                    zksync_config::configs::da_client::eigen::Points::Link(link) => {
-                        proto::eigen_config::Points::Link(Link {
+                    zksync_config::configs::da_client::eigen::PointsSource::Link(link) => {
+                        proto::eigen_config::PointsSource::Link(Link {
                             link: Some(link.to_string()),
                         })
                     }

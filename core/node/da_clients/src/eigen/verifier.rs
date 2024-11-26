@@ -5,7 +5,7 @@ use ethabi::{encode, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
 use zksync_basic_types::web3::CallRequest;
-use zksync_config::configs::da_client::eigen::Points;
+use zksync_config::configs::da_client::eigen::PointsSource;
 use zksync_eth_client::clients::PKSigningClient;
 use zksync_types::{
     url::SensitiveUrl,
@@ -40,7 +40,7 @@ pub struct VerifierConfig {
     pub rpc_url: String,
     pub svc_manager_addr: String,
     pub max_blob_size: u32,
-    pub points: Points,
+    pub points: PointsSource,
     pub eth_confirmation_depth: u32,
     pub private_key: String,
     pub chain_id: u64,
@@ -91,8 +91,8 @@ impl Verifier {
     pub async fn new(cfg: VerifierConfig) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / 32;
         let path = match cfg.points.clone() {
-            Points::Path(path) => path,
-            Points::Link(link) => Self::save_points(link).await?,
+            PointsSource::Path(path) => path,
+            PointsSource::Link(link) => Self::save_points(link).await?,
         };
         let kzg = Kzg::setup(
             &format!("{}{}", path, "/g1.point"),
@@ -511,7 +511,7 @@ impl Verifier {
 
 #[cfg(test)]
 mod test {
-    use zksync_config::configs::da_client::eigen::Points;
+    use zksync_config::configs::da_client::eigen::PointsSource;
 
     use crate::eigen::blob_info::{
         BatchHeader, BatchMetadata, BlobHeader, BlobInfo, BlobQuorumParam, BlobVerificationProof,
@@ -525,7 +525,8 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
-            points: Points::Path("../../../resources".to_string()),
+            points: PointsSource::Path("../../../resources".to_string()),
+
             eth_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
@@ -555,7 +556,8 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
-            points: Points::Path("../../../resources".to_string()),
+            points: PointsSource::Path("../../../resources".to_string()),
+
             eth_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
@@ -646,7 +648,7 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
-            points: Points::Path("../../../resources".to_string()),
+            points: PointsSource::Path("../../../resources".to_string()),
             eth_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
@@ -693,7 +695,8 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
-            points: Points::Path("../../../resources".to_string()),
+            points: PointsSource::Path("../../../resources".to_string()),
+
             eth_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
@@ -723,7 +726,8 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
-            points: Points::Path("../../../resources".to_string()),
+            points: PointsSource::Path("../../../resources".to_string()),
+
             eth_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
@@ -814,7 +818,8 @@ mod test {
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
-            points: Points::Path("../../../resources".to_string()),
+            points: PointsSource::Path("../../../resources".to_string()),
+
             eth_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),

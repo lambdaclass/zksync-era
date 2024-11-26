@@ -2,14 +2,14 @@ use serde::Deserialize;
 use zksync_basic_types::secrets::PrivateKey;
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-pub enum Points {
+pub enum PointsSource {
     Path(String),
     Link(String),
 }
 
-impl Default for Points {
+impl Default for PointsSource {
     fn default() -> Self {
-        Points::Path("".to_string())
+        PointsSource::Path("".to_string())
     }
 }
 /// Configuration for the EigenDA remote disperser client.
@@ -37,7 +37,7 @@ pub struct EigenConfig {
     /// Verify the certificate of dispatched blobs
     pub verify_cert: bool,
     /// Path or link to the file containing the points used for KZG
-    pub points: Points,
+    pub points_source: PointsSource,
     /// Chain ID of the Ethereum network
     pub chain_id: u64,
 }

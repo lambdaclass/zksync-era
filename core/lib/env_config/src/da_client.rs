@@ -49,13 +49,13 @@ impl FromEnv for DAClientConfig {
                 wait_for_finalization: env::var("DA_WAIT_FOR_FINALIZATION")?.parse()?,
                 authenticated: env::var("DA_AUTHENTICATED")?.parse()?,
                 verify_cert: env::var("DA_VERIFY_CERT")?.parse()?,
-                points: match env::var("DA_POINTS")?.as_str() {
-                    "Path" => zksync_config::configs::da_client::eigen::Points::Path(env::var(
-                        "DA_POINTS_PATH",
-                    )?),
-                    "Link" => zksync_config::configs::da_client::eigen::Points::Link(env::var(
-                        "DA_POINTS_LINK",
-                    )?),
+                points_source: match env::var("DA_POINTS")?.as_str() {
+                    "Path" => zksync_config::configs::da_client::eigen::PointsSource::Path(
+                        env::var("DA_POINTS_PATH")?,
+                    ),
+                    "Link" => zksync_config::configs::da_client::eigen::PointsSource::Link(
+                        env::var("DA_POINTS_LINK")?,
+                    ),
                     _ => anyhow::bail!("Unknown Eigen points type"),
                 },
                 chain_id: env::var("DA_CHAIN_ID")?.parse()?,
@@ -119,7 +119,7 @@ mod tests {
         configs::{
             da_client::{
                 avail::{AvailClientConfig, AvailDefaultConfig},
-                eigen::Points,
+                eigen::PointsSource,
                 DAClientConfig::{self, ObjectStore},
             },
             object_store::ObjectStoreMode::GCS,
@@ -285,7 +285,7 @@ mod tests {
             DA_WAIT_FOR_FINALIZATION=true
             DA_AUTHENTICATED=false
             DA_VERIFY_CERT=false
-            DA_POINTS="Path"
+            DA_POINTS_SOURCE="Path"
             DA_POINTS_PATH="resources"
             DA_CHAIN_ID=1
         "#;
@@ -305,7 +305,7 @@ mod tests {
                 wait_for_finalization: true,
                 authenticated: false,
                 verify_cert: false,
-                points: Points::Path("resources".to_string()),
+                points_source: PointsSource::Path("resources".to_string()),
                 chain_id: 1
             })
         );
