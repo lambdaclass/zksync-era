@@ -38,7 +38,28 @@ impl FromEnv for DAClientConfig {
                 },
             }),
             CELESTIA_CLIENT_CONFIG_NAME => Self::Celestia(envy_load("da_celestia_config", "DA_")?),
-            EIGEN_CLIENT_CONFIG_NAME => Self::Eigen(envy_load("da_eigen_config", "DA_")?),
+            EIGEN_CLIENT_CONFIG_NAME => Self::Eigen(EigenConfig {
+                disperser_rpc: env::var("DA_DISPERSER_RPC")?,
+                eth_confirmation_depth: env::var("DA_ETH_CONFIRMATION_DEPTH")?.parse()?,
+                eigenda_eth_rpc: env::var("DA_EIGENDA_ETH_RPC")?,
+                eigenda_svc_manager_address: env::var("DA_EIGENDA_SVC_MANAGER_ADDRESS")?,
+                blob_size_limit: env::var("DA_BLOB_SIZE_LIMIT")?.parse()?,
+                status_query_timeout: env::var("DA_STATUS_QUERY_TIMEOUT")?.parse()?,
+                status_query_interval: env::var("DA_STATUS_QUERY_INTERVAL")?.parse()?,
+                wait_for_finalization: env::var("DA_WAIT_FOR_FINALIZATION")?.parse()?,
+                authenticated: env::var("DA_AUTHENTICATED")?.parse()?,
+                verify_cert: env::var("DA_VERIFY_CERT")?.parse()?,
+                points: match env::var("DA_POINTS")?.as_str() {
+                    "Path" => zksync_config::configs::da_client::eigen::Points::Path(env::var(
+                        "DA_POINTS_PATH",
+                    )?),
+                    "Link" => zksync_config::configs::da_client::eigen::Points::Link(env::var(
+                        "DA_POINTS_LINK",
+                    )?),
+                    _ => anyhow::bail!("Unknown Eigen points type"),
+                },
+                chain_id: env::var("DA_CHAIN_ID")?.parse()?,
+            }),
             OBJECT_STORE_CLIENT_CONFIG_NAME => {
                 Self::ObjectStore(envy_load("da_object_store", "DA_")?)
             }

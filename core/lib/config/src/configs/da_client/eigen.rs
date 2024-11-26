@@ -3,7 +3,6 @@ use zksync_basic_types::secrets::PrivateKey;
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub enum Points {
-    #[serde(rename = "Path")]
     Path(String),
     Link(String),
 }
