@@ -5,15 +5,47 @@ use ethabi::{encode, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
 use zksync_basic_types::web3::CallRequest;
-use zksync_eth_client::clients::PKSigningClient;
+use zksync_eth_client::{clients::PKSigningClient, EnrichedClientResult};
 use zksync_types::{
-    url::SensitiveUrl,
-    web3::{BlockId, BlockNumber},
-    K256PrivateKey, SLChainId, H160, U256,
+    web3::{self, BlockId, BlockNumber},
+    H160, U256, U64,
 };
-use zksync_web3_decl::client::{Client, DynClient, L1};
 
 use super::blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment};
+
+#[async_trait::async_trait]
+pub trait VerifierClient: Sync + Send + std::fmt::Debug {
+    fn clone_boxed(&self) -> Box<dyn VerifierClient>;
+
+    /// Returns the current block number.
+    async fn block_number(&self) -> EnrichedClientResult<U64>;
+
+    /// Invokes a function on a contract specified by `contract_address` / `contract_abi` using `eth_call`.
+    async fn call_contract_function(
+        &self,
+        request: web3::CallRequest,
+        block: Option<BlockId>,
+    ) -> EnrichedClientResult<web3::Bytes>;
+}
+
+#[async_trait::async_trait]
+impl VerifierClient for PKSigningClient {
+    fn clone_boxed(&self) -> Box<dyn VerifierClient> {
+        Box::new(self.clone())
+    }
+
+    async fn block_number(&self) -> EnrichedClientResult<U64> {
+        self.as_ref().block_number().await
+    }
+
+    async fn call_contract_function(
+        &self,
+        request: web3::CallRequest,
+        block: Option<BlockId>,
+    ) -> EnrichedClientResult<web3::Bytes> {
+        self.as_ref().call_contract_function(request, block).await
+    }
+}
 
 #[derive(Debug)]
 pub enum VerificationError {
@@ -47,19 +79,32 @@ pub struct VerifierConfig {
 /// Verifier used to verify the integrity of the blob info
 /// Kzg is used for commitment verification
 /// EigenDA service manager is used to connect to the service manager contract
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Verifier {
     kzg: Kzg,
     cfg: VerifierConfig,
-    signing_client: PKSigningClient,
+    signing_client: Box<dyn VerifierClient>,
+}
+
+impl Clone for Verifier {
+    fn clone(&self) -> Self {
+        Self {
+            kzg: self.kzg.clone(),
+            cfg: self.cfg.clone(),
+            signing_client: self.signing_client.clone_boxed(),
+        }
+    }
 }
 
 impl Verifier {
-    const DEFAULT_PRIORITY_FEE_PER_GAS: u64 = 100;
+    pub const DEFAULT_PRIORITY_FEE_PER_GAS: u64 = 100;
     const BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR: [u8; 4] = [236, 203, 191, 201];
     const QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR: [u8; 4] = [134, 135, 254, 174];
     const QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR: [u8; 4] = [225, 82, 52, 255];
-    pub fn new(cfg: VerifierConfig) -> Result<Self, VerificationError> {
+    pub fn new<T: VerifierClient + 'static>(
+        cfg: VerifierConfig,
+        signing_client: T,
+    ) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / 32;
         let kzg = Kzg::setup(
             &format!("{}{}", cfg.path_to_points, "/g1.point"),
@@ -74,28 +119,10 @@ impl Verifier {
             VerificationError::KzgError
         })?;
 
-        let url = SensitiveUrl::from_str(&cfg.rpc_url).map_err(|_| VerificationError::WrongUrl)?;
-        let client: Client<L1> = Client::http(url)
-            .map_err(|_| VerificationError::WrongUrl)?
-            .build();
-        let client = Box::new(client) as Box<DynClient<L1>>;
-        let signing_client = PKSigningClient::new_raw(
-            K256PrivateKey::from_bytes(
-                zksync_types::H256::from_str(&cfg.private_key)
-                    .map_err(|_| VerificationError::ServiceManagerError)?,
-            )
-            .map_err(|_| VerificationError::ServiceManagerError)?,
-            H160::from_str(&cfg.svc_manager_addr)
-                .map_err(|_| VerificationError::ServiceManagerError)?,
-            Self::DEFAULT_PRIORITY_FEE_PER_GAS,
-            SLChainId(cfg.chain_id),
-            client,
-        );
-
         Ok(Self {
             kzg,
             cfg,
-            signing_client,
+            signing_client: Box::new(signing_client),
         })
     }
 
@@ -478,71 +505,21 @@ impl Verifier {
 
 #[cfg(test)]
 mod test {
-    use super::VerificationError;
+    use std::{collections::HashMap, str::FromStr};
+
+    use web3::Bytes;
+    use zksync_eth_client::clients::PKSigningClient;
+    use zksync_types::{url::SensitiveUrl, K256PrivateKey, SLChainId};
+    use zksync_web3_decl::client::{Client, DynClient, L1};
+
+    use super::{VerificationError, Verifier, VerifierConfig, *};
     use crate::eigen::blob_info::{
         BatchHeader, BatchMetadata, BlobHeader, BlobInfo, BlobQuorumParam, BlobVerificationProof,
         G1Commitment,
     };
 
-    /// Mock struct for the Verifier
-    /// Used to avoid making actual calls to a remote disperser
-    /// and possible making the CI fail due to network issues.
-    /// To run tests with the actual verifier run:
-    /// `cargo test -p zksync_da_clients -- --ignored`
-    struct TestVerifier {
-        #[allow(dead_code)]
-        cfg: super::VerifierConfig,
-    }
-
-    impl TestVerifier {
-        pub fn new(cfg: super::VerifierConfig) -> Self {
-            Self { cfg }
-        }
-
-        pub fn verify_commitment(
-            &self,
-            _commitment: G1Commitment,
-            _blob: Vec<u8>,
-        ) -> Result<(), super::VerificationError> {
-            Ok(())
-        }
-
-        pub fn verify_merkle_proof(&self, _cert: BlobInfo) -> Result<(), VerificationError> {
-            Ok(())
-        }
-
-        pub fn hash_encode_blob_header(&self, _blob_header: BlobHeader) -> Vec<u8> {
-            hex::decode("ba4675a31c9bf6b2f7abfdcedd34b74645cb7332b35db39bff00ae8516a67393").unwrap()
-        }
-
-        pub fn process_inclusion_proof(
-            &self,
-            _proof: &[u8],
-            _leaf: &[u8],
-            _index: u32,
-        ) -> Result<Vec<u8>, VerificationError> {
-            Ok(
-                hex::decode("7390b8023db8248123dcaeca57fa6c9340bef639e204f2278fc7ec3d46ad071b")
-                    .unwrap(),
-            )
-        }
-
-        pub async fn verify_batch(&self, _cert: BlobInfo) -> Result<(), VerificationError> {
-            Ok(())
-        }
-
-        pub async fn verify_security_params(
-            &self,
-            _cert: BlobInfo,
-        ) -> Result<(), VerificationError> {
-            Ok(())
-        }
-    }
-
-    #[ignore = "remote dependency"]
-    #[test]
-    fn test_verify_commitment() {
-        let verifier = super::Verifier::new(super::VerifierConfig {
+    fn get_verifier_config() -> VerifierConfig {
+        super::VerifierConfig {
             verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
@@ -552,8 +529,79 @@ mod test {
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
             chain_id: 17000,
-        })
-        .unwrap();
+        }
+    }
+
+    /// Mock struct for the Verifier
+    /// Used to avoid making actual calls to a remote disperser
+    /// and possible making the CI fail due to network issues.
+    /// To run tests with the actual verifier run:
+    /// `cargo test -p zksync_da_clients -- --ignored`
+    #[derive(Debug)]
+    pub struct MockVerifierClient {
+        replies: HashMap<String, web3::Bytes>,
+    }
+
+    impl MockVerifierClient {
+        pub fn new(replies: HashMap<String, web3::Bytes>) -> Self {
+            Self { replies }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl VerifierClient for MockVerifierClient {
+        fn clone_boxed(&self) -> Box<dyn VerifierClient> {
+            Box::new(Self {
+                replies: self.replies.clone(),
+            })
+        }
+
+        async fn block_number(&self) -> EnrichedClientResult<U64> {
+            Ok(U64::from(42))
+        }
+
+        async fn call_contract_function(
+            &self,
+            request: CallRequest,
+            _block: Option<BlockId>,
+        ) -> EnrichedClientResult<web3::Bytes> {
+            let req = serde_json::to_string(&request).unwrap();
+            Ok(self.replies.get(&req).unwrap().clone())
+        }
+    }
+
+    fn create_remote_signing_client(cfg: VerifierConfig) -> PKSigningClient {
+        let url = SensitiveUrl::from_str(&cfg.rpc_url)
+            .map_err(|_| VerificationError::WrongUrl)
+            .unwrap();
+        let query_client: Client<L1> = Client::http(url)
+            .map_err(|_| VerificationError::WrongUrl)
+            .unwrap()
+            .build();
+        let query_client = Box::new(query_client) as Box<DynClient<L1>>;
+        PKSigningClient::new_raw(
+            K256PrivateKey::from_bytes(
+                zksync_types::H256::from_str(&cfg.private_key)
+                    .map_err(|_| VerificationError::ServiceManagerError)
+                    .unwrap(),
+            )
+            .map_err(|_| VerificationError::ServiceManagerError)
+            .unwrap(),
+            zksync_types::H160::from_str(&cfg.svc_manager_addr)
+                .map_err(|_| VerificationError::ServiceManagerError)
+                .unwrap(),
+            Verifier::DEFAULT_PRIORITY_FEE_PER_GAS,
+            SLChainId(cfg.chain_id),
+            query_client,
+        )
+    }
+
+    #[ignore = "remote dependency"]
+    #[test]
+    fn test_verify_commitment() {
+        let cfg = get_verifier_config();
+        let signing_client = create_remote_signing_client(cfg.clone());
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let commitment = G1Commitment {
             x: vec![
                 22, 11, 176, 29, 82, 48, 62, 49, 51, 119, 94, 17, 156, 142, 248, 96, 240, 183, 134,
@@ -573,17 +621,9 @@ mod test {
     /// To test actual behaviour of the verifier, run the test above
     #[test]
     fn test_verify_commitment_mocked() {
-        let verifier = TestVerifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        });
+        let cfg = get_verifier_config();
+        let signing_client = MockVerifierClient::new(HashMap::new());
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let commitment = G1Commitment {
             x: vec![
                 22, 11, 176, 29, 82, 48, 62, 49, 51, 119, 94, 17, 156, 142, 248, 96, 240, 183, 134,
@@ -602,18 +642,9 @@ mod test {
     #[ignore = "remote dependency"]
     #[test]
     fn test_verify_merkle_proof() {
-        let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        })
-        .unwrap();
+        let cfg = get_verifier_config();
+        let signing_client = create_remote_signing_client(cfg.clone());
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -694,17 +725,9 @@ mod test {
     /// To test actual behaviour of the verifier, run the test above
     #[test]
     fn test_verify_merkle_proof_mocked() {
-        let verifier = TestVerifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        });
+        let cfg = get_verifier_config();
+        let signing_client = MockVerifierClient::new(HashMap::new());
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -784,18 +807,9 @@ mod test {
     #[ignore = "remote dependency"]
     #[test]
     fn test_hash_blob_header() {
-        let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        })
-        .unwrap();
+        let cfg = get_verifier_config();
+        let signing_client = create_remote_signing_client(cfg.clone());
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let blob_header = BlobHeader {
             commitment: G1Commitment {
                 x: vec![
@@ -832,18 +846,9 @@ mod test {
     /// To test actual behaviour of the verifier, run the test above
     #[test]
     fn test_hash_blob_header_mocked() {
-        let verifier = TestVerifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        });
-
+        let cfg = get_verifier_config();
+        let signing_client = MockVerifierClient::new(HashMap::new());
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let blob_header = BlobHeader {
             commitment: G1Commitment {
                 x: vec![
@@ -879,19 +884,9 @@ mod test {
     #[ignore = "remote dependency"]
     #[test]
     fn test_inclusion_proof() {
-        let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        })
-        .unwrap();
-
+        let cfg = get_verifier_config();
+        let signing_client = create_remote_signing_client(cfg.clone());
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let proof = hex::decode("c455c1ea0e725d7ea3e5f29e9f48be8fc2787bb0a914d5a86710ba302c166ac4f626d76f67f1055bb960a514fb8923af2078fd84085d712655b58a19612e8cd15c3e4ac1cef57acde3438dbcf63f47c9fefe1221344c4d5c1a4943dd0d1803091ca81a270909dc0e146841441c9bd0e08e69ce6168181a3e4060ffacf3627480bec6abdd8d7bb92b49d33f180c42f49e041752aaded9c403db3a17b85e48a11e9ea9a08763f7f383dab6d25236f1b77c12b4c49c5cdbcbea32554a604e3f1d2f466851cb43fe73617b3d01e665e4c019bf930f92dea7394c25ed6a1e200d051fb0c30a2193c459f1cfef00bf1ba6656510d16725a4d1dc031cb759dbc90bab427b0f60ddc6764681924dda848824605a4f08b7f526fe6bd4572458c94e83fbf2150f2eeb28d3011ec921996dc3e69efa52d5fcf3182b20b56b5857a926aa66605808079b4d52c0c0cfe06923fa92e65eeca2c3e6126108e8c1babf5ac522f4d7").unwrap();
         let leaf = hex::decode("f6106e6ae4631e68abe0fa898cedbe97dbae6c7efb1b088c5aa2e8b91190ff96")
             .unwrap();
@@ -910,18 +905,9 @@ mod test {
     /// To test actual behaviour of the verifier, run the test above
     #[test]
     fn test_inclusion_proof_mocked() {
-        let verifier = TestVerifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        });
-
+        let cfg = get_verifier_config();
+        let signing_client = MockVerifierClient::new(HashMap::new());
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let proof = hex::decode("c455c1ea0e725d7ea3e5f29e9f48be8fc2787bb0a914d5a86710ba302c166ac4f626d76f67f1055bb960a514fb8923af2078fd84085d712655b58a19612e8cd15c3e4ac1cef57acde3438dbcf63f47c9fefe1221344c4d5c1a4943dd0d1803091ca81a270909dc0e146841441c9bd0e08e69ce6168181a3e4060ffacf3627480bec6abdd8d7bb92b49d33f180c42f49e041752aaded9c403db3a17b85e48a11e9ea9a08763f7f383dab6d25236f1b77c12b4c49c5cdbcbea32554a604e3f1d2f466851cb43fe73617b3d01e665e4c019bf930f92dea7394c25ed6a1e200d051fb0c30a2193c459f1cfef00bf1ba6656510d16725a4d1dc031cb759dbc90bab427b0f60ddc6764681924dda848824605a4f08b7f526fe6bd4572458c94e83fbf2150f2eeb28d3011ec921996dc3e69efa52d5fcf3182b20b56b5857a926aa66605808079b4d52c0c0cfe06923fa92e65eeca2c3e6126108e8c1babf5ac522f4d7").unwrap();
         let leaf = hex::decode("f6106e6ae4631e68abe0fa898cedbe97dbae6c7efb1b088c5aa2e8b91190ff96")
             .unwrap();
@@ -936,21 +922,12 @@ mod test {
         assert_eq!(actual_root, expected_root);
     }
 
-    #[ignore = "remote dependency"]
+    // #[ignore = "remote dependency"]
     #[tokio::test]
     async fn test_verify_batch() {
-        let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        })
-        .unwrap();
+        let cfg = get_verifier_config();
+        let signing_client = create_remote_signing_client(cfg.clone());
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -1031,17 +1008,34 @@ mod test {
     /// To test actual behaviour of the verifier, run the test above
     #[tokio::test]
     async fn test_verify_batch_mocked() {
-        let verifier = TestVerifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        });
+        let mut mock_replies = HashMap::new();
+        let mock_req = CallRequest {
+            from: None,
+            to: Some(H160::from_str("0xd4a7e1bd8015057293f0d0a557088c286942e84b").unwrap()),
+            gas: None,
+            gas_price: None,
+            value: None,
+            data: Some(web3::Bytes::from(
+                hex::decode(
+                    "eccbbfc900000000000000000000000000000000000000000000000000000000000103cb",
+                )
+                .unwrap(),
+            )),
+            transaction_type: None,
+            access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
+        };
+        let mock_req = serde_json::to_string(&mock_req).unwrap();
+        let mock_res = Bytes::from(
+            hex::decode("60933e76989e57d6fd210ae2fc3086958d708660ee6927f91963047ab1a91ba8")
+                .unwrap(),
+        );
+        mock_replies.insert(mock_req, mock_res);
+
+        let cfg = get_verifier_config();
+        let signing_client = MockVerifierClient::new(mock_replies);
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -1118,21 +1112,12 @@ mod test {
         assert!(result.is_ok());
     }
 
-    #[ignore = "remote dependency"]
+    // #[ignore = "remote dependency"]
     #[tokio::test]
     async fn test_verify_security_params() {
-        let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        })
-        .unwrap();
+        let cfg = get_verifier_config();
+        let signing_client = create_remote_signing_client(cfg.clone());
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -1213,17 +1198,51 @@ mod test {
     /// To test actual behaviour of the verifier, run the test above
     #[tokio::test]
     async fn test_verify_security_params_mocked() {
-        let verifier = TestVerifier::new(super::VerifierConfig {
-            verify_certs: true,
-            rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
-            svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
-        });
+        let mut mock_replies = HashMap::new();
+
+        // First request
+        let mock_req = CallRequest {
+            from: None,
+            to: Some(H160::from_str("0xd4a7e1bd8015057293f0d0a557088c286942e84b").unwrap()),
+            gas: None,
+            gas_price: None,
+            value: None,
+            data: Some(web3::Bytes::from(hex::decode("8687feae").unwrap())),
+            transaction_type: None,
+            access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
+        };
+        let mock_req = serde_json::to_string(&mock_req).unwrap();
+        let mock_res = Bytes::from(
+            hex::decode("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000020001000000000000000000000000000000000000000000000000000000000000")
+                .unwrap(),
+        );
+        mock_replies.insert(mock_req, mock_res);
+
+        // Second request
+        let mock_req = CallRequest {
+            from: None,
+            to: Some(H160::from_str("0xd4a7e1bd8015057293f0d0a557088c286942e84b").unwrap()),
+            gas: None,
+            gas_price: None,
+            value: None,
+            data: Some(web3::Bytes::from(hex::decode("e15234ff").unwrap())),
+            transaction_type: None,
+            access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
+        };
+        let mock_req = serde_json::to_string(&mock_req).unwrap();
+        let mock_res = Bytes::from(
+            hex::decode("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000020001000000000000000000000000000000000000000000000000000000000000")
+                .unwrap(),
+        );
+        mock_replies.insert(mock_req, mock_res);
+
+        let cfg = get_verifier_config();
+        let signing_client = MockVerifierClient::new(mock_replies);
+        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
