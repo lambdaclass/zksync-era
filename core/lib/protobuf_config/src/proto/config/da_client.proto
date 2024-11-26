@@ -36,6 +36,14 @@ message CelestiaConfig {
   optional uint64 timeout_ms = 4;
 }
 
+message Path {
+  optional string path = 1;
+}
+
+message Link {
+  optional string link = 1;
+}
+
 message EigenConfig {
   reserved 1,2;
   optional string disperser_rpc = 3;
@@ -48,8 +56,11 @@ message EigenConfig {
   optional bool wait_for_finalization = 10;
   optional bool authenticated = 11;
   optional bool verify_cert = 12;
-  optional string path_to_points = 13;
-  optional uint64 chain_id = 14;
+  oneof points {
+    Path path = 13;
+    Link link = 14;
+  }
+  optional uint64 chain_id = 15;
 }
 
 message DataAvailabilityClient {

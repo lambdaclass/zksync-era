@@ -1,17 +1,21 @@
 use std::env;
 
-use zksync_config::configs::{
-    da_client::{
-        avail::{
-            AvailClientConfig, AvailSecrets, AVAIL_FULL_CLIENT_NAME, AVAIL_GAS_RELAY_CLIENT_NAME,
+use zksync_config::{
+    configs::{
+        da_client::{
+            avail::{
+                AvailClientConfig, AvailSecrets, AVAIL_FULL_CLIENT_NAME,
+                AVAIL_GAS_RELAY_CLIENT_NAME,
+            },
+            celestia::CelestiaSecrets,
+            eigen::EigenSecrets,
+            DAClientConfig, AVAIL_CLIENT_CONFIG_NAME, CELESTIA_CLIENT_CONFIG_NAME,
+            EIGEN_CLIENT_CONFIG_NAME, OBJECT_STORE_CLIENT_CONFIG_NAME,
         },
-        celestia::CelestiaSecrets,
-        eigen::EigenSecrets,
-        DAClientConfig, AVAIL_CLIENT_CONFIG_NAME, CELESTIA_CLIENT_CONFIG_NAME,
-        EIGEN_CLIENT_CONFIG_NAME, OBJECT_STORE_CLIENT_CONFIG_NAME,
+        secrets::DataAvailabilitySecrets,
+        AvailConfig,
     },
-    secrets::DataAvailabilitySecrets,
-    AvailConfig,
+    EigenConfig,
 };
 
 use crate::{envy_load, FromEnv};
@@ -94,6 +98,7 @@ mod tests {
         configs::{
             da_client::{
                 avail::{AvailClientConfig, AvailDefaultConfig},
+                eigen::Points,
                 DAClientConfig::{self, ObjectStore},
             },
             object_store::ObjectStoreMode::GCS,
@@ -259,7 +264,8 @@ mod tests {
             DA_WAIT_FOR_FINALIZATION=true
             DA_AUTHENTICATED=false
             DA_VERIFY_CERT=false
-            DA_PATH_TO_POINTS="resources"
+            DA_POINTS="Path"
+            DA_POINTS_PATH="resources"
             DA_CHAIN_ID=1
         "#;
         lock.set_env(config);
@@ -278,7 +284,7 @@ mod tests {
                 wait_for_finalization: true,
                 authenticated: false,
                 verify_cert: false,
-                path_to_points: "resources".to_string(),
+                points: Points::Path("resources".to_string()),
                 chain_id: 1
             })
         );

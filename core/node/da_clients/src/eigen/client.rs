@@ -92,6 +92,7 @@ impl EigenClient {
 #[cfg(test)]
 mod tests {
     use serial_test::serial;
+    use zksync_config::configs::da_client::eigen::Points;
     use zksync_types::secrets::PrivateKey;
 
     use super::*;
@@ -111,7 +112,7 @@ mod tests {
             wait_for_finalization: false,
             authenticated: false,
             verify_cert: true,
-            path_to_points: "../../../resources".to_string(),
+            points: Points::Path("../../../resources".to_string()),
             chain_id: 17000,
         };
         let secrets = EigenSecrets {
@@ -151,7 +152,7 @@ mod tests {
             wait_for_finalization: false,
             authenticated: true,
             verify_cert: true,
-            path_to_points: "../../../resources".to_string(),
+            points: Points::Path("../../../resources".to_string()),
             chain_id: 17000,
         };
         let secrets = EigenSecrets {
@@ -188,7 +189,7 @@ mod tests {
             wait_for_finalization: true,
             authenticated: true,
             verify_cert: true,
-            path_to_points: "../../../resources".to_string(),
+            points: Points::Path("../../../resources".to_string()),
             eth_confirmation_depth: 0,
             eigenda_eth_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
@@ -227,7 +228,7 @@ mod tests {
             wait_for_finalization: true,
             authenticated: true,
             verify_cert: true,
-            path_to_points: "../../../resources".to_string(),
+            points: Points::Path("../../../resources".to_string()),
             eth_confirmation_depth: 0,
             eigenda_eth_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
@@ -265,7 +266,7 @@ mod tests {
             wait_for_finalization: false,
             authenticated: false,
             verify_cert: true,
-            path_to_points: "../../../resources".to_string(),
+            points: Points::Path("../../../resources".to_string()),
             chain_id: 17000,
         };
         let secrets = EigenSecrets {
@@ -305,7 +306,7 @@ mod tests {
             wait_for_finalization: false,
             authenticated: true,
             verify_cert: true,
-            path_to_points: "../../../resources".to_string(),
+            points: Points::Path("../../../resources".to_string()),
             chain_id: 17000,
         };
         let secrets = EigenSecrets {
