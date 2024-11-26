@@ -50,7 +50,6 @@ impl VerifierClient for PKSigningClient {
 #[derive(Debug)]
 pub enum VerificationError {
     ServiceManagerError,
-    WrongUrl,
     KzgError,
     WrongProof,
     DifferentCommitments,
@@ -571,13 +570,8 @@ mod test {
     }
 
     fn create_remote_signing_client(cfg: VerifierConfig) -> PKSigningClient {
-        let url = SensitiveUrl::from_str(&cfg.rpc_url)
-            .map_err(|_| VerificationError::WrongUrl)
-            .unwrap();
-        let query_client: Client<L1> = Client::http(url)
-            .map_err(|_| VerificationError::WrongUrl)
-            .unwrap()
-            .build();
+        let url = SensitiveUrl::from_str(&cfg.rpc_url).unwrap();
+        let query_client: Client<L1> = Client::http(url).unwrap().build();
         let query_client = Box::new(query_client) as Box<DynClient<L1>>;
         PKSigningClient::new_raw(
             K256PrivateKey::from_bytes(

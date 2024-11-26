@@ -18,7 +18,7 @@ use zksync_web3_decl::client::{Client, DynClient, L1};
 use super::{
     blob_info::BlobInfo,
     disperser::BlobInfo as DisperserBlobInfo,
-    verifier::{VerificationError, Verifier, VerifierConfig},
+    verifier::{Verifier, VerifierConfig},
 };
 use crate::eigen::{
     blob_info,
@@ -62,25 +62,14 @@ impl RawEigenClient {
             chain_id: config.chain_id,
         };
 
-        let url = SensitiveUrl::from_str(&verifier_config.rpc_url)
-            .map_err(|_| VerificationError::WrongUrl)
-            .unwrap();
-        let query_client: Client<L1> = Client::http(url)
-            .map_err(|_| VerificationError::WrongUrl)
-            .unwrap()
-            .build();
+        let url = SensitiveUrl::from_str(&verifier_config.rpc_url)?;
+        let query_client: Client<L1> = Client::http(url)?.build();
         let query_client = Box::new(query_client) as Box<DynClient<L1>>;
         let signing_client = PKSigningClient::new_raw(
-            K256PrivateKey::from_bytes(
-                zksync_types::H256::from_str(&verifier_config.private_key)
-                    .map_err(|_| VerificationError::ServiceManagerError)
-                    .unwrap(),
-            )
-            .map_err(|_| VerificationError::ServiceManagerError)
-            .unwrap(),
-            H160::from_str(&verifier_config.svc_manager_addr)
-                .map_err(|_| VerificationError::ServiceManagerError)
-                .unwrap(),
+            K256PrivateKey::from_bytes(zksync_types::H256::from_str(
+                &verifier_config.private_key,
+            )?)?,
+            H160::from_str(&verifier_config.svc_manager_addr)?,
             Verifier::DEFAULT_PRIORITY_FEE_PER_GAS,
             SLChainId(verifier_config.chain_id),
             query_client,
