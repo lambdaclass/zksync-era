@@ -75,7 +75,6 @@ impl RawEigenClient {
             query_client,
         );
 
-        // let verifier = Verifier::new(verifier_config, MockVerifierClient::new(HashMap::new()))
         let verifier = Verifier::new(verifier_config, signing_client)
             .map_err(|e| anyhow::anyhow!(format!("Failed to create verifier {:?}", e)))?;
         Ok(RawEigenClient {
