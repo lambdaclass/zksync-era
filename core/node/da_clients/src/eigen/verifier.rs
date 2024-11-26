@@ -65,26 +65,26 @@ impl Verifier {
         let url_g1 = format!("{}{}", link, "/g1.point");
         let response = reqwest::get(url_g1)
             .await
-            .map_err(|_| VerificationError::KzgError)?;
+            .map_err(|_| VerificationError::LinkError)?;
         let path = Path::new("./g1.point");
-        let mut file = File::create(&path).map_err(|_| VerificationError::KzgError)?;
+        let mut file = File::create(path).map_err(|_| VerificationError::LinkError)?;
         let content = response
             .bytes()
             .await
-            .map_err(|_| VerificationError::KzgError)?;
-        copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::KzgError)?;
+            .map_err(|_| VerificationError::LinkError)?;
+        copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
 
         let url_g2 = format!("{}{}", link, "/g2.point.powerOf2");
         let response = reqwest::get(url_g2)
             .await
-            .map_err(|_| VerificationError::KzgError)?;
+            .map_err(|_| VerificationError::LinkError)?;
         let path = Path::new("./g2.point.powerOf2");
-        let mut file = File::create(&path).map_err(|_| VerificationError::KzgError)?;
+        let mut file = File::create(path).map_err(|_| VerificationError::LinkError)?;
         let content = response
             .bytes()
             .await
-            .map_err(|_| VerificationError::KzgError)?;
-        copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::KzgError)?;
+            .map_err(|_| VerificationError::LinkError)?;
+        copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
 
         Ok(".".to_string())
     }
