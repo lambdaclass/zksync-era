@@ -22,7 +22,7 @@ use crate::eigen::{
         self,
         authenticated_request::Payload::{AuthenticationData, DisperseRequest},
         disperser_client::DisperserClient,
-        AuthenticatedReply, BlobAuthHeader, DisperseBlobReply,
+        AuthenticatedReply, BlobAuthHeader,
     },
 };
 
