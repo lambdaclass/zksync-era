@@ -590,7 +590,7 @@ mod test {
         )
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[test]
     fn test_verify_commitment() {
         let cfg = get_verifier_config();
@@ -633,7 +633,7 @@ mod test {
         assert!(result.is_ok());
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[test]
     fn test_verify_merkle_proof() {
         let cfg = get_verifier_config();
@@ -798,7 +798,7 @@ mod test {
         assert!(result.is_ok());
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[test]
     fn test_hash_blob_header() {
         let cfg = get_verifier_config();
@@ -875,7 +875,7 @@ mod test {
         assert_eq!(result, hex::decode(expected).unwrap());
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[test]
     fn test_inclusion_proof() {
         let cfg = get_verifier_config();
@@ -916,7 +916,7 @@ mod test {
         assert_eq!(actual_root, expected_root);
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     async fn test_verify_batch() {
         let cfg = get_verifier_config();
@@ -1106,7 +1106,7 @@ mod test {
         assert!(result.is_ok());
     }
 
-    // #[ignore = "remote dependency"]
+    // #[ignore = "depends on external RPC"]
     #[tokio::test]
     async fn test_verify_security_params() {
         let cfg = get_verifier_config();

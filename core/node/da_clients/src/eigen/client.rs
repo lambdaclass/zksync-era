@@ -101,7 +101,7 @@ mod tests {
         }
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     #[serial]
     async fn test_non_auth_dispersal() {
@@ -142,7 +142,7 @@ mod tests {
         assert_eq!(retrieved_data.unwrap(), data);
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     #[serial]
     async fn test_auth_dispersal() {
@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(retrieved_data.unwrap(), data);
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     #[serial]
     async fn test_wait_for_finalization() {
@@ -224,7 +224,7 @@ mod tests {
         assert_eq!(retrieved_data.unwrap(), data);
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     async fn test_eigenda_dispatch_blob_too_large() {
         let config = EigenConfig {
@@ -259,7 +259,7 @@ mod tests {
         assert_eq!(format!("{}", actual_error), format!("{}", expected_error));
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     #[serial]
     async fn test_eth_confirmation_depth() {
@@ -300,7 +300,7 @@ mod tests {
         assert_eq!(retrieved_data.unwrap(), data);
     }
 
-    #[ignore = "remote dependency"]
+    #[ignore = "depends on external RPC"]
     #[tokio::test]
     #[serial]
     async fn test_auth_dispersal_eth_confirmation_depth() {
