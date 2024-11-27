@@ -68,5 +68,4 @@ zksync_web3_decl.workspace = true
 zksync_eth_client.workspace = true
 thiserror.workspace = true
 ethereum-types = { version = "0.14.1", features = ["serialize"] }
-keccak-hash = "0.10.0"
 

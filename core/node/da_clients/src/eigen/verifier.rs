@@ -266,14 +266,6 @@ impl Verifier {
 
     /// Retrieves the block to make the request to the service manager
     async fn get_context_block(&self) -> Result<u64, VerificationError> {
-        /*let latest = self
-        .signing_client
-        .as_ref()
-        .block_number()
-        .await
-        .map_err(|_| VerificationError::ServiceManagerError)?
-        .as_u64();*/
-
         let latest = self.eth_client.get_block_number().await.unwrap().as_u64();
 
         if self.cfg.eth_confirmation_depth == 0 {
@@ -291,37 +283,19 @@ impl Verifier {
         U256::from(cert.blob_verification_proof.batch_id).to_big_endian(&mut batch_id_vec);
         data.append(batch_id_vec.to_vec().as_mut());
 
-        let call_request = CallRequest {
-            to: Some(
-                H160::from_str(&self.cfg.svc_manager_addr)
-                    .map_err(|_| VerificationError::ServiceManagerError)?,
-            ),
-            data: Some(zksync_basic_types::web3::Bytes(data.clone())),
-            ..Default::default()
-        };
-
         let res = self
-            .signing_client
-            .as_ref()
-            .call_contract_function(
-                call_request,
-                Some(BlockId::Number(BlockNumber::Number(context_block.into()))),
-            )
-            .await
-            .map_err(|_| VerificationError::ServiceManagerError)?;
-
-        let res2 = self
             .eth_client
             .call(
                 H160::from_str(&self.cfg.svc_manager_addr)
                     .map_err(|_| VerificationError::ServiceManagerError)?,
                 bytes::Bytes::copy_from_slice(&data),
-                Default::default(),
+                Some(context_block),
             )
             .await
-            .unwrap();
+            .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let expected_hash = res.0.to_vec();
+        let res = res.trim_start_matches("0x");
+        let expected_hash = hex::decode(res).map_err(|_| VerificationError::ServiceManagerError)?;
 
         if expected_hash == vec![0u8; 32] {
             return Err(VerificationError::EmptyHash);
@@ -392,24 +366,24 @@ impl Verifier {
     ) -> Result<u8, VerificationError> {
         let data = Self::QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR.to_vec();
 
-        let call_request = CallRequest {
-            to: Some(
+        let res = self
+            .eth_client
+            .call(
                 H160::from_str(&self.cfg.svc_manager_addr)
                     .map_err(|_| VerificationError::ServiceManagerError)?,
-            ),
-            data: Some(zksync_basic_types::web3::Bytes(data)),
-            ..Default::default()
-        };
-
-        let res = self
-            .signing_client
-            .as_ref()
-            .call_contract_function(call_request, None)
+                bytes::Bytes::copy_from_slice(&data),
+                None,
+            )
             .await
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
+        let res = res.trim_start_matches("0x");
+
+        let percentages_vec =
+            hex::decode(res).map_err(|_| VerificationError::ServiceManagerError)?;
+
         let percentages = self
-            .decode_bytes(res.0.to_vec())
+            .decode_bytes(percentages_vec)
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
         if percentages.len() > quorum_number as usize {
@@ -456,24 +430,25 @@ impl Verifier {
         }
 
         let data = Self::QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR.to_vec();
-        let call_request = CallRequest {
-            to: Some(
-                H160::from_str(&self.cfg.svc_manager_addr)
-                    .map_err(|_| VerificationError::ServiceManagerError)?,
-            ),
-            data: Some(zksync_basic_types::web3::Bytes(data)),
-            ..Default::default()
-        };
 
         let res = self
-            .signing_client
-            .as_ref()
-            .call_contract_function(call_request, None)
+            .eth_client
+            .call(
+                H160::from_str(&self.cfg.svc_manager_addr)
+                    .map_err(|_| VerificationError::ServiceManagerError)?,
+                bytes::Bytes::copy_from_slice(&data),
+                None,
+            )
             .await
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
+        let res = res.trim_start_matches("0x");
+
+        let required_quorums_vec =
+            hex::decode(res).map_err(|_| VerificationError::ServiceManagerError)?;
+
         let required_quorums = self
-            .decode_bytes(res.0.to_vec())
+            .decode_bytes(required_quorums_vec)
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
         for quorum in required_quorums {

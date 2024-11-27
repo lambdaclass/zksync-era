@@ -5010,16 +5010,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "keccak-hash"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b286e6b663fb926e1eeb68528e69cb70ed46c6d65871a21b2215ae8154c6d3c"
-dependencies = [
- "primitive-types",
- "tiny-keccak 2.0.2",
-]
-
-[[package]]
 name = "kv-log-macro"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11883,7 +11873,6 @@ dependencies = [
  "hex",
  "http 1.1.0",
  "jsonrpsee 0.23.2",
- "keccak-hash",
  "num-bigint 0.4.6",
  "parity-scale-codec",
  "pbjson-types",

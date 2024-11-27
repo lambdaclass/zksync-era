@@ -1,6 +1,5 @@
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
-use keccak_hash::H256;
 /// This client is inspired in ethrex EthClient https://github.com/lambdaclass/ethrex/blob/main/crates/l2/utils/eth_client/mod.rs
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -12,34 +11,10 @@ pub enum EthClientError {
     FailedToSerializeRequestBody(String),
     #[error("reqwest error: {0}")]
     ReqwestError(#[from] reqwest::Error),
-    #[error("eth_blockNumber request error: {0}")]
-    GetBlockNumberError(#[from] GetBlockNumberError),
-    #[error("eth_call request error: {0}")]
-    CallError(#[from] CallError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum GetBlockNumberError {
-    #[error("{0}")]
-    ReqwestError(#[from] reqwest::Error),
     #[error("{0}")]
     SerdeJSONError(#[from] serde_json::Error),
     #[error("{0}")]
     RPCError(String),
-    #[error("{0}")]
-    ParseIntError(#[from] std::num::ParseIntError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum CallError {
-    #[error("{0}")]
-    ReqwestError(#[from] reqwest::Error),
-    #[error("{0}")]
-    SerdeJSONError(#[from] serde_json::Error),
-    #[error("{0}")]
-    RPCError(String),
-    #[error("{0}")]
-    ParseIntError(#[from] std::num::ParseIntError),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -86,19 +61,6 @@ pub struct RpcRequest {
     pub params: Option<Vec<Value>>,
 }
 
-#[derive(Default, Clone)]
-pub struct Overrides {
-    pub from: Option<Address>,
-    pub value: Option<U256>,
-    pub nonce: Option<u64>,
-    pub chain_id: Option<u64>,
-    pub gas_limit: Option<u64>,
-    pub gas_price: Option<u64>,
-    pub priority_gas_price: Option<u64>,
-    pub access_list: Vec<(Address, Vec<H256>)>,
-    pub gas_price_per_blob: Option<U256>,
-}
-
 #[derive(Debug, Clone)]
 pub struct EthClient {
     client: Client,
@@ -136,11 +98,11 @@ impl EthClient {
         };
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
-                .map_err(GetBlockNumberError::SerdeJSONError)
-                .map_err(EthClientError::from),
+            Ok(RpcResponse::Success(result)) => {
+                serde_json::from_value(result.result).map_err(EthClientError::SerdeJSONError)
+            }
             Ok(RpcResponse::Error(error_response)) => {
-                Err(GetBlockNumberError::RPCError(error_response.error.message).into())
+                Err(EthClientError::RPCError(error_response.error.message))
             }
             Err(error) => Err(error),
         }
@@ -150,7 +112,7 @@ impl EthClient {
         &self,
         to: Address,
         calldata: Bytes,
-        overrides: Overrides,
+        block: Option<u64>,
     ) -> Result<String, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
@@ -160,19 +122,22 @@ impl EthClient {
                 json!({
                     "to": format!("{:#x}",to),
                     "input": format!("0x{:#x}", calldata),
-                    "value": format!("{:#x}", overrides.value.unwrap_or_default()),
-                    "from": format!("{:#x}", overrides.from.unwrap_or_default()),
+                    "value": format!("{:#x}", 0),
+                    "from": format!("{:#x}", Address::zero()),
                 }),
-                json!("latest"),
+                json!(match block {
+                    Some(block) => format!("{:#x}", block),
+                    None => "latest".to_string(),
+                }),
             ]),
         };
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
-                .map_err(CallError::SerdeJSONError)
-                .map_err(EthClientError::from),
+            Ok(RpcResponse::Success(result)) => {
+                serde_json::from_value(result.result).map_err(EthClientError::SerdeJSONError)
+            }
             Ok(RpcResponse::Error(error_response)) => {
-                Err(CallError::RPCError(error_response.error.message).into())
+                Err(EthClientError::RPCError(error_response.error.message))
             }
             Err(error) => Err(error),
         }
