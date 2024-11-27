@@ -45,11 +45,7 @@ impl RawEigenClient {
     pub async fn new(private_key: SecretKey, config: EigenConfig) -> anyhow::Result<Self> {
         let endpoint =
             Endpoint::from_str(config.disperser_rpc.as_str())?.tls_config(ClientTlsConfig::new())?;
-        let client = Arc::new(Mutex::new(
-            DisperserClient::connect(endpoint)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to connect to Disperser server: {}", e))?,
-        ));
+        let client = Arc::new(Mutex::new(DisperserClient::connect(endpoint).await?));
 
         let verifier_config = VerifierConfig {
             verify_certs: true,
