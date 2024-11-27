@@ -4,14 +4,7 @@ use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
-use zksync_basic_types::web3::CallRequest;
-use zksync_eth_client::clients::PKSigningClient;
-use zksync_types::{
-    url::SensitiveUrl,
-    web3::{BlockId, BlockNumber},
-    K256PrivateKey, SLChainId, H160, U256,
-};
-use zksync_web3_decl::client::{Client, DynClient, L1};
+use zksync_types::{H160, U256};
 
 use super::{
     blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment},
@@ -43,8 +36,6 @@ pub struct VerifierConfig {
     pub max_blob_size: u32,
     pub path_to_points: String,
     pub eth_confirmation_depth: u32,
-    pub private_key: String,
-    pub chain_id: u64,
 }
 
 /// Verifier used to verify the integrity of the blob info
@@ -54,12 +45,10 @@ pub struct VerifierConfig {
 pub struct Verifier {
     kzg: Kzg,
     cfg: VerifierConfig,
-    signing_client: PKSigningClient,
     eth_client: EthClient,
 }
 
 impl Verifier {
-    const DEFAULT_PRIORITY_FEE_PER_GAS: u64 = 100;
     const BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR: [u8; 4] = [236, 203, 191, 201];
     const QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR: [u8; 4] = [134, 135, 254, 174];
     const QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR: [u8; 4] = [225, 82, 52, 255];
@@ -78,30 +67,11 @@ impl Verifier {
             VerificationError::KzgError
         })?;
 
-        let url = SensitiveUrl::from_str(&cfg.rpc_url).map_err(|_| VerificationError::WrongUrl)?;
-        let client: Client<L1> = Client::http(url)
-            .map_err(|_| VerificationError::WrongUrl)?
-            .build();
-        let client = Box::new(client) as Box<DynClient<L1>>;
-        let signing_client = PKSigningClient::new_raw(
-            K256PrivateKey::from_bytes(
-                zksync_types::H256::from_str(&cfg.private_key)
-                    .map_err(|_| VerificationError::ServiceManagerError)?,
-            )
-            .map_err(|_| VerificationError::ServiceManagerError)?,
-            H160::from_str(&cfg.svc_manager_addr)
-                .map_err(|_| VerificationError::ServiceManagerError)?,
-            Self::DEFAULT_PRIORITY_FEE_PER_GAS,
-            SLChainId(cfg.chain_id),
-            client,
-        );
-
         let eth_client = EthClient::new(&cfg.rpc_url);
 
         Ok(Self {
             kzg,
             cfg,
-            signing_client,
             eth_client,
         })
     }
@@ -487,9 +457,6 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
         })
         .unwrap();
         let commitment = G1Commitment {
@@ -516,9 +483,6 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
         })
         .unwrap();
         let cert = BlobInfo {
@@ -606,9 +570,6 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
         })
         .unwrap();
         let blob_header = BlobHeader {
@@ -652,9 +613,6 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
         })
         .unwrap();
 
@@ -681,9 +639,6 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
         })
         .unwrap();
         let cert = BlobInfo {
@@ -771,9 +726,6 @@ mod test {
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
             eth_confirmation_depth: 0,
-            private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
-                .to_string(),
-            chain_id: 17000,
         })
         .unwrap();
         let cert = BlobInfo {
