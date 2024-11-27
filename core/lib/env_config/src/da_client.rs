@@ -49,7 +49,7 @@ impl FromEnv for DAClientConfig {
                 wait_for_finalization: env::var("DA_WAIT_FOR_FINALIZATION")?.parse()?,
                 authenticated: env::var("DA_AUTHENTICATED")?.parse()?,
                 verify_cert: env::var("DA_VERIFY_CERT")?.parse()?,
-                points_source: match env::var("DA_POINTS")?.as_str() {
+                points_source: match env::var("DA_POINTS_SOURCE")?.as_str() {
                     "Path" => zksync_config::configs::da_client::eigen::PointsSource::Path(
                         env::var("DA_POINTS_PATH")?,
                     ),
