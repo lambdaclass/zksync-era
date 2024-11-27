@@ -13,7 +13,10 @@ use zksync_types::{
 };
 use zksync_web3_decl::client::{Client, DynClient, L1};
 
-use super::blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment};
+use super::{
+    blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment},
+    eth_client::EthClient,
+};
 
 #[derive(Debug)]
 pub enum VerificationError {
@@ -52,6 +55,7 @@ pub struct Verifier {
     kzg: Kzg,
     cfg: VerifierConfig,
     signing_client: PKSigningClient,
+    eth_client: EthClient,
 }
 
 impl Verifier {
@@ -92,10 +96,13 @@ impl Verifier {
             client,
         );
 
+        let eth_client = EthClient::new(&cfg.rpc_url);
+
         Ok(Self {
             kzg,
             cfg,
             signing_client,
+            eth_client,
         })
     }
 
@@ -259,13 +266,15 @@ impl Verifier {
 
     /// Retrieves the block to make the request to the service manager
     async fn get_context_block(&self) -> Result<u64, VerificationError> {
-        let latest = self
-            .signing_client
-            .as_ref()
-            .block_number()
-            .await
-            .map_err(|_| VerificationError::ServiceManagerError)?
-            .as_u64();
+        /*let latest = self
+        .signing_client
+        .as_ref()
+        .block_number()
+        .await
+        .map_err(|_| VerificationError::ServiceManagerError)?
+        .as_u64();*/
+
+        let latest = self.eth_client.get_block_number().await.unwrap().as_u64();
 
         if self.cfg.eth_confirmation_depth == 0 {
             return Ok(latest);
@@ -287,7 +296,7 @@ impl Verifier {
                 H160::from_str(&self.cfg.svc_manager_addr)
                     .map_err(|_| VerificationError::ServiceManagerError)?,
             ),
-            data: Some(zksync_basic_types::web3::Bytes(data)),
+            data: Some(zksync_basic_types::web3::Bytes(data.clone())),
             ..Default::default()
         };
 
@@ -300,6 +309,17 @@ impl Verifier {
             )
             .await
             .map_err(|_| VerificationError::ServiceManagerError)?;
+
+        let res2 = self
+            .eth_client
+            .call(
+                H160::from_str(&self.cfg.svc_manager_addr)
+                    .map_err(|_| VerificationError::ServiceManagerError)?,
+                bytes::Bytes::copy_from_slice(&data),
+                Default::default(),
+            )
+            .await
+            .unwrap();
 
         let expected_hash = res.0.to_vec();
 
