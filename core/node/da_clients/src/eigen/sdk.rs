@@ -150,9 +150,7 @@ impl RawEigenClient {
 
     pub async fn get_inclusion_data(&self, blob_id: &str) -> anyhow::Result<String> {
         let disperse_time = Instant::now();
-        let blob_info = self
-            .await_for_inclusion(blob_id.to_string())
-            .await?;
+        let blob_info = self.await_for_inclusion(blob_id.to_string()).await?;
 
         let blob_info = blob_info::BlobInfo::try_from(blob_info)
             .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
@@ -259,10 +257,7 @@ impl RawEigenClient {
         }
     }
 
-    async fn await_for_inclusion(
-        &self,
-        request_id: String,
-    ) -> anyhow::Result<DisperserBlobInfo> {
+    async fn await_for_inclusion(&self, request_id: String) -> anyhow::Result<DisperserBlobInfo> {
         let polling_request = disperser::BlobStatusRequest {
             request_id: hex::decode(request_id)?,
         };
