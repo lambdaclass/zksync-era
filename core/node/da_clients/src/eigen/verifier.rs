@@ -540,10 +540,10 @@ mod test {
     use std::{collections::HashMap, str::FromStr};
 
     use web3::Bytes;
+    use zksync_config::configs::da_client::eigen::PointsSource;
     use zksync_eth_client::clients::PKSigningClient;
     use zksync_types::{url::SensitiveUrl, K256PrivateKey, SLChainId};
     use zksync_web3_decl::client::{Client, DynClient, L1};
-    use zksync_config::configs::da_client::eigen::PointsSource;
 
     use super::{VerificationError, Verifier, VerifierConfig, *};
     use crate::eigen::blob_info::{
