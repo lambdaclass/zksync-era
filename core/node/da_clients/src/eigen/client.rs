@@ -59,7 +59,7 @@ impl DataAvailabilityClient for EigenClient {
         let blob_info = self
             .get_commitment(blob_id)
             .await
-            .map_err(to_non_retriable_da_error)?;
+            .map_err(to_retriable_da_error)?;
         let rlp_encoded_bytes = hex::decode(blob_info).map_err(|_| DAError {
             error: anyhow!("Failed to decode blob_id"),
             is_retriable: false,
