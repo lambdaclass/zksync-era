@@ -13,7 +13,14 @@ use zksync_types::{
 };
 use zksync_web3_decl::client::{Client, DynClient, L1};
 
-use super::blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment};
+use super::{
+    blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment},
+    lib::{
+        BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR,
+        QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR,
+        QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR,
+    },
+};
 
 #[derive(Debug)]
 pub enum VerificationError {
@@ -34,12 +41,11 @@ pub enum VerificationError {
 /// Configuration for the verifier used for authenticated dispersals
 #[derive(Debug, Clone)]
 pub struct VerifierConfig {
-    pub verify_certs: bool,
     pub rpc_url: String,
     pub svc_manager_addr: String,
     pub max_blob_size: u32,
     pub path_to_points: String,
-    pub eth_confirmation_depth: u32,
+    pub settlement_layer_confirmation_depth: u32,
     pub private_key: String,
     pub chain_id: u64,
 }
@@ -56,9 +62,6 @@ pub struct Verifier {
 
 impl Verifier {
     const DEFAULT_PRIORITY_FEE_PER_GAS: u64 = 100;
-    const BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR: [u8; 4] = [236, 203, 191, 201];
-    const QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR: [u8; 4] = [134, 135, 254, 174];
-    const QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR: [u8; 4] = [225, 82, 52, 255];
     pub fn new(cfg: VerifierConfig) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / 32;
         let kzg = Kzg::setup(
@@ -267,17 +270,17 @@ impl Verifier {
             .map_err(|_| VerificationError::ServiceManagerError)?
             .as_u64();
 
-        if self.cfg.eth_confirmation_depth == 0 {
+        if self.cfg.settlement_layer_confirmation_depth == 0 {
             return Ok(latest);
         }
-        Ok(latest - (self.cfg.eth_confirmation_depth as u64 - 1))
+        Ok(latest - (self.cfg.settlement_layer_confirmation_depth as u64 - 1))
     }
 
     /// Verifies the certificate batch hash
     async fn verify_batch(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let context_block = self.get_context_block().await?;
 
-        let mut data = Self::BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR.to_vec();
+        let mut data = BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR.to_vec();
         let mut batch_id_vec = [0u8; 32];
         U256::from(cert.blob_verification_proof.batch_id).to_big_endian(&mut batch_id_vec);
         data.append(batch_id_vec.to_vec().as_mut());
@@ -370,7 +373,7 @@ impl Verifier {
         &self,
         quorum_number: u32,
     ) -> Result<u8, VerificationError> {
-        let data = Self::QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR.to_vec();
+        let data = QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR.to_vec();
 
         let call_request = CallRequest {
             to: Some(
@@ -435,7 +438,7 @@ impl Verifier {
             confirmed_quorums.insert(blob_header.blob_quorum_params[i].quorum_number, true);
         }
 
-        let data = Self::QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR.to_vec();
+        let data = QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR.to_vec();
         let call_request = CallRequest {
             to: Some(
                 H160::from_str(&self.cfg.svc_manager_addr)
@@ -466,9 +469,6 @@ impl Verifier {
 
     /// Verifies that the certificate is valid
     pub async fn verify_certificate(&self, cert: BlobInfo) -> Result<(), VerificationError> {
-        if !self.cfg.verify_certs {
-            return Ok(());
-        }
         self.verify_batch(cert.clone()).await?;
         self.verify_merkle_proof(cert.clone())?;
         self.verify_security_params(cert.clone()).await?;
@@ -486,12 +486,11 @@ mod test {
     #[test]
     fn test_verify_commitment() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
+            settlement_layer_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
             chain_id: 17000,
@@ -515,12 +514,11 @@ mod test {
     #[test]
     fn test_verify_merkle_proof() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
+            settlement_layer_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
             chain_id: 17000,
@@ -605,12 +603,11 @@ mod test {
     #[test]
     fn test_hash_blob_header() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
+            settlement_layer_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
             chain_id: 17000,
@@ -651,12 +648,11 @@ mod test {
     #[test]
     fn test_inclusion_proof() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
+            settlement_layer_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
             chain_id: 17000,
@@ -680,12 +676,11 @@ mod test {
     #[tokio::test]
     async fn test_verify_batch() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
+            settlement_layer_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
             chain_id: 17000,
@@ -770,12 +765,11 @@ mod test {
     #[tokio::test]
     async fn test_verify_security_params() {
         let verifier = super::Verifier::new(super::VerifierConfig {
-            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
             path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
+            settlement_layer_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
             chain_id: 17000,
