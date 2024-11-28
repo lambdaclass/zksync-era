@@ -1,17 +1,25 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, fs::File, io::copy, path::Path, str::FromStr};
 
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
 use zksync_basic_types::web3::CallRequest;
+use zksync_config::configs::da_client::eigen::PointsSource;
 use zksync_eth_client::{clients::PKSigningClient, EnrichedClientResult};
 use zksync_types::{
     web3::{self, BlockId, BlockNumber},
     H160, U256, U64,
 };
 
-use super::blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment};
+use super::{
+    blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment},
+    lib::{
+        BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR,
+        QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR,
+        QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR,
+    },
+};
 
 #[async_trait::async_trait]
 pub trait VerifierClient: Sync + Send + std::fmt::Debug {
@@ -60,17 +68,17 @@ pub enum VerificationError {
     QuorumNotConfirmed,
     CommitmentNotOnCurve,
     CommitmentNotOnCorrectSubgroup,
+    LinkError,
 }
 
 /// Configuration for the verifier used for authenticated dispersals
 #[derive(Debug, Clone)]
 pub struct VerifierConfig {
-    pub verify_certs: bool,
     pub rpc_url: String,
     pub svc_manager_addr: String,
     pub max_blob_size: u32,
-    pub path_to_points: String,
-    pub eth_confirmation_depth: u32,
+    pub points: PointsSource,
+    pub settlement_layer_confirmation_depth: u32,
     pub private_key: String,
     pub chain_id: u64,
 }
@@ -97,18 +105,46 @@ impl Clone for Verifier {
 
 impl Verifier {
     pub const DEFAULT_PRIORITY_FEE_PER_GAS: u64 = 100;
-    const BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR: [u8; 4] = [236, 203, 191, 201];
-    const QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR: [u8; 4] = [134, 135, 254, 174];
-    const QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR: [u8; 4] = [225, 82, 52, 255];
-    pub fn new<T: VerifierClient + 'static>(
+    async fn save_points(link: String) -> Result<String, VerificationError> {
+        let url_g1 = format!("{}{}", link, "/g1.point");
+        let response = reqwest::get(url_g1)
+            .await
+            .map_err(|_| VerificationError::LinkError)?;
+        let path = Path::new("./g1.point");
+        let mut file = File::create(path).map_err(|_| VerificationError::LinkError)?;
+        let content = response
+            .bytes()
+            .await
+            .map_err(|_| VerificationError::LinkError)?;
+        copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
+
+        let url_g2 = format!("{}{}", link, "/g2.point.powerOf2");
+        let response = reqwest::get(url_g2)
+            .await
+            .map_err(|_| VerificationError::LinkError)?;
+        let path = Path::new("./g2.point.powerOf2");
+        let mut file = File::create(path).map_err(|_| VerificationError::LinkError)?;
+        let content = response
+            .bytes()
+            .await
+            .map_err(|_| VerificationError::LinkError)?;
+        copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
+
+        Ok(".".to_string())
+    }
+    pub async fn new<T: VerifierClient + 'static>(
         cfg: VerifierConfig,
         signing_client: T,
     ) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / 32;
+        let path = match cfg.points.clone() {
+            PointsSource::Path(path) => path,
+            PointsSource::Link(link) => Self::save_points(link).await?,
+        };
         let kzg = Kzg::setup(
-            &format!("{}{}", cfg.path_to_points, "/g1.point"),
+            &format!("{}{}", path, "/g1.point"),
             "",
-            &format!("{}{}", cfg.path_to_points, "/g2.point.powerOf2"),
+            &format!("{}{}", path, "/g2.point.powerOf2"),
             268435456, // 2 ^ 28
             srs_points_to_load,
             "".to_string(),
@@ -293,17 +329,17 @@ impl Verifier {
             .map_err(|_| VerificationError::ServiceManagerError)?
             .as_u64();
 
-        if self.cfg.eth_confirmation_depth == 0 {
+        if self.cfg.settlement_layer_confirmation_depth == 0 {
             return Ok(latest);
         }
-        Ok(latest - (self.cfg.eth_confirmation_depth as u64 - 1))
+        Ok(latest - (self.cfg.settlement_layer_confirmation_depth as u64 - 1))
     }
 
     /// Verifies the certificate batch hash
     async fn verify_batch(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let context_block = self.get_context_block().await?;
 
-        let mut data = Self::BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR.to_vec();
+        let mut data = BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR.to_vec();
         let mut batch_id_vec = [0u8; 32];
         U256::from(cert.blob_verification_proof.batch_id).to_big_endian(&mut batch_id_vec);
         data.append(batch_id_vec.to_vec().as_mut());
@@ -396,7 +432,7 @@ impl Verifier {
         &self,
         quorum_number: u32,
     ) -> Result<u8, VerificationError> {
-        let data = Self::QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR.to_vec();
+        let data = QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR.to_vec();
 
         let call_request = CallRequest {
             to: Some(
@@ -461,7 +497,7 @@ impl Verifier {
             confirmed_quorums.insert(blob_header.blob_quorum_params[i].quorum_number, true);
         }
 
-        let data = Self::QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR.to_vec();
+        let data = QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR.to_vec();
         let call_request = CallRequest {
             to: Some(
                 H160::from_str(&self.cfg.svc_manager_addr)
@@ -492,9 +528,6 @@ impl Verifier {
 
     /// Verifies that the certificate is valid
     pub async fn verify_certificate(&self, cert: BlobInfo) -> Result<(), VerificationError> {
-        if !self.cfg.verify_certs {
-            return Ok(());
-        }
         self.verify_batch(cert.clone()).await?;
         self.verify_merkle_proof(cert.clone())?;
         self.verify_security_params(cert.clone()).await?;
@@ -510,6 +543,7 @@ mod test {
     use zksync_eth_client::clients::PKSigningClient;
     use zksync_types::{url::SensitiveUrl, K256PrivateKey, SLChainId};
     use zksync_web3_decl::client::{Client, DynClient, L1};
+    use zksync_config::configs::da_client::eigen::PointsSource;
 
     use super::{VerificationError, Verifier, VerifierConfig, *};
     use crate::eigen::blob_info::{
@@ -519,12 +553,11 @@ mod test {
 
     fn get_verifier_config() -> VerifierConfig {
         super::VerifierConfig {
-            verify_certs: true,
             rpc_url: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             svc_manager_addr: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             max_blob_size: 2 * 1024 * 1024,
-            path_to_points: "../../../resources".to_string(),
-            eth_confirmation_depth: 0,
+            points: PointsSource::Path("../../../resources".to_string()),
+            settlement_layer_confirmation_depth: 0,
             private_key: "0xd08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6"
                 .to_string(),
             chain_id: 17000,
@@ -591,11 +624,11 @@ mod test {
     }
 
     #[ignore = "depends on external RPC"]
-    #[test]
-    fn test_verify_commitment() {
+    #[tokio::test]
+    async fn test_verify_commitment() {
         let cfg = get_verifier_config();
         let signing_client = create_remote_signing_client(cfg.clone());
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let commitment = G1Commitment {
             x: vec![
                 22, 11, 176, 29, 82, 48, 62, 49, 51, 119, 94, 17, 156, 142, 248, 96, 240, 183, 134,
@@ -613,11 +646,11 @@ mod test {
 
     /// Test the verification of the commitment with a mocked verifier.
     /// To test actual behaviour of the verifier, run the test above
-    #[test]
-    fn test_verify_commitment_mocked() {
+    #[tokio::test]
+    async fn test_verify_commitment_mocked() {
         let cfg = get_verifier_config();
         let signing_client = MockVerifierClient::new(HashMap::new());
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let commitment = G1Commitment {
             x: vec![
                 22, 11, 176, 29, 82, 48, 62, 49, 51, 119, 94, 17, 156, 142, 248, 96, 240, 183, 134,
@@ -634,11 +667,11 @@ mod test {
     }
 
     #[ignore = "depends on external RPC"]
-    #[test]
-    fn test_verify_merkle_proof() {
+    #[tokio::test]
+    async fn test_verify_merkle_proof() {
         let cfg = get_verifier_config();
         let signing_client = create_remote_signing_client(cfg.clone());
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -717,11 +750,11 @@ mod test {
 
     /// Test the verificarion of a merkle proof with a mocked verifier.
     /// To test actual behaviour of the verifier, run the test above
-    #[test]
-    fn test_verify_merkle_proof_mocked() {
+    #[tokio::test]
+    async fn test_verify_merkle_proof_mocked() {
         let cfg = get_verifier_config();
         let signing_client = MockVerifierClient::new(HashMap::new());
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -799,11 +832,11 @@ mod test {
     }
 
     #[ignore = "depends on external RPC"]
-    #[test]
-    fn test_hash_blob_header() {
+    #[tokio::test]
+    async fn test_hash_blob_header() {
         let cfg = get_verifier_config();
         let signing_client = create_remote_signing_client(cfg.clone());
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let blob_header = BlobHeader {
             commitment: G1Commitment {
                 x: vec![
@@ -838,11 +871,11 @@ mod test {
 
     /// Test hashing of a blob header with a mocked verifier.
     /// To test actual behaviour of the verifier, run the test above
-    #[test]
-    fn test_hash_blob_header_mocked() {
+    #[tokio::test]
+    async fn test_hash_blob_header_mocked() {
         let cfg = get_verifier_config();
         let signing_client = MockVerifierClient::new(HashMap::new());
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let blob_header = BlobHeader {
             commitment: G1Commitment {
                 x: vec![
@@ -876,11 +909,11 @@ mod test {
     }
 
     #[ignore = "depends on external RPC"]
-    #[test]
-    fn test_inclusion_proof() {
+    #[tokio::test]
+    async fn test_inclusion_proof() {
         let cfg = get_verifier_config();
         let signing_client = create_remote_signing_client(cfg.clone());
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let proof = hex::decode("c455c1ea0e725d7ea3e5f29e9f48be8fc2787bb0a914d5a86710ba302c166ac4f626d76f67f1055bb960a514fb8923af2078fd84085d712655b58a19612e8cd15c3e4ac1cef57acde3438dbcf63f47c9fefe1221344c4d5c1a4943dd0d1803091ca81a270909dc0e146841441c9bd0e08e69ce6168181a3e4060ffacf3627480bec6abdd8d7bb92b49d33f180c42f49e041752aaded9c403db3a17b85e48a11e9ea9a08763f7f383dab6d25236f1b77c12b4c49c5cdbcbea32554a604e3f1d2f466851cb43fe73617b3d01e665e4c019bf930f92dea7394c25ed6a1e200d051fb0c30a2193c459f1cfef00bf1ba6656510d16725a4d1dc031cb759dbc90bab427b0f60ddc6764681924dda848824605a4f08b7f526fe6bd4572458c94e83fbf2150f2eeb28d3011ec921996dc3e69efa52d5fcf3182b20b56b5857a926aa66605808079b4d52c0c0cfe06923fa92e65eeca2c3e6126108e8c1babf5ac522f4d7").unwrap();
         let leaf = hex::decode("f6106e6ae4631e68abe0fa898cedbe97dbae6c7efb1b088c5aa2e8b91190ff96")
             .unwrap();
@@ -897,11 +930,11 @@ mod test {
 
     /// Test proof inclusion with a mocked verifier.
     /// To test actual behaviour of the verifier, run the test above
-    #[test]
-    fn test_inclusion_proof_mocked() {
+    #[tokio::test]
+    async fn test_inclusion_proof_mocked() {
         let cfg = get_verifier_config();
         let signing_client = MockVerifierClient::new(HashMap::new());
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let proof = hex::decode("c455c1ea0e725d7ea3e5f29e9f48be8fc2787bb0a914d5a86710ba302c166ac4f626d76f67f1055bb960a514fb8923af2078fd84085d712655b58a19612e8cd15c3e4ac1cef57acde3438dbcf63f47c9fefe1221344c4d5c1a4943dd0d1803091ca81a270909dc0e146841441c9bd0e08e69ce6168181a3e4060ffacf3627480bec6abdd8d7bb92b49d33f180c42f49e041752aaded9c403db3a17b85e48a11e9ea9a08763f7f383dab6d25236f1b77c12b4c49c5cdbcbea32554a604e3f1d2f466851cb43fe73617b3d01e665e4c019bf930f92dea7394c25ed6a1e200d051fb0c30a2193c459f1cfef00bf1ba6656510d16725a4d1dc031cb759dbc90bab427b0f60ddc6764681924dda848824605a4f08b7f526fe6bd4572458c94e83fbf2150f2eeb28d3011ec921996dc3e69efa52d5fcf3182b20b56b5857a926aa66605808079b4d52c0c0cfe06923fa92e65eeca2c3e6126108e8c1babf5ac522f4d7").unwrap();
         let leaf = hex::decode("f6106e6ae4631e68abe0fa898cedbe97dbae6c7efb1b088c5aa2e8b91190ff96")
             .unwrap();
@@ -921,7 +954,7 @@ mod test {
     async fn test_verify_batch() {
         let cfg = get_verifier_config();
         let signing_client = create_remote_signing_client(cfg.clone());
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -1029,7 +1062,7 @@ mod test {
 
         let cfg = get_verifier_config();
         let signing_client = MockVerifierClient::new(mock_replies);
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -1111,7 +1144,7 @@ mod test {
     async fn test_verify_security_params() {
         let cfg = get_verifier_config();
         let signing_client = create_remote_signing_client(cfg.clone());
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {
@@ -1236,7 +1269,7 @@ mod test {
 
         let cfg = get_verifier_config();
         let signing_client = MockVerifierClient::new(mock_replies);
-        let verifier = super::Verifier::new(cfg, signing_client).unwrap();
+        let verifier = super::Verifier::new(cfg, signing_client).await.unwrap();
         let cert = BlobInfo {
             blob_header: BlobHeader {
                 commitment: G1Commitment {

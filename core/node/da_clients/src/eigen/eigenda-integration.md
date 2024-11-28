@@ -21,16 +21,16 @@ Changes needed both for local and mainnet/testnet setup.
 da_client:
   eigen:
     disperser_rpc: <your_desired_disperser>
-    eth_confirmation_depth: -1
+    settlement_layer_confirmation_depth: -1
     eigenda_eth_rpc: <your_desired_rpc>
     eigenda_svc_manager_address: '0xD4A7E1Bd8015057293f0D0A557088c286942e84b'
-    blob_size_limit: 2097152
     status_query_timeout: 1800000 # ms
     status_query_interval: 5 # ms
     wait_for_finalization: false
     authenticated: false
     verify_cert: true
-    path_to_points: ./resources
+    link:
+      link: <link_to_points>
     chain_id: <your_chain_id>
 ```
 
