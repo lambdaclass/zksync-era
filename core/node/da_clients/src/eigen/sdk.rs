@@ -13,13 +13,11 @@ use tonic::{
 };
 use zksync_config::EigenConfig;
 use zksync_da_client::types::DAError;
-use zksync_eth_client::clients::PKSigningClient;
-use zksync_types::{url::SensitiveUrl, K256PrivateKey, SLChainId, H160};
-use zksync_web3_decl::client::{Client, DynClient, L1};
 
 use super::{
     blob_info::BlobInfo,
     disperser::BlobInfo as DisperserBlobInfo,
+    eth_client,
     verifier::{Verifier, VerifierConfig},
 };
 use crate::eigen::{
@@ -52,27 +50,15 @@ impl RawEigenClient {
         let client = Arc::new(Mutex::new(DisperserClient::connect(endpoint).await?));
 
         let verifier_config = VerifierConfig {
-            rpc_url: config.eigenda_eth_rpc.clone(),
             svc_manager_addr: config.eigenda_svc_manager_address.clone(),
             max_blob_size: Self::BLOB_SIZE_LIMIT as u32,
             points: config.points_source.clone(),
             settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth.max(0)
                 as u32,
         };
-        let url = SensitiveUrl::from_str(&verifier_config.rpc_url)?;
-        let query_client: Client<L1> = Client::http(url)?.build();
-        let query_client = Box::new(query_client) as Box<DynClient<L1>>;
-        let signing_client = PKSigningClient::new_raw(
-            K256PrivateKey::from_bytes(zksync_types::H256::from_str(
-                &verifier_config.private_key,
-            )?)?,
-            H160::from_str(&verifier_config.svc_manager_addr)?,
-            Verifier::DEFAULT_PRIORITY_FEE_PER_GAS,
-            SLChainId(verifier_config.chain_id),
-            query_client,
-        );
+        let eth_client = eth_client::EthClient::new(&config.eigenda_eth_rpc);
 
-        let verifier = Verifier::new(verifier_config, signing_client)
+        let verifier = Verifier::new(verifier_config, eth_client)
             .await
             .map_err(|e| anyhow::anyhow!(format!("Failed to create verifier {:?}", e)))?;
         Ok(RawEigenClient {
