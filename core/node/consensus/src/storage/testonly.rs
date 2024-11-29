@@ -247,20 +247,15 @@ impl ConnectionPool {
             .await
             .wrap("get_l2_block_range_of_l1_batch()")?
             .context("batch not found")?;
-        let last_batch = L1BatchNumber(last_batch.0.try_into().context("overflow")?);
-        let last_batch_root_hash = ctx
-            .wait(conn.0.blocks_dal().get_l1_batch_state_root(last_batch))
-            .await?
-            .context("get_l1_batch_state_root()")?
-            .unwrap_or_default();
-        let last_block = L2BlockNumber(last_block.0.try_into().context("overflow")?);
+        let last_batch = L1BatchNumber(last_batch.0.try_into().context("oveflow")?);
+        let last_block = L2BlockNumber(last_block.0.try_into().context("oveflow")?);
         ctx.wait(
             conn.0
                 .pruning_dal()
-                .insert_soft_pruning_log(last_batch, last_block),
+                .soft_prune_batches_range(last_batch, last_block),
         )
         .await?
-        .context("insert_soft_pruning_log()")?;
+        .context("soft_prune_batches_range()")?;
         ctx.wait(
             conn.0
                 .pruning_dal()
@@ -268,13 +263,6 @@ impl ConnectionPool {
         )
         .await?
         .context("hard_prune_batches_range()")?;
-        ctx.wait(conn.0.pruning_dal().insert_hard_pruning_log(
-            last_batch,
-            last_block,
-            last_batch_root_hash,
-        ))
-        .await?
-        .context("insert_hard_pruning_log()")?;
         Ok(())
     }
 }

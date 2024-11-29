@@ -382,18 +382,16 @@ pub async fn recover(
 
     storage
         .pruning_dal()
-        .insert_soft_pruning_log(snapshot.l1_batch.number, snapshot.l2_block.number)
+        .soft_prune_batches_range(snapshot.l1_batch.number, snapshot.l2_block.number)
         .await
         .unwrap();
+
     storage
         .pruning_dal()
-        .insert_hard_pruning_log(
-            snapshot.l1_batch.number,
-            snapshot.l2_block.number,
-            snapshot_recovery.l1_batch_root_hash,
-        )
+        .hard_prune_batches_range(snapshot.l1_batch.number, snapshot.l2_block.number)
         .await
         .unwrap();
+
     storage.commit().await.unwrap();
     snapshot_recovery
 }

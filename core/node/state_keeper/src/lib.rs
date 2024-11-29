@@ -7,12 +7,11 @@ pub use self::{
     mempool_actor::MempoolFetcher,
     seal_criteria::SequencerSealer,
     state_keeper_storage::AsyncRocksdbCache,
-    types::MempoolGuard,
+    types::{ExecutionMetricsForCriteria, MempoolGuard},
     updates::UpdatesManager,
 };
 
 pub mod executor;
-mod health;
 pub mod io;
 mod keeper;
 mod mempool_actor;

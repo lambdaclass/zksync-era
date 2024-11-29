@@ -7,16 +7,17 @@ use zksync_types::{
     writes::StateDiffRecord,
     Address, L1BatchNumber, StorageKey, Transaction, H256, U256,
 };
+use zksync_vm_interface::{
+    pubdata::PubdataBuilder, CurrentExecutionState, InspectExecutionMode, VmExecutionResultAndLogs,
+    VmInterfaceHistoryEnabled,
+};
 
 pub(crate) use self::transaction_test_info::{ExpectedError, TransactionTestInfo, TxModifier};
 use super::get_empty_storage;
 use crate::{
     interface::{
-        pubdata::{PubdataBuilder, PubdataInput},
         storage::{InMemoryStorage, StoragePtr, StorageView},
-        CurrentExecutionState, InspectExecutionMode, L1BatchEnv, L2BlockEnv, SystemEnv,
-        TxExecutionMode, VmExecutionResultAndLogs, VmFactory, VmInterfaceExt,
-        VmInterfaceHistoryEnabled,
+        L1BatchEnv, L2BlockEnv, SystemEnv, TxExecutionMode, VmFactory, VmInterfaceExt,
     },
     versions::testonly::{
         default_l1_batch, default_system_env, make_address_rich, ContractToDeploy,
@@ -227,7 +228,4 @@ pub(crate) trait TestedVm:
 
     /// Pushes a transaction with predefined refund value.
     fn push_transaction_with_refund(&mut self, tx: Transaction, refund: u64);
-
-    /// Returns pubdata input.
-    fn pubdata_input(&self) -> PubdataInput;
 }

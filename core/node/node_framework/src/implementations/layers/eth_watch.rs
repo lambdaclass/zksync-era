@@ -1,7 +1,6 @@
 use zksync_config::{ContractsConfig, EthWatchConfig};
 use zksync_contracts::chain_admin_contract;
 use zksync_eth_watch::{EthHttpQueryClient, EthWatch};
-use zksync_types::L2ChainId;
 
 use crate::{
     implementations::resources::{
@@ -22,7 +21,6 @@ use crate::{
 pub struct EthWatchLayer {
     eth_watch_config: EthWatchConfig,
     contracts_config: ContractsConfig,
-    chain_id: L2ChainId,
 }
 
 #[derive(Debug, FromContext)]
@@ -40,15 +38,10 @@ pub struct Output {
 }
 
 impl EthWatchLayer {
-    pub fn new(
-        eth_watch_config: EthWatchConfig,
-        contracts_config: ContractsConfig,
-        chain_id: L2ChainId,
-    ) -> Self {
+    pub fn new(eth_watch_config: EthWatchConfig, contracts_config: ContractsConfig) -> Self {
         Self {
             eth_watch_config,
             contracts_config,
-            chain_id,
         }
     }
 }
@@ -79,11 +72,10 @@ impl WiringLayer for EthWatchLayer {
 
         let eth_watch = EthWatch::new(
             &chain_admin_contract(),
+            Box::new(eth_client.clone()),
             Box::new(eth_client),
-            None,
             main_pool,
             self.eth_watch_config.poll_interval(),
-            self.chain_id,
         )
         .await?;
 

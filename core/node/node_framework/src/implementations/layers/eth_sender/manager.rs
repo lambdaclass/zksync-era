@@ -8,7 +8,6 @@ use crate::{
         circuit_breakers::CircuitBreakersResource,
         eth_interface::{BoundEthInterfaceForBlobsResource, BoundEthInterfaceResource},
         gas_adjuster::GasAdjusterResource,
-        healthcheck::AppHealthCheckResource,
         pools::{MasterPool, PoolResource, ReplicaPool},
     },
     service::StopReceiver,
@@ -49,8 +48,6 @@ pub struct Input {
     pub gas_adjuster: GasAdjusterResource,
     #[context(default)]
     pub circuit_breakers: CircuitBreakersResource,
-    #[context(default)]
-    pub app_health: AppHealthCheckResource,
 }
 
 #[derive(Debug, IntoContext)]
@@ -116,12 +113,6 @@ impl WiringLayer for EthTxManagerLayer {
             .breakers
             .insert(Box::new(FailedL1TransactionChecker { pool: replica_pool }))
             .await;
-
-        input
-            .app_health
-            .0
-            .insert_component(eth_tx_manager.health_check())
-            .map_err(WiringError::internal)?;
 
         Ok(Output { eth_tx_manager })
     }

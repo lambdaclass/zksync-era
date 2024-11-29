@@ -151,18 +151,18 @@ impl EnNamespace {
         Ok(self
             .state
             .api_config
-            .l1_bridgehub_proxy_addr
+            .bridgehub_proxy_addr
             .map(|bridgehub_proxy_addr| EcosystemContracts {
                 bridgehub_proxy_addr,
                 state_transition_proxy_addr: self
                     .state
                     .api_config
-                    .l1_state_transition_proxy_addr
+                    .state_transition_proxy_addr
                     .unwrap(),
                 transparent_proxy_admin_addr: self
                     .state
                     .api_config
-                    .l1_transparent_proxy_admin_addr
+                    .transparent_proxy_admin_addr
                     .unwrap(),
             })
             .context("Shared bridge doesn't supported")?)

@@ -12,14 +12,13 @@ use zksync_types::{
     helpers::unix_timestamp_ms,
     protocol_version::{L1VerifierConfig, ProtocolSemanticVersion},
     pubdata_da::PubdataSendingMode,
-    settlement::SettlementMode,
-    Address, L1BatchNumber, ProtocolVersionId,
+    L1BatchNumber, ProtocolVersionId,
 };
 
 use super::{
     aggregated_operations::AggregatedOperation,
     publish_criterion::{
-        GasCriterionKind, L1BatchPublishCriterion, L1GasCriterion, NumberCriterion,
+        DataSizeCriterion, GasCriterion, L1BatchPublishCriterion, NumberCriterion,
         TimestampDeadlineCriterion,
     },
 };
@@ -45,89 +44,65 @@ impl Aggregator {
     pub fn new(
         config: SenderConfig,
         blob_store: Arc<dyn ObjectStore>,
-        custom_commit_sender_addr: Option<Address>,
+        operate_4844_mode: bool,
         commitment_mode: L1BatchCommitmentMode,
-        settlement_mode: SettlementMode,
     ) -> Self {
         let pubdata_da = config.pubdata_sending_mode;
-        let operate_4844_mode =
-            custom_commit_sender_addr.is_some() && !settlement_mode.is_gateway();
-
-        // We do not have a reliable lower bound for gas needed to execute batches on gateway so we do not aggregate.
-        let execute_criteria: Vec<Box<dyn L1BatchPublishCriterion>> = if settlement_mode
-            .is_gateway()
-        {
-            if config.max_aggregated_blocks_to_execute > 1 {
-                tracing::warn!(
-                    "config.max_aggregated_blocks_to_execute is set to {} but \
-                    aggregator does not support aggregating execute operations when settling on gateway",
-                    config.max_aggregated_blocks_to_execute
-                );
-            }
-
-            vec![Box::from(NumberCriterion {
-                op: AggregatedActionType::Execute,
-                limit: 1,
-            })]
-        } else {
-            vec![
-                Box::from(NumberCriterion {
-                    op: AggregatedActionType::Execute,
-                    limit: config.max_aggregated_blocks_to_execute,
-                }),
-                Box::from(TimestampDeadlineCriterion {
-                    op: AggregatedActionType::Execute,
-                    deadline_seconds: config.aggregated_block_execute_deadline,
-                    max_allowed_lag: Some(config.timestamp_criteria_max_allowed_lag),
-                }),
-                Box::from(L1GasCriterion::new(
-                    config.max_aggregated_tx_gas,
-                    GasCriterionKind::Execute,
-                )),
-            ]
-        };
-
-        // It only makes sense to aggregate commit operation when validium chain settles to L1.
-        let commit_criteria: Vec<Box<dyn L1BatchPublishCriterion>> = if settlement_mode
-            == SettlementMode::SettlesToL1
-            && commitment_mode == L1BatchCommitmentMode::Validium
-        {
-            vec![
+        Self {
+            commit_criteria: vec![
                 Box::from(NumberCriterion {
                     op: AggregatedActionType::Commit,
                     limit: config.max_aggregated_blocks_to_commit,
+                }),
+                Box::from(GasCriterion::new(
+                    AggregatedActionType::Commit,
+                    config.max_aggregated_tx_gas,
+                )),
+                Box::from(DataSizeCriterion {
+                    op: AggregatedActionType::Commit,
+                    data_limit: config.max_eth_tx_data_size,
+                    pubdata_da,
+                    commitment_mode,
                 }),
                 Box::from(TimestampDeadlineCriterion {
                     op: AggregatedActionType::Commit,
                     deadline_seconds: config.aggregated_block_commit_deadline,
                     max_allowed_lag: Some(config.timestamp_criteria_max_allowed_lag),
                 }),
-                Box::from(L1GasCriterion::new(
+            ],
+            proof_criteria: vec![
+                Box::from(NumberCriterion {
+                    op: AggregatedActionType::PublishProofOnchain,
+                    limit: *config.aggregated_proof_sizes.iter().max().unwrap() as u32,
+                }),
+                Box::from(GasCriterion::new(
+                    AggregatedActionType::PublishProofOnchain,
                     config.max_aggregated_tx_gas,
-                    GasCriterionKind::CommitValidium,
                 )),
-            ]
-        } else {
-            if config.max_aggregated_blocks_to_commit > 1 {
-                tracing::warn!(
-                    "config.max_aggregated_blocks_to_commit is set to {} but \
-                    aggregator does not support aggregating commit operations anymore",
-                    config.max_aggregated_blocks_to_commit
-                );
-            }
-            vec![Box::from(NumberCriterion {
-                op: AggregatedActionType::Commit,
-                limit: 1,
-            })]
-        };
-
-        Self {
-            commit_criteria,
-            proof_criteria: vec![Box::from(NumberCriterion {
-                op: AggregatedActionType::PublishProofOnchain,
-                limit: 1,
-            })],
-            execute_criteria,
+                Box::from(TimestampDeadlineCriterion {
+                    op: AggregatedActionType::PublishProofOnchain,
+                    deadline_seconds: config.aggregated_block_prove_deadline,
+                    // Currently, we can't use this functionality for proof criterion
+                    // since we don't send dummy and real proofs in the same range,
+                    // so even small ranges must be closed.
+                    max_allowed_lag: None,
+                }),
+            ],
+            execute_criteria: vec![
+                Box::from(NumberCriterion {
+                    op: AggregatedActionType::Execute,
+                    limit: config.max_aggregated_blocks_to_execute,
+                }),
+                Box::from(GasCriterion::new(
+                    AggregatedActionType::Execute,
+                    config.max_aggregated_tx_gas,
+                )),
+                Box::from(TimestampDeadlineCriterion {
+                    op: AggregatedActionType::Execute,
+                    deadline_seconds: config.aggregated_block_execute_deadline,
+                    max_allowed_lag: Some(config.timestamp_criteria_max_allowed_lag),
+                }),
+            ],
             config,
             blob_store,
             operate_4844_mode,
@@ -162,7 +137,12 @@ impl Aggregator {
         {
             Some(AggregatedOperation::Execute(op))
         } else if let Some(op) = self
-            .get_proof_operation(storage, last_sealed_l1_batch_number, l1_verifier_config)
+            .get_proof_operation(
+                storage,
+                *self.config.aggregated_proof_sizes.iter().max().unwrap(),
+                last_sealed_l1_batch_number,
+                l1_verifier_config,
+            )
             .await
         {
             Some(AggregatedOperation::PublishProofOnchain(op))
@@ -201,10 +181,7 @@ impl Aggregator {
         )
         .await;
 
-        l1_batches.map(|l1_batches| ExecuteBatches {
-            l1_batches,
-            priority_ops_proofs: Vec::new(),
-        })
+        l1_batches.map(|l1_batches| ExecuteBatches { l1_batches })
     }
 
     async fn get_commit_operation(
@@ -270,11 +247,12 @@ impl Aggregator {
 
     async fn load_dummy_proof_operations(
         storage: &mut Connection<'_, Core>,
+        limit: usize,
         is_4844_mode: bool,
     ) -> Vec<L1BatchWithMetadata> {
         let mut ready_for_proof_l1_batches = storage
             .blocks_dal()
-            .get_ready_for_dummy_proof_l1_batches(1)
+            .get_ready_for_dummy_proof_l1_batches(limit)
             .await
             .unwrap();
 
@@ -443,6 +421,7 @@ impl Aggregator {
     async fn get_proof_operation(
         &mut self,
         storage: &mut Connection<'_, Core>,
+        limit: usize,
         last_sealed_l1_batch: L1BatchNumber,
         l1_verifier_config: L1VerifierConfig,
     ) -> Option<ProveBatches> {
@@ -459,7 +438,7 @@ impl Aggregator {
 
             ProofSendingMode::SkipEveryProof => {
                 let ready_for_proof_l1_batches =
-                    Self::load_dummy_proof_operations(storage, self.operate_4844_mode).await;
+                    Self::load_dummy_proof_operations(storage, limit, self.operate_4844_mode).await;
                 self.prepare_dummy_proof_operation(
                     storage,
                     ready_for_proof_l1_batches,
@@ -482,7 +461,7 @@ impl Aggregator {
                 } else {
                     let ready_for_proof_batches = storage
                         .blocks_dal()
-                        .get_skipped_for_proof_l1_batches(1)
+                        .get_skipped_for_proof_l1_batches(limit)
                         .await
                         .unwrap();
                     self.prepare_dummy_proof_operation(

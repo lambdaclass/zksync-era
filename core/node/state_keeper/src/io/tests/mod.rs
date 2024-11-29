@@ -13,7 +13,7 @@ use zksync_multivm::{
 use zksync_node_test_utils::prepare_recovery_snapshot;
 use zksync_system_constants::KNOWN_CODES_STORAGE_ADDRESS;
 use zksync_types::{
-    block::L2BlockHasher,
+    block::{BlockGasCount, L2BlockHasher},
     bytecode::BytecodeHash,
     commitment::{L1BatchCommitmentMode, PubdataParams},
     fee_model::{BatchFeeInput, PubdataIndependentBatchFeeModelInput},
@@ -279,6 +279,7 @@ async fn processing_storage_logs_when_sealing_l2_block() {
     l2_block.extend_from_executed_transaction(
         tx,
         execution_result,
+        BlockGasCount::default(),
         VmExecutionMetrics::default(),
         vec![],
         vec![],
@@ -296,6 +297,7 @@ async fn processing_storage_logs_when_sealing_l2_block() {
     l2_block.extend_from_executed_transaction(
         tx,
         execution_result,
+        BlockGasCount::default(),
         VmExecutionMetrics::default(),
         vec![],
         vec![],
@@ -369,6 +371,7 @@ async fn processing_events_when_sealing_l2_block() {
         l2_block.extend_from_executed_transaction(
             tx,
             execution_result,
+            BlockGasCount::default(),
             VmExecutionMetrics::default(),
             vec![],
             vec![],
@@ -473,6 +476,7 @@ async fn processing_dynamic_factory_deps_when_sealing_l2_block() {
     l2_block.extend_from_executed_transaction(
         tx,
         execution_result,
+        BlockGasCount::default(),
         VmExecutionMetrics::default(),
         vec![],
         vec![],
@@ -567,6 +571,7 @@ async fn l2_block_processing_after_snapshot_recovery(commitment_mode: L1BatchCom
         tx.into(),
         create_execution_result([]),
         vec![],
+        BlockGasCount::default(),
         VmExecutionMetrics::default(),
         vec![],
     );

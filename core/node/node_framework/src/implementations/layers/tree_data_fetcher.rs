@@ -1,9 +1,9 @@
 use zksync_node_sync::tree_data_fetcher::TreeDataFetcher;
-use zksync_types::{Address, L2ChainId};
+use zksync_types::Address;
 
 use crate::{
     implementations::resources::{
-        eth_interface::{EthInterfaceResource, GatewayEthInterfaceResource},
+        eth_interface::EthInterfaceResource,
         healthcheck::AppHealthCheckResource,
         main_node_client::MainNodeClientResource,
         pools::{MasterPool, PoolResource},
@@ -17,8 +17,7 @@ use crate::{
 /// Wiring layer for [`TreeDataFetcher`].
 #[derive(Debug)]
 pub struct TreeDataFetcherLayer {
-    l1_diamond_proxy_addr: Address,
-    l2_chain_id: L2ChainId,
+    diamond_proxy_addr: Address,
 }
 
 #[derive(Debug, FromContext)]
@@ -26,8 +25,7 @@ pub struct TreeDataFetcherLayer {
 pub struct Input {
     pub master_pool: PoolResource<MasterPool>,
     pub main_node_client: MainNodeClientResource,
-    pub l1_client: EthInterfaceResource,
-    pub gateway_client: Option<GatewayEthInterfaceResource>,
+    pub eth_client: EthInterfaceResource,
     #[context(default)]
     pub app_health: AppHealthCheckResource,
 }
@@ -40,11 +38,8 @@ pub struct Output {
 }
 
 impl TreeDataFetcherLayer {
-    pub fn new(l1_diamond_proxy_addr: Address, l2_chain_id: L2ChainId) -> Self {
-        Self {
-            l1_diamond_proxy_addr,
-            l2_chain_id,
-        }
+    pub fn new(diamond_proxy_addr: Address) -> Self {
+        Self { diamond_proxy_addr }
     }
 }
 
@@ -60,21 +55,14 @@ impl WiringLayer for TreeDataFetcherLayer {
     async fn wire(self, input: Self::Input) -> Result<Self::Output, WiringError> {
         let pool = input.master_pool.get().await?;
         let MainNodeClientResource(client) = input.main_node_client;
-        let EthInterfaceResource(l1_client) = input.l1_client;
-        let gateway_client = input.gateway_client.map(|c| c.0);
+        let EthInterfaceResource(eth_client) = input.eth_client;
 
         tracing::warn!(
             "Running tree data fetcher (allows a node to operate w/o a Merkle tree or w/o waiting the tree to catch up). \
              This is an experimental feature; do not use unless you know what you're doing"
         );
-        let task = TreeDataFetcher::new(client, pool)
-            .with_l1_data(
-                l1_client,
-                self.l1_diamond_proxy_addr,
-                gateway_client,
-                self.l2_chain_id,
-            )
-            .await?;
+        let task =
+            TreeDataFetcher::new(client, pool).with_l1_data(eth_client, self.diamond_proxy_addr)?;
 
         // Insert healthcheck
         input

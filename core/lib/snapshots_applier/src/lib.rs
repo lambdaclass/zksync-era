@@ -725,17 +725,16 @@ impl<'a> SnapshotsApplier<'a> {
             // This allows to not deal with the corner cases when a node was recovered from a snapshot, but its pruning log is empty.
             storage_transaction
                 .pruning_dal()
-                .insert_soft_pruning_log(
+                .soft_prune_batches_range(
                     this.applied_snapshot_status.l1_batch_number,
                     this.applied_snapshot_status.l2_block_number,
                 )
                 .await?;
             storage_transaction
                 .pruning_dal()
-                .insert_hard_pruning_log(
+                .hard_prune_batches_range(
                     this.applied_snapshot_status.l1_batch_number,
                     this.applied_snapshot_status.l2_block_number,
-                    this.applied_snapshot_status.l1_batch_root_hash,
                 )
                 .await?;
         }

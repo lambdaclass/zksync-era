@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::Context as _;
-use zksync_crypto_primitives::hasher::{keccak::KeccakHasher, Hasher};
 use zksync_dal::{Connection, Core, CoreDal, DalError};
 use zksync_metadata_calculator::api_server::TreeApiError;
 use zksync_mini_merkle_tree::MiniMerkleTree;
@@ -18,7 +17,7 @@ use zksync_types::{
     h256_to_u256,
     l1::L1Tx,
     l2::L2Tx,
-    l2_to_l1_log::{l2_to_l1_logs_tree_size, L2ToL1Log, LOG_PROOF_SUPPORTED_METADATA_VERSION},
+    l2_to_l1_log::{l2_to_l1_logs_tree_size, L2ToL1Log},
     tokens::ETHEREUM_ADDRESS,
     transaction_request::CallRequest,
     utils::storage_key_for_standard_token_balance,
@@ -138,11 +137,11 @@ impl ZksNamespace {
     }
 
     pub fn get_bridgehub_contract_impl(&self) -> Option<Address> {
-        self.state.api_config.l1_bridgehub_proxy_addr
+        self.state.api_config.bridgehub_proxy_addr
     }
 
     pub fn get_main_contract_impl(&self) -> Address {
-        self.state.api_config.l1_diamond_proxy_addr
+        self.state.api_config.diamond_proxy_addr
     }
 
     pub fn get_testnet_paymaster_impl(&self) -> Option<Address> {
@@ -322,9 +321,9 @@ impl ZksNamespace {
             return Ok(None);
         };
 
-        let Some(batch_with_metadata) = storage
+        let Some(batch) = storage
             .blocks_dal()
-            .get_l1_batch_metadata(l1_batch_number)
+            .get_l1_batch_header(l1_batch_number)
             .await
             .map_err(DalError::generalize)?
         else {
@@ -333,71 +332,13 @@ impl ZksNamespace {
 
         let merkle_tree_leaves = all_l1_logs_in_batch.iter().map(L2ToL1Log::to_bytes);
 
-        let protocol_version = batch_with_metadata
-            .header
+        let protocol_version = batch
             .protocol_version
             .unwrap_or_else(ProtocolVersionId::last_potentially_undefined);
         let tree_size = l2_to_l1_logs_tree_size(protocol_version);
 
-        let (local_root, proof) = MiniMerkleTree::new(merkle_tree_leaves, Some(tree_size))
+        let (root, proof) = MiniMerkleTree::new(merkle_tree_leaves, Some(tree_size))
             .merkle_root_and_path(l1_log_index);
-
-        if protocol_version.is_pre_gateway() {
-            return Ok(Some(L2ToL1LogProof {
-                proof,
-                root: local_root,
-                id: l1_log_index as u32,
-            }));
-        }
-
-        let aggregated_root = batch_with_metadata
-            .metadata
-            .aggregation_root
-            .expect("`aggregation_root` must be present for post-gateway branch");
-        let root = KeccakHasher.compress(&local_root, &aggregated_root);
-
-        let mut log_leaf_proof = proof;
-        log_leaf_proof.push(aggregated_root);
-
-        let Some(sl_chain_id) = storage
-            .eth_sender_dal()
-            .get_batch_commit_chain_id(l1_batch_number)
-            .await
-            .map_err(DalError::generalize)?
-        else {
-            return Ok(None);
-        };
-
-        let (batch_proof_len, batch_chain_proof) =
-            if sl_chain_id.0 != self.state.api_config.l1_chain_id.0 {
-                let Some(batch_chain_proof) = storage
-                    .blocks_dal()
-                    .get_l1_batch_chain_merkle_path(l1_batch_number)
-                    .await
-                    .map_err(DalError::generalize)?
-                else {
-                    return Ok(None);
-                };
-
-                (batch_chain_proof.batch_proof_len, batch_chain_proof.proof)
-            } else {
-                (0, Vec::new())
-            };
-
-        let proof = {
-            let mut metadata = [0u8; 32];
-            metadata[0] = LOG_PROOF_SUPPORTED_METADATA_VERSION;
-            metadata[1] = log_leaf_proof.len() as u8;
-            metadata[2] = batch_proof_len as u8;
-
-            let mut result = vec![H256(metadata)];
-
-            result.extend(log_leaf_proof);
-            result.extend(batch_chain_proof);
-
-            result
-        };
-
         Ok(Some(L2ToL1LogProof {
             proof,
             root,
@@ -419,11 +360,6 @@ impl ZksNamespace {
         else {
             return Ok(None);
         };
-
-        self.state
-            .start_info
-            .ensure_not_pruned(l1_batch_number, &mut storage)
-            .await?;
 
         let log_proof = self
             .get_l2_to_l1_log_proof_inner(

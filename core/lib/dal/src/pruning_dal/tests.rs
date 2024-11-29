@@ -96,13 +96,6 @@ async fn insert_l1_batch(conn: &mut Connection<'_, Core>, l1_batch_number: L1Bat
         .insert_mock_l1_batch(&header)
         .await
         .unwrap();
-    conn.blocks_dal()
-        .set_l1_batch_hash(
-            l1_batch_number,
-            H256::from_low_u64_be(l1_batch_number.0.into()),
-        )
-        .await
-        .unwrap();
 }
 
 async fn insert_realistic_l1_batches(conn: &mut Connection<'_, Core>, l1_batches_count: u32) {
@@ -128,11 +121,11 @@ async fn insert_realistic_l1_batches(conn: &mut Connection<'_, Core>, l1_batches
     }
 }
 
-async fn assert_l1_batches_exist(
+async fn assert_l1_batch_objects_exists(
     conn: &mut Connection<'_, Core>,
     l1_batches_range: ops::RangeInclusive<L1BatchNumber>,
 ) {
-    for l1_batch_number in l1_batches_range.start().0..=l1_batches_range.end().0 {
+    for l1_batch_number in l1_batches_range.start().0..l1_batches_range.end().0 {
         let l1_batch_number = L1BatchNumber(l1_batch_number);
         assert!(conn
             .blocks_dal()
@@ -157,7 +150,7 @@ async fn assert_l1_batches_exist(
     }
 }
 
-async fn assert_l1_batches_not_exist(
+async fn assert_l1_batch_objects_dont_exist(
     conn: &mut Connection<'_, Core>,
     l1_batches_range: ops::RangeInclusive<L1BatchNumber>,
 ) {
@@ -166,7 +159,7 @@ async fn assert_l1_batches_not_exist(
         .dump_all_storage_logs_for_tests()
         .await;
 
-    for l1_batch_number in l1_batches_range.start().0..=l1_batches_range.end().0 {
+    for l1_batch_number in l1_batches_range.start().0..l1_batches_range.end().0 {
         let l1_batch_number = L1BatchNumber(l1_batch_number);
         let mut l2_block_number = L2BlockNumber(l1_batch_number.0 * 2);
         assert!(conn
@@ -211,60 +204,55 @@ async fn soft_pruning_works() {
 
     assert_eq!(
         PruningInfo {
-            last_soft_pruned: None,
-            last_hard_pruned: None,
+            last_soft_pruned_l2_block: None,
+            last_soft_pruned_l1_batch: None,
+            last_hard_pruned_l2_block: None,
+            last_hard_pruned_l1_batch: None
         },
         transaction.pruning_dal().get_pruning_info().await.unwrap()
     );
 
     transaction
         .pruning_dal()
-        .insert_soft_pruning_log(L1BatchNumber(5), L2BlockNumber(11))
+        .soft_prune_batches_range(L1BatchNumber(5), L2BlockNumber(11))
         .await
         .unwrap();
     assert_eq!(
         PruningInfo {
-            last_soft_pruned: Some(SoftPruningInfo {
-                l2_block: L2BlockNumber(11),
-                l1_batch: L1BatchNumber(5),
-            }),
-            last_hard_pruned: None,
+            last_soft_pruned_l2_block: Some(L2BlockNumber(11)),
+            last_soft_pruned_l1_batch: Some(L1BatchNumber(5)),
+            last_hard_pruned_l2_block: None,
+            last_hard_pruned_l1_batch: None
         },
         transaction.pruning_dal().get_pruning_info().await.unwrap()
     );
 
     transaction
         .pruning_dal()
-        .insert_soft_pruning_log(L1BatchNumber(10), L2BlockNumber(21))
+        .soft_prune_batches_range(L1BatchNumber(10), L2BlockNumber(21))
         .await
         .unwrap();
     assert_eq!(
         PruningInfo {
-            last_soft_pruned: Some(SoftPruningInfo {
-                l2_block: L2BlockNumber(21),
-                l1_batch: L1BatchNumber(10),
-            }),
-            last_hard_pruned: None,
+            last_soft_pruned_l2_block: Some(L2BlockNumber(21)),
+            last_soft_pruned_l1_batch: Some(L1BatchNumber(10)),
+            last_hard_pruned_l2_block: None,
+            last_hard_pruned_l1_batch: None
         },
         transaction.pruning_dal().get_pruning_info().await.unwrap()
     );
 
     transaction
         .pruning_dal()
-        .insert_hard_pruning_log(L1BatchNumber(10), L2BlockNumber(21), H256::repeat_byte(23))
+        .hard_prune_batches_range(L1BatchNumber(10), L2BlockNumber(21))
         .await
         .unwrap();
     assert_eq!(
         PruningInfo {
-            last_soft_pruned: Some(SoftPruningInfo {
-                l2_block: L2BlockNumber(21),
-                l1_batch: L1BatchNumber(10),
-            }),
-            last_hard_pruned: Some(HardPruningInfo {
-                l2_block: L2BlockNumber(21),
-                l1_batch: L1BatchNumber(10),
-                l1_batch_root_hash: Some(H256::repeat_byte(23)),
-            }),
+            last_soft_pruned_l2_block: Some(L2BlockNumber(21)),
+            last_soft_pruned_l1_batch: Some(L1BatchNumber(10)),
+            last_hard_pruned_l2_block: Some(L2BlockNumber(21)),
+            last_hard_pruned_l1_batch: Some(L1BatchNumber(10))
         },
         transaction.pruning_dal().get_pruning_info().await.unwrap()
     );
@@ -374,7 +362,7 @@ async fn storage_logs_pruning_works_correctly() {
 
     let stats = transaction
         .pruning_dal()
-        .hard_prune_batches_range(L1BatchNumber(9), L2BlockNumber(19))
+        .hard_prune_batches_range(L1BatchNumber(10), L2BlockNumber(21))
         .await
         .unwrap();
     let actual_logs = transaction
@@ -405,13 +393,13 @@ async fn l1_batches_can_be_hard_pruned() {
     let mut transaction = conn.start_transaction().await.unwrap();
     insert_realistic_l1_batches(&mut transaction, 10).await;
 
-    assert_l1_batches_exist(&mut transaction, L1BatchNumber(1)..=L1BatchNumber(9)).await;
+    assert_l1_batch_objects_exists(&mut transaction, L1BatchNumber(1)..=L1BatchNumber(10)).await;
     assert!(transaction
         .pruning_dal()
         .get_pruning_info()
         .await
         .unwrap()
-        .last_hard_pruned
+        .last_hard_pruned_l1_batch
         .is_none());
 
     transaction
@@ -420,12 +408,21 @@ async fn l1_batches_can_be_hard_pruned() {
         .await
         .unwrap();
 
-    assert_l1_batches_not_exist(&mut transaction, L1BatchNumber(1)..=L1BatchNumber(5)).await;
-    assert_l1_batches_exist(&mut transaction, L1BatchNumber(6)..=L1BatchNumber(9)).await;
+    assert_l1_batch_objects_dont_exist(&mut transaction, L1BatchNumber(1)..=L1BatchNumber(5)).await;
+    assert_l1_batch_objects_exists(&mut transaction, L1BatchNumber(6)..=L1BatchNumber(10)).await;
+    assert_eq!(
+        Some(L1BatchNumber(5)),
+        transaction
+            .pruning_dal()
+            .get_pruning_info()
+            .await
+            .unwrap()
+            .last_hard_pruned_l1_batch
+    );
 
     let stats = transaction
         .pruning_dal()
-        .hard_prune_batches_range(L1BatchNumber(9), L2BlockNumber(19))
+        .hard_prune_batches_range(L1BatchNumber(10), L2BlockNumber(21))
         .await
         .unwrap();
     assert_eq!(stats.deleted_l1_batches, 4);
@@ -433,7 +430,17 @@ async fn l1_batches_can_be_hard_pruned() {
     assert_eq!(stats.deleted_events, 40);
     assert_eq!(stats.deleted_l2_to_l1_logs, 40);
 
-    assert_l1_batches_not_exist(&mut transaction, L1BatchNumber(1)..=L1BatchNumber(9)).await;
+    assert_l1_batch_objects_dont_exist(&mut transaction, L1BatchNumber(1)..=L1BatchNumber(10))
+        .await;
+    assert_eq!(
+        Some(L1BatchNumber(10)),
+        transaction
+            .pruning_dal()
+            .get_pruning_info()
+            .await
+            .unwrap()
+            .last_hard_pruned_l1_batch
+    );
 }
 
 #[tokio::test]

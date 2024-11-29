@@ -584,6 +584,7 @@ impl StateKeeperRunner {
                 let stop_recv = stop_recv.clone();
                 async {
                     ZkSyncStateKeeper::new(
+                        stop_recv,
                         Box::new(io),
                         Box::new(executor_factory),
                         OutputHandler::new(Box::new(persistence.with_tx_insertion()))
@@ -591,7 +592,7 @@ impl StateKeeperRunner {
                         Arc::new(NoopSealer),
                         Arc::new(async_cache),
                     )
-                    .run(stop_recv)
+                    .run()
                     .await
                     .context("ZkSyncStateKeeper::run()")?;
                     Ok(())
@@ -664,6 +665,7 @@ impl StateKeeperRunner {
                 let stop_recv = stop_recv.clone();
                 async {
                     ZkSyncStateKeeper::new(
+                        stop_recv,
                         Box::new(io),
                         Box::new(MockBatchExecutor),
                         OutputHandler::new(Box::new(persistence.with_tx_insertion()))
@@ -672,7 +674,7 @@ impl StateKeeperRunner {
                         Arc::new(NoopSealer),
                         Arc::new(MockReadStorageFactory),
                     )
-                    .run(stop_recv)
+                    .run()
                     .await
                     .context("ZkSyncStateKeeper::run()")?;
                     Ok(())

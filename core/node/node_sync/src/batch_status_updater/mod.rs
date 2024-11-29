@@ -13,7 +13,7 @@ use zksync_dal::{Connection, ConnectionPool, Core, CoreDal};
 use zksync_health_check::{Health, HealthStatus, HealthUpdater, ReactiveHealthCheck};
 use zksync_shared_metrics::EN_METRICS;
 use zksync_types::{
-    aggregated_operations::AggregatedActionType, api, L1BatchNumber, SLChainId, H256,
+    aggregated_operations::AggregatedActionType, api, L1BatchNumber, L2BlockNumber, H256,
 };
 use zksync_web3_decl::{
     client::{DynClient, L2},
@@ -41,7 +41,6 @@ struct BatchStatusChange {
     number: L1BatchNumber,
     l1_tx_hash: H256,
     happened_at: DateTime<Utc>,
-    sl_chain_id: Option<SLChainId>,
 }
 
 #[derive(Debug, Default)]
@@ -74,21 +73,42 @@ impl From<zksync_dal::DalError> for UpdaterError {
 
 #[async_trait]
 trait MainNodeClient: fmt::Debug + Send + Sync {
-    async fn batch_details(
+    /// Returns any L2 block in the specified L1 batch.
+    async fn resolve_l1_batch_to_l2_block(
         &self,
         number: L1BatchNumber,
-    ) -> EnrichedClientResult<Option<api::L1BatchDetails>>;
+    ) -> EnrichedClientResult<Option<L2BlockNumber>>;
+
+    async fn block_details(
+        &self,
+        number: L2BlockNumber,
+    ) -> EnrichedClientResult<Option<api::BlockDetails>>;
 }
 
 #[async_trait]
 impl MainNodeClient for Box<DynClient<L2>> {
-    async fn batch_details(
+    async fn resolve_l1_batch_to_l2_block(
         &self,
         number: L1BatchNumber,
-    ) -> EnrichedClientResult<Option<api::L1BatchDetails>> {
-        let request_latency = FETCHER_METRICS.requests[&FetchStage::GetL1BatchDetails].start();
+    ) -> EnrichedClientResult<Option<L2BlockNumber>> {
+        let request_latency = FETCHER_METRICS.requests[&FetchStage::GetL2BlockRange].start();
+        let number = self
+            .get_l2_block_range(number)
+            .rpc_context("resolve_l1_batch_to_l2_block")
+            .with_arg("number", &number)
+            .await?
+            .map(|(start, _)| L2BlockNumber(start.as_u32()));
+        request_latency.observe();
+        Ok(number)
+    }
+
+    async fn block_details(
+        &self,
+        number: L2BlockNumber,
+    ) -> EnrichedClientResult<Option<api::BlockDetails>> {
+        let request_latency = FETCHER_METRICS.requests[&FetchStage::GetBlockDetails].start();
         let details = self
-            .get_l1_batch_details(number)
+            .get_block_details(number)
             .rpc_context("block_details")
             .with_arg("number", &number)
             .await?;
@@ -135,34 +155,27 @@ impl UpdaterCursor {
         })
     }
 
-    /// Extracts tx hash, timestamp and chain id of the operation.
-    fn extract_op_data(
-        batch_info: &api::L1BatchDetails,
+    fn extract_tx_hash_and_timestamp(
+        batch_info: &api::BlockDetails,
         stage: AggregatedActionType,
-    ) -> (Option<H256>, Option<DateTime<Utc>>, Option<SLChainId>) {
+    ) -> (Option<H256>, Option<DateTime<Utc>>) {
         match stage {
-            AggregatedActionType::Commit => (
-                batch_info.base.commit_tx_hash,
-                batch_info.base.committed_at,
-                batch_info.base.commit_chain_id,
-            ),
-            AggregatedActionType::PublishProofOnchain => (
-                batch_info.base.prove_tx_hash,
-                batch_info.base.proven_at,
-                batch_info.base.prove_chain_id,
-            ),
-            AggregatedActionType::Execute => (
-                batch_info.base.execute_tx_hash,
-                batch_info.base.executed_at,
-                batch_info.base.execute_chain_id,
-            ),
+            AggregatedActionType::Commit => {
+                (batch_info.base.commit_tx_hash, batch_info.base.committed_at)
+            }
+            AggregatedActionType::PublishProofOnchain => {
+                (batch_info.base.prove_tx_hash, batch_info.base.proven_at)
+            }
+            AggregatedActionType::Execute => {
+                (batch_info.base.execute_tx_hash, batch_info.base.executed_at)
+            }
         }
     }
 
     fn update(
         &mut self,
         status_changes: &mut StatusChanges,
-        batch_info: &api::L1BatchDetails,
+        batch_info: &api::BlockDetails,
     ) -> anyhow::Result<()> {
         for stage in [
             AggregatedActionType::Commit,
@@ -177,10 +190,10 @@ impl UpdaterCursor {
     fn update_stage(
         &mut self,
         status_changes: &mut StatusChanges,
-        batch_info: &api::L1BatchDetails,
+        batch_info: &api::BlockDetails,
         stage: AggregatedActionType,
     ) -> anyhow::Result<()> {
-        let (l1_tx_hash, happened_at, sl_chain_id) = Self::extract_op_data(batch_info, stage);
+        let (l1_tx_hash, happened_at) = Self::extract_tx_hash_and_timestamp(batch_info, stage);
         let (last_l1_batch, changes_to_update) = match stage {
             AggregatedActionType::Commit => (
                 &mut self.last_committed_l1_batch,
@@ -199,7 +212,7 @@ impl UpdaterCursor {
         let Some(l1_tx_hash) = l1_tx_hash else {
             return Ok(());
         };
-        if batch_info.number != last_l1_batch.next() {
+        if batch_info.l1_batch_number != last_l1_batch.next() {
             return Ok(());
         }
 
@@ -208,13 +221,12 @@ impl UpdaterCursor {
             format!("Malformed API response: batch is {action_str}, but has no relevant timestamp")
         })?;
         changes_to_update.push(BatchStatusChange {
-            number: batch_info.number,
+            number: batch_info.l1_batch_number,
             l1_tx_hash,
             happened_at,
-            sl_chain_id,
         });
-        tracing::info!("Batch {}: {action_str}", batch_info.number);
-        FETCHER_METRICS.l1_batch[&stage.into()].set(batch_info.number.0.into());
+        tracing::info!("Batch {}: {action_str}", batch_info.l1_batch_number);
+        FETCHER_METRICS.l1_batch[&stage.into()].set(batch_info.l1_batch_number.0.into());
         *last_l1_batch += 1;
         Ok(())
     }
@@ -336,9 +348,20 @@ impl BatchStatusUpdater {
         // update all three statuses (e.g. if the node is still syncing), but also skipping the gaps in the statuses
         // (e.g. if the last executed batch is 10, but the last proven is 20, we don't need to check the batches 11-19).
         while batch <= last_sealed_batch {
-            let Some(batch_info) = self.client.batch_details(batch).await? else {
-                // Batch is not ready yet
+            // While we may receive `None` for the `self.current_l1_batch`, it's OK: open batch is guaranteed to not
+            // be sent to L1.
+            let l2_block_number = self.client.resolve_l1_batch_to_l2_block(batch).await?;
+            let Some(l2_block_number) = l2_block_number else {
                 return Ok(());
+            };
+
+            let Some(batch_info) = self.client.block_details(l2_block_number).await? else {
+                // We cannot recover from an external API inconsistency.
+                let err = anyhow::anyhow!(
+                    "Node API is inconsistent: L2 block {l2_block_number} was reported to be a part of {batch} L1 batch, \
+                    but API has no information about this L2 block",
+                );
+                return Err(err.into());
             };
 
             cursor.update(status_changes, &batch_info)?;
@@ -384,11 +407,10 @@ impl BatchStatusUpdater {
 
         for change in &changes.commit {
             tracing::info!(
-                "Commit status change: number {}, hash {}, happened at {}, on chainID {:?}",
+                "Commit status change: number {}, hash {}, happened at {}",
                 change.number,
                 change.l1_tx_hash,
-                change.happened_at,
-                change.sl_chain_id
+                change.happened_at
             );
             anyhow::ensure!(
                 change.number <= last_sealed_batch,
@@ -402,7 +424,6 @@ impl BatchStatusUpdater {
                     AggregatedActionType::Commit,
                     change.l1_tx_hash,
                     change.happened_at,
-                    change.sl_chain_id,
                 )
                 .await?;
             cursor.last_committed_l1_batch = change.number;
@@ -410,11 +431,10 @@ impl BatchStatusUpdater {
 
         for change in &changes.prove {
             tracing::info!(
-                "Prove status change: number {}, hash {}, happened at {}, on chainID {:?}",
+                "Prove status change: number {}, hash {}, happened at {}",
                 change.number,
                 change.l1_tx_hash,
-                change.happened_at,
-                change.sl_chain_id
+                change.happened_at
             );
             anyhow::ensure!(
                 change.number <= cursor.last_committed_l1_batch,
@@ -428,7 +448,6 @@ impl BatchStatusUpdater {
                     AggregatedActionType::PublishProofOnchain,
                     change.l1_tx_hash,
                     change.happened_at,
-                    change.sl_chain_id,
                 )
                 .await?;
             cursor.last_proven_l1_batch = change.number;
@@ -436,11 +455,10 @@ impl BatchStatusUpdater {
 
         for change in &changes.execute {
             tracing::info!(
-                "Execute status change: number {}, hash {}, happened at {}, on chainID {:?}",
+                "Execute status change: number {}, hash {}, happened at {}",
                 change.number,
                 change.l1_tx_hash,
-                change.happened_at,
-                change.sl_chain_id
+                change.happened_at
             );
             anyhow::ensure!(
                 change.number <= cursor.last_proven_l1_batch,
@@ -454,7 +472,6 @@ impl BatchStatusUpdater {
                     AggregatedActionType::Execute,
                     change.l1_tx_hash,
                     change.happened_at,
-                    change.sl_chain_id,
                 )
                 .await?;
             cursor.last_executed_l1_batch = change.number;
