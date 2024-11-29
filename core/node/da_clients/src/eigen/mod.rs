@@ -1,6 +1,7 @@
 mod blob_info;
 mod client;
 mod eth_client;
+mod lib;
 mod sdk;
 mod verifier;
 
