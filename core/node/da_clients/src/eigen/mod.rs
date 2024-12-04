@@ -1,7 +1,9 @@
 mod blob_info;
 mod client;
+mod client_tests;
 mod sdk;
 mod verifier;
+mod verifier_tests;
 
 pub use self::client::EigenClient;
 
