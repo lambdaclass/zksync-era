@@ -4,6 +4,7 @@ use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
+use url::Url;
 use zksync_basic_types::web3::CallRequest;
 use zksync_config::configs::da_client::eigen::PointsSource;
 use zksync_eth_client::{clients::PKSigningClient, EnrichedClientResult};
@@ -106,30 +107,34 @@ impl Clone for Verifier {
 impl Verifier {
     pub const DEFAULT_PRIORITY_FEE_PER_GAS: u64 = 100;
     pub const SRSORDER: u32 = 268435456; // 2 ^ 28
-    async fn save_points(link: String) -> Result<String, VerificationError> {
-        let url_g1 = format!("{}{}", link, "/g1.point");
+
+    async fn save_point(link: String, point: String) -> Result<(), VerificationError> {
+        let mut url_base = Url::parse(&link).map_err(|_| VerificationError::LinkError)?;
+        if !url_base.as_str().ends_with('/') {
+            url_base.set_path(&format!("{}/", url_base.path()));
+        }
+        let url_g1 = url_base
+            .join(&point)
+            .map_err(|_| VerificationError::LinkError)?;
         let response = reqwest::get(url_g1)
             .await
             .map_err(|_| VerificationError::LinkError)?;
-        let path = Path::new("./g1.point");
+        if !response.status().is_success() {
+            return Err(VerificationError::LinkError);
+        }
+        let path = format!("./{}", point);
+        let path = Path::new(&path);
         let mut file = File::create(path).map_err(|_| VerificationError::LinkError)?;
         let content = response
             .bytes()
             .await
             .map_err(|_| VerificationError::LinkError)?;
         copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
-
-        let url_g2 = format!("{}{}", link, "/g2.point.powerOf2");
-        let response = reqwest::get(url_g2)
-            .await
-            .map_err(|_| VerificationError::LinkError)?;
-        let path = Path::new("./g2.point.powerOf2");
-        let mut file = File::create(path).map_err(|_| VerificationError::LinkError)?;
-        let content = response
-            .bytes()
-            .await
-            .map_err(|_| VerificationError::LinkError)?;
-        copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
+        Ok(())
+    }
+    async fn save_points(link: String) -> Result<String, VerificationError> {
+        Self::save_point(link.clone(), "g1.point".to_string()).await?;
+        Self::save_point(link.clone(), "g2.point.powerOf2".to_string()).await?;
 
         Ok(".".to_string())
     }
