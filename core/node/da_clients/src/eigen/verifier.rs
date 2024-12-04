@@ -105,6 +105,7 @@ impl Clone for Verifier {
 
 impl Verifier {
     pub const DEFAULT_PRIORITY_FEE_PER_GAS: u64 = 100;
+    pub const SRSORDER: u32 = 268435456; // 2 ^ 28
     async fn save_points(link: String) -> Result<String, VerificationError> {
         let url_g1 = format!("{}{}", link, "/g1.point");
         let response = reqwest::get(url_g1)
@@ -145,7 +146,7 @@ impl Verifier {
             &format!("{}{}", path, "/g1.point"),
             "",
             &format!("{}{}", path, "/g2.point.powerOf2"),
-            268435456, // 2 ^ 28
+            Self::SRSORDER,
             srs_points_to_load,
             "".to_string(),
         );
@@ -335,8 +336,10 @@ impl Verifier {
         Ok(latest - (self.cfg.settlement_layer_confirmation_depth as u64 - 1))
     }
 
-    /// Verifies the certificate batch hash
-    async fn verify_batch(&self, blob_info: BlobInfo) -> Result<(), VerificationError> {
+    async fn call_batch_id_to_metadata_hash(
+        &self,
+        blob_info: BlobInfo,
+    ) -> Result<Vec<u8>, VerificationError> {
         let context_block = self.get_context_block().await?;
 
         let mut data = BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR.to_vec();
@@ -363,7 +366,14 @@ impl Verifier {
             .await
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let expected_hash = res.0.to_vec();
+        Ok(res.0.to_vec())
+    }
+
+    /// Verifies the certificate batch hash
+    async fn verify_batch(&self, blob_info: BlobInfo) -> Result<(), VerificationError> {
+        let expected_hash = self
+            .call_batch_id_to_metadata_hash(blob_info.clone())
+            .await?;
 
         if expected_hash == vec![0u8; 32] {
             return Err(VerificationError::EmptyHash);
@@ -465,6 +475,28 @@ impl Verifier {
         Ok(0)
     }
 
+    async fn call_quorum_numbers_required(&self) -> Result<Vec<u8>, VerificationError> {
+        let data = QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR.to_vec();
+        let call_request = CallRequest {
+            to: Some(
+                H160::from_str(&self.cfg.svc_manager_addr)
+                    .map_err(|_| VerificationError::ServiceManagerError)?,
+            ),
+            data: Some(zksync_basic_types::web3::Bytes(data)),
+            ..Default::default()
+        };
+
+        let res = self
+            .signing_client
+            .as_ref()
+            .call_contract_function(call_request, None)
+            .await
+            .map_err(|_| VerificationError::ServiceManagerError)?;
+
+        self.decode_bytes(res.0.to_vec())
+            .map_err(|_| VerificationError::ServiceManagerError)
+    }
+
     /// Verifies that the certificate's blob quorum params are correct
     async fn verify_security_params(&self, cert: BlobInfo) -> Result<(), VerificationError> {
         let blob_header = cert.blob_header;
@@ -502,26 +534,7 @@ impl Verifier {
             confirmed_quorums.insert(blob_header.blob_quorum_params[i].quorum_number, true);
         }
 
-        let data = QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR.to_vec();
-        let call_request = CallRequest {
-            to: Some(
-                H160::from_str(&self.cfg.svc_manager_addr)
-                    .map_err(|_| VerificationError::ServiceManagerError)?,
-            ),
-            data: Some(zksync_basic_types::web3::Bytes(data)),
-            ..Default::default()
-        };
-
-        let res = self
-            .signing_client
-            .as_ref()
-            .call_contract_function(call_request, None)
-            .await
-            .map_err(|_| VerificationError::ServiceManagerError)?;
-
-        let required_quorums = self
-            .decode_bytes(res.0.to_vec())
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+        let required_quorums = self.call_quorum_numbers_required().await?;
 
         for quorum in required_quorums {
             if !confirmed_quorums.contains_key(&(quorum as u32)) {

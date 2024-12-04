@@ -191,11 +191,6 @@ impl RawEigenClient {
         self.perform_verification(blob_info.clone(), disperse_elapsed)
             .await?;
 
-        let verification_proof = blob_info.blob_verification_proof.clone();
-        let blob_id = format!(
-            "{}:{}",
-            verification_proof.batch_id, verification_proof.blob_index
-        );
         tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
         Ok(hex::encode(rlp::encode(&blob_info)))
     }
