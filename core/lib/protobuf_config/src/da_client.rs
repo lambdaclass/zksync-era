@@ -69,10 +69,6 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 eigenda_svc_manager_address: required(&conf.eigenda_svc_manager_address)
                     .context("eigenda_svc_manager_address")?
                     .clone(),
-                status_query_timeout: *required(&conf.status_query_timeout)
-                    .context("status_query_timeout")?,
-                status_query_interval: *required(&conf.status_query_interval)
-                    .context("status_query_interval")?,
                 wait_for_finalization: *required(&conf.wait_for_finalization)
                     .context("wait_for_finalization")?,
                 authenticated: *required(&conf.authenticated).context("authenticated")?,
@@ -132,8 +128,6 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 ),
                 eigenda_eth_rpc: Some(config.eigenda_eth_rpc.clone()),
                 eigenda_svc_manager_address: Some(config.eigenda_svc_manager_address.clone()),
-                status_query_timeout: Some(config.status_query_timeout),
-                status_query_interval: Some(config.status_query_interval),
                 wait_for_finalization: Some(config.wait_for_finalization),
                 authenticated: Some(config.authenticated),
                 points_source: Some(match &config.points_source {

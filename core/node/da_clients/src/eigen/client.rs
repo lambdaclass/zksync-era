@@ -52,9 +52,13 @@ impl DataAvailabilityClient for EigenClient {
             .get_inclusion_data(blob_id)
             .await
             .map_err(to_retriable_da_error)?;
-        Ok(Some(InclusionData {
-            data: inclusion_data,
-        }))
+        if let Some(inclusion_data) = inclusion_data {
+            Ok(Some(InclusionData {
+                data: inclusion_data,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     fn clone_boxed(&self) -> Box<dyn DataAvailabilityClient> {

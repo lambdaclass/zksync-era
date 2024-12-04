@@ -4,14 +4,18 @@
 /// `cargo test -p zksync_da_clients -- --ignored`
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::{str::FromStr, time::Duration};
 
+    use backon::{ConstantBuilder, Retryable};
     use serial_test::serial;
     use zksync_config::{
         configs::da_client::eigen::{EigenSecrets, PointsSource},
         EigenConfig,
     };
-    use zksync_da_client::{types::DAError, DataAvailabilityClient};
+    use zksync_da_client::{
+        types::{DAError, DispatchResponse},
+        DataAvailabilityClient,
+    };
     use zksync_types::secrets::PrivateKey;
 
     use crate::eigen::{blob_info::BlobInfo, EigenClient};
@@ -24,9 +28,33 @@ mod tests {
             self.client.get_blob_data(blob_id).await
         }
 
-        pub async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<BlobInfo> {
+        pub async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<Option<BlobInfo>> {
             self.client.get_commitment(blob_id).await
         }
+    }
+    const STATUS_QUERY_TIMEOUT: u64 = 1800000; // 30 minutes
+    const STATUS_QUERY_INTERVAL: u64 = 5; // 5 ms
+
+    async fn get_blob_info(
+        client: &EigenClient,
+        result: &DispatchResponse,
+    ) -> anyhow::Result<BlobInfo> {
+        let blob_info = (|| async {
+            let blob_info = client.get_commitment(&result.blob_id).await?;
+            if blob_info.is_none() {
+                return Err(anyhow::anyhow!("Blob not found"));
+            }
+            Ok(blob_info.unwrap())
+        })
+        .retry(
+            &ConstantBuilder::default()
+                .with_delay(Duration::from_millis(STATUS_QUERY_INTERVAL))
+                .with_max_times((STATUS_QUERY_TIMEOUT / STATUS_QUERY_INTERVAL) as usize),
+        )
+        .when(|e| e.to_string().contains("Blob not found"))
+        .await?;
+
+        Ok(blob_info)
     }
 
     #[ignore = "depends on external RPC"]
@@ -38,8 +66,6 @@ mod tests {
             settlement_layer_confirmation_depth: -1,
             eigenda_eth_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            status_query_timeout: 1800000, // 30 minutes
-            status_query_interval: 5,      // 5 ms
             wait_for_finalization: false,
             authenticated: false,
             points_source: PointsSource::Path("../../../resources".to_string()),
@@ -51,11 +77,11 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config, secrets).await.unwrap();
+        let client = EigenClient::new(config.clone(), secrets).await.unwrap();
         let data = vec![1; 20];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
 
-        let blob_info = client.get_commitment(&result.blob_id).await.unwrap();
+        let blob_info = get_blob_info(&client, &result).await.unwrap();
         let expected_inclusion_data = blob_info.clone().blob_verification_proof.inclusion_proof;
         let actual_inclusion_data = client
             .get_inclusion_data(&result.blob_id)
@@ -77,8 +103,6 @@ mod tests {
             settlement_layer_confirmation_depth: -1,
             eigenda_eth_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            status_query_timeout: 1800000, // 30 minutes
-            status_query_interval: 5,      // 5 ms
             wait_for_finalization: false,
             authenticated: true,
             points_source: PointsSource::Path("../../../resources".to_string()),
@@ -90,10 +114,10 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config, secrets).await.unwrap();
+        let client = EigenClient::new(config.clone(), secrets).await.unwrap();
         let data = vec![1; 20];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
-        let blob_info = client.get_commitment(&result.blob_id).await.unwrap();
+        let blob_info = get_blob_info(&client, &result).await.unwrap();
 
         let expected_inclusion_data = blob_info.clone().blob_verification_proof.inclusion_proof;
         let actual_inclusion_data = client
@@ -113,8 +137,6 @@ mod tests {
     async fn test_wait_for_finalization() {
         let config = EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
-            status_query_timeout: 1800000, // 30 minutes
-            status_query_interval: 5000,   // 5000 ms
             wait_for_finalization: true,
             authenticated: true,
             points_source: PointsSource::Path("../../../resources".to_string()),
@@ -129,10 +151,10 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config, secrets).await.unwrap();
+        let client = EigenClient::new(config.clone(), secrets).await.unwrap();
         let data = vec![1; 20];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
-        let blob_info = client.get_commitment(&result.blob_id).await.unwrap();
+        let blob_info = get_blob_info(&client, &result).await.unwrap();
 
         let expected_inclusion_data = blob_info.clone().blob_verification_proof.inclusion_proof;
         let actual_inclusion_data = client
@@ -155,8 +177,6 @@ mod tests {
             settlement_layer_confirmation_depth: 5,
             eigenda_eth_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            status_query_timeout: 1800000, // 30 minutes
-            status_query_interval: 5,      // 5 ms
             wait_for_finalization: false,
             authenticated: false,
             points_source: PointsSource::Path("../../../resources".to_string()),
@@ -168,10 +188,10 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config, secrets).await.unwrap();
+        let client = EigenClient::new(config.clone(), secrets).await.unwrap();
         let data = vec![1; 20];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
-        let blob_info = client.get_commitment(&result.blob_id).await.unwrap();
+        let blob_info = get_blob_info(&client, &result).await.unwrap();
 
         let expected_inclusion_data = blob_info.clone().blob_verification_proof.inclusion_proof;
         let actual_inclusion_data = client
@@ -194,8 +214,6 @@ mod tests {
             settlement_layer_confirmation_depth: 5,
             eigenda_eth_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            status_query_timeout: 1800000, // 30 minutes
-            status_query_interval: 5,      // 5 ms
             wait_for_finalization: false,
             authenticated: true,
             points_source: PointsSource::Path("../../../resources".to_string()),
@@ -207,10 +225,10 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config, secrets).await.unwrap();
+        let client = EigenClient::new(config.clone(), secrets).await.unwrap();
         let data = vec![1; 20];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
-        let blob_info = client.get_commitment(&result.blob_id).await.unwrap();
+        let blob_info = get_blob_info(&client, &result).await.unwrap();
 
         let expected_inclusion_data = blob_info.clone().blob_verification_proof.inclusion_proof;
         let actual_inclusion_data = client

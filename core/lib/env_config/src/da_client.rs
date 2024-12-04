@@ -46,8 +46,6 @@ impl FromEnv for DAClientConfig {
                 .parse()?,
                 eigenda_eth_rpc: env::var("DA_EIGENDA_ETH_RPC")?,
                 eigenda_svc_manager_address: env::var("DA_EIGENDA_SVC_MANAGER_ADDRESS")?,
-                status_query_timeout: env::var("DA_STATUS_QUERY_TIMEOUT")?.parse()?,
-                status_query_interval: env::var("DA_STATUS_QUERY_INTERVAL")?.parse()?,
                 wait_for_finalization: env::var("DA_WAIT_FOR_FINALIZATION")?.parse()?,
                 authenticated: env::var("DA_AUTHENTICATED")?.parse()?,
                 points_source: match env::var("DA_POINTS_SOURCE")?.as_str() {
@@ -280,8 +278,6 @@ mod tests {
             DA_SETTLEMENT_LAYER_CONFIRMATION_DEPTH=0
             DA_EIGENDA_ETH_RPC="http://localhost:8545"
             DA_EIGENDA_SVC_MANAGER_ADDRESS="0x123"
-            DA_STATUS_QUERY_TIMEOUT=2
-            DA_STATUS_QUERY_INTERVAL=3
             DA_WAIT_FOR_FINALIZATION=true
             DA_AUTHENTICATED=false
             DA_POINTS_SOURCE="Path"
@@ -298,8 +294,6 @@ mod tests {
                 settlement_layer_confirmation_depth: 0,
                 eigenda_eth_rpc: "http://localhost:8545".to_string(),
                 eigenda_svc_manager_address: "0x123".to_string(),
-                status_query_timeout: 2,
-                status_query_interval: 3,
                 wait_for_finalization: true,
                 authenticated: false,
                 points_source: PointsSource::Path("resources".to_string()),

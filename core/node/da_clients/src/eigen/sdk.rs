@@ -1,11 +1,7 @@
-use std::{str::FromStr, sync::Arc, time::Duration};
+use std::{str::FromStr, sync::Arc};
 
-use backon::{ConstantBuilder, Retryable};
 use secp256k1::{ecdsa::RecoverableSignature, SecretKey};
-use tokio::{
-    sync::{mpsc, Mutex},
-    time::Instant,
-};
+use tokio::sync::{mpsc, Mutex};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 use tonic::{
     transport::{Channel, ClientTlsConfig, Endpoint},
@@ -41,7 +37,6 @@ pub(crate) struct RawEigenClient {
 }
 
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
-pub(crate) const AVG_BLOCK_TIME: u64 = 12;
 
 impl RawEigenClient {
     const BLOB_SIZE_LIMIT: usize = 1024 * 1024 * 2; // 2 MB
@@ -109,29 +104,6 @@ impl RawEigenClient {
         Ok(hex::encode(disperse_reply.request_id))
     }
 
-    async fn perform_verification(
-        &self,
-        blob_info: BlobInfo,
-        disperse_elapsed: Duration,
-    ) -> anyhow::Result<()> {
-        (|| async {
-            self.verifier
-                .verify_inclusion_data_against_settlement_layer(blob_info.clone())
-                .await
-        })
-        .retry(
-            &ConstantBuilder::default()
-                .with_delay(Duration::from_secs(AVG_BLOCK_TIME))
-                .with_max_times(
-                    (self.config.status_query_timeout
-                        - disperse_elapsed.as_millis() as u64 / AVG_BLOCK_TIME)
-                        as usize,
-                ),
-        )
-        .await
-        .map_err(|_| anyhow::anyhow!("Failed to verify certificate"))
-    }
-
     async fn dispatch_blob_authenticated(&self, data: Vec<u8>) -> anyhow::Result<String> {
         let (tx, rx) = mpsc::unbounded_channel();
 
@@ -170,32 +142,43 @@ impl RawEigenClient {
         Ok(hex::encode(disperse_reply.request_id))
     }
 
-    pub async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<BlobInfo> {
-        let disperse_time = Instant::now();
-        let blob_info = self.await_for_inclusion(blob_id.to_string()).await?;
+    pub async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<Option<BlobInfo>> {
+        let blob_info = self.try_get_inclusion_data(blob_id.to_string()).await?;
 
-        let blob_info = blob_info::BlobInfo::try_from(blob_info)
-            .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
+        if let Some(blob_info) = blob_info {
+            let blob_info = blob_info::BlobInfo::try_from(blob_info)
+                .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
 
-        let disperse_elapsed = Instant::now() - disperse_time;
-        let data = self.get_blob_data(blob_info.clone()).await?;
-        if data.is_none() {
-            return Err(anyhow::anyhow!("Failed to get blob data"));
+            let data = self.get_blob_data(blob_info.clone()).await?;
+            if data.is_none() {
+                return Err(anyhow::anyhow!("Failed to get blob data"));
+            }
+            self.verifier
+                .verify_commitment(blob_info.blob_header.commitment.clone(), data.unwrap())
+                .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
+
+            let result = self
+                .verifier
+                .verify_inclusion_data_against_settlement_layer(blob_info.clone())
+                .await;
+            if let Err(_) = result {
+                return Ok(None);
+            }
+
+            tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
+            Ok(Some(blob_info))
+        } else {
+            Ok(None)
         }
-        self.verifier
-            .verify_commitment(blob_info.blob_header.commitment.clone(), data.unwrap())
-            .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
-
-        self.perform_verification(blob_info.clone(), disperse_elapsed)
-            .await?;
-
-        tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
-        Ok(blob_info)
     }
 
-    pub async fn get_inclusion_data(&self, blob_id: &str) -> anyhow::Result<Vec<u8>> {
+    pub async fn get_inclusion_data(&self, blob_id: &str) -> anyhow::Result<Option<Vec<u8>>> {
         let blob_info = self.get_commitment(blob_id).await?;
-        Ok(blob_info.blob_verification_proof.inclusion_proof)
+        if let Some(blob_info) = blob_info {
+            Ok(Some(blob_info.blob_verification_proof.inclusion_proof))
+        } else {
+            Ok(None)
+        }
     }
 
     pub async fn dispatch_blob(&self, data: Vec<u8>) -> anyhow::Result<String> {
@@ -277,58 +260,46 @@ impl RawEigenClient {
         }
     }
 
-    async fn await_for_inclusion(&self, request_id: String) -> anyhow::Result<DisperserBlobInfo> {
+    async fn try_get_inclusion_data(
+        &self,
+        request_id: String,
+    ) -> anyhow::Result<Option<DisperserBlobInfo>> {
         let polling_request = disperser::BlobStatusRequest {
             request_id: hex::decode(request_id)?,
         };
 
-        let blob_info = (|| async {
-            let resp = self
-                .client
-                .lock()
-                .await
-                .get_blob_status(polling_request.clone())
-                .await?
-                .into_inner();
+        let resp = self
+            .client
+            .lock()
+            .await
+            .get_blob_status(polling_request.clone())
+            .await?
+            .into_inner();
 
-            match disperser::BlobStatus::try_from(resp.status)? {
-                disperser::BlobStatus::Processing | disperser::BlobStatus::Dispersing => {
-                    Err(anyhow::anyhow!("Blob is still processing"))
-                }
-                disperser::BlobStatus::Failed => Err(anyhow::anyhow!("Blob dispatch failed")),
-                disperser::BlobStatus::InsufficientSignatures => {
-                    Err(anyhow::anyhow!("Insufficient signatures"))
-                }
-                disperser::BlobStatus::Confirmed => {
-                    if !self.config.wait_for_finalization {
-                        let blob_info = resp
-                            .info
-                            .ok_or_else(|| anyhow::anyhow!("No blob header in response"))?;
-                        return Ok(blob_info);
-                    }
-                    Err(anyhow::anyhow!("Blob is still processing"))
-                }
-                disperser::BlobStatus::Finalized => {
+        match disperser::BlobStatus::try_from(resp.status)? {
+            disperser::BlobStatus::Processing | disperser::BlobStatus::Dispersing => Ok(None),
+            disperser::BlobStatus::Failed => Err(anyhow::anyhow!("Blob dispatch failed")),
+            disperser::BlobStatus::InsufficientSignatures => {
+                Err(anyhow::anyhow!("Insufficient signatures"))
+            }
+            disperser::BlobStatus::Confirmed => {
+                if !self.config.wait_for_finalization {
                     let blob_info = resp
                         .info
                         .ok_or_else(|| anyhow::anyhow!("No blob header in response"))?;
-                    Ok(blob_info)
+                    return Ok(Some(blob_info));
                 }
-
-                _ => Err(anyhow::anyhow!("Received unknown blob status")),
+                Ok(None)
             }
-        })
-        .retry(
-            &ConstantBuilder::default()
-                .with_delay(Duration::from_millis(self.config.status_query_interval))
-                .with_max_times(
-                    (self.config.status_query_timeout / self.config.status_query_interval) as usize,
-                ),
-        )
-        .when(|e| e.to_string().contains("Blob is still processing"))
-        .await?;
+            disperser::BlobStatus::Finalized => {
+                let blob_info = resp
+                    .info
+                    .ok_or_else(|| anyhow::anyhow!("No blob header in response"))?;
+                Ok(Some(blob_info))
+            }
 
-        Ok(blob_info)
+            _ => Err(anyhow::anyhow!("Received unknown blob status")),
+        }
     }
 
     pub async fn get_blob_data(

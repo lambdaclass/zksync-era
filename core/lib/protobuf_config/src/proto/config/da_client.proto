@@ -49,15 +49,13 @@ message EigenConfig {
   optional int32 settlement_layer_confirmation_depth = 4;
   optional string eigenda_eth_rpc = 5;
   optional string eigenda_svc_manager_address = 6;
-  optional uint64 status_query_timeout = 7;
-  optional uint64 status_query_interval = 8;
-  optional bool wait_for_finalization = 9;
-  optional bool authenticated = 10;
+  optional bool wait_for_finalization = 8;
+  optional bool authenticated = 9;
   oneof points_source {
-    Path path = 11;
-    Link link = 12;
+    Path path = 10;
+    Link link = 11;
   }
-  optional uint64 chain_id = 13;
+  optional uint64 chain_id = 12;
   reserved 1,2;
   reserved "rpc_node_url","inclusion_polling_interval_ms";
 }

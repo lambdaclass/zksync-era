@@ -24,10 +24,6 @@ pub struct EigenConfig {
     pub eigenda_eth_rpc: String,
     /// Address of the service manager contract
     pub eigenda_svc_manager_address: String,
-    /// Maximun amount of time in milliseconds to wait for a status query response
-    pub status_query_timeout: u64,
-    /// Interval in milliseconds to query the status of a blob
-    pub status_query_interval: u64,
     /// Wait for the blob to be finalized before returning the response
     pub wait_for_finalization: bool,
     /// Authenticated dispersal
