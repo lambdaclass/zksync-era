@@ -170,7 +170,7 @@ impl RawEigenClient {
         Ok(hex::encode(disperse_reply.request_id))
     }
 
-    pub async fn get_inclusion_data(&self, blob_id: &str) -> anyhow::Result<String> {
+    pub async fn get_inclusion_data(&self, blob_id: &str) -> anyhow::Result<BlobInfo> {
         let disperse_time = Instant::now();
         let blob_info = self.await_for_inclusion(blob_id.to_string()).await?;
 
@@ -178,9 +178,7 @@ impl RawEigenClient {
             .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
 
         let disperse_elapsed = Instant::now() - disperse_time;
-        let data = self
-            .get_blob_data(&hex::encode(rlp::encode(&blob_info)))
-            .await?;
+        let data = self.get_blob_data(blob_info.clone()).await?;
         if data.is_none() {
             return Err(anyhow::anyhow!("Failed to get blob data"));
         }
@@ -192,7 +190,7 @@ impl RawEigenClient {
             .await?;
 
         tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
-        Ok(hex::encode(rlp::encode(&blob_info)))
+        Ok(blob_info)
     }
 
     pub async fn dispatch_blob(&self, data: Vec<u8>) -> anyhow::Result<String> {
@@ -328,20 +326,13 @@ impl RawEigenClient {
         Ok(blob_info)
     }
 
-    pub async fn get_blob_data(&self, blob_info: &str) -> anyhow::Result<Option<Vec<u8>>, DAError> {
+    pub async fn get_blob_data(
+        &self,
+        blob_info: BlobInfo,
+    ) -> anyhow::Result<Option<Vec<u8>>, DAError> {
         use anyhow::anyhow;
         use zksync_da_client::types::DAError;
 
-        use crate::eigen::blob_info::BlobInfo;
-
-        let commit = hex::decode(blob_info).map_err(|_| DAError {
-            error: anyhow!("Failed to decode blob_id"),
-            is_retriable: false,
-        })?;
-        let blob_info: BlobInfo = rlp::decode(&commit).map_err(|_| DAError {
-            error: anyhow!("Failed to decode blob_info"),
-            is_retriable: false,
-        })?;
         let blob_index = blob_info.blob_verification_proof.blob_index;
         let batch_header_hash = blob_info
             .blob_verification_proof
