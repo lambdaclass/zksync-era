@@ -114,18 +114,22 @@ impl RawEigenClient {
         blob_info: BlobInfo,
         disperse_elapsed: Duration,
     ) -> anyhow::Result<()> {
-        (|| async { self.verifier.verify_certificate(blob_info.clone()).await })
-            .retry(
-                &ConstantBuilder::default()
-                    .with_delay(Duration::from_secs(AVG_BLOCK_TIME))
-                    .with_max_times(
-                        (self.config.status_query_timeout
-                            - disperse_elapsed.as_millis() as u64 / AVG_BLOCK_TIME)
-                            as usize,
-                    ),
-            )
-            .await
-            .map_err(|_| anyhow::anyhow!("Failed to verify certificate"))
+        (|| async {
+            self.verifier
+                .verify_inclusion_data_against_settlement_layer(blob_info.clone())
+                .await
+        })
+        .retry(
+            &ConstantBuilder::default()
+                .with_delay(Duration::from_secs(AVG_BLOCK_TIME))
+                .with_max_times(
+                    (self.config.status_query_timeout
+                        - disperse_elapsed.as_millis() as u64 / AVG_BLOCK_TIME)
+                        as usize,
+                ),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("Failed to verify certificate"))
     }
 
     async fn dispatch_blob_authenticated(&self, data: Vec<u8>) -> anyhow::Result<String> {

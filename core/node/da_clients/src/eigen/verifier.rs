@@ -336,12 +336,12 @@ impl Verifier {
     }
 
     /// Verifies the certificate batch hash
-    async fn verify_batch(&self, cert: BlobInfo) -> Result<(), VerificationError> {
+    async fn verify_batch(&self, blob_info: BlobInfo) -> Result<(), VerificationError> {
         let context_block = self.get_context_block().await?;
 
         let mut data = BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR.to_vec();
         let mut batch_id_vec = [0u8; 32];
-        U256::from(cert.blob_verification_proof.batch_id).to_big_endian(&mut batch_id_vec);
+        U256::from(blob_info.blob_verification_proof.batch_id).to_big_endian(&mut batch_id_vec);
         data.append(batch_id_vec.to_vec().as_mut());
 
         let call_request = CallRequest {
@@ -370,11 +370,16 @@ impl Verifier {
         }
 
         let actual_hash = self.hash_batch_metadata(
-            cert.blob_verification_proof.batch_medatada.batch_header,
-            cert.blob_verification_proof
+            blob_info
+                .blob_verification_proof
+                .batch_medatada
+                .batch_header,
+            blob_info
+                .blob_verification_proof
                 .batch_medatada
                 .signatory_record_hash,
-            cert.blob_verification_proof
+            blob_info
+                .blob_verification_proof
                 .batch_medatada
                 .confirmation_block_number,
         );
@@ -527,7 +532,10 @@ impl Verifier {
     }
 
     /// Verifies that the certificate is valid
-    pub async fn verify_certificate(&self, cert: BlobInfo) -> Result<(), VerificationError> {
+    pub async fn verify_inclusion_data_against_settlement_layer(
+        &self,
+        cert: BlobInfo,
+    ) -> Result<(), VerificationError> {
         self.verify_batch(cert.clone()).await?;
         self.verify_merkle_proof(cert.clone())?;
         self.verify_security_params(cert.clone()).await?;
