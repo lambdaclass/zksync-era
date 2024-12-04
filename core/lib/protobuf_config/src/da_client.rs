@@ -76,7 +76,6 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 wait_for_finalization: *required(&conf.wait_for_finalization)
                     .context("wait_for_finalization")?,
                 authenticated: *required(&conf.authenticated).context("authenticated")?,
-                verify_cert: *required(&conf.verify_cert).context("verify_cert")?,
                 points_source: match conf.points_source.clone() {
                     Some(proto::eigen_config::PointsSource::Path(path)) => {
                         let path = required(&path.path).context("path")?;
@@ -137,7 +136,6 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 status_query_interval: Some(config.status_query_interval),
                 wait_for_finalization: Some(config.wait_for_finalization),
                 authenticated: Some(config.authenticated),
-                verify_cert: Some(config.verify_cert),
                 points_source: Some(match &config.points_source {
                     zksync_config::configs::da_client::eigen::PointsSource::Path(path) => {
                         proto::eigen_config::PointsSource::Path(Path {

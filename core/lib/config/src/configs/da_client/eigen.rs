@@ -32,8 +32,6 @@ pub struct EigenConfig {
     pub wait_for_finalization: bool,
     /// Authenticated dispersal
     pub authenticated: bool,
-    /// Verify the certificate of dispatched blobs
-    pub verify_cert: bool,
     /// Path or link to the file containing the points used for KZG
     pub points_source: PointsSource,
     /// Chain ID of the Ethereum network

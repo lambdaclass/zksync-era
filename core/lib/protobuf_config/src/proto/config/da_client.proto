@@ -53,12 +53,11 @@ message EigenConfig {
   optional uint64 status_query_interval = 8;
   optional bool wait_for_finalization = 9;
   optional bool authenticated = 10;
-  optional bool verify_cert = 11;
   oneof points_source {
-    Path path = 12;
-    Link link = 13;
+    Path path = 11;
+    Link link = 12;
   }
-  optional uint64 chain_id = 14;
+  optional uint64 chain_id = 13;
   reserved 1,2;
   reserved "rpc_node_url","inclusion_polling_interval_ms";
 }

@@ -115,7 +115,6 @@ mod tests {
             status_query_interval: 5,      // 5 ms
             wait_for_finalization: false,
             authenticated: false,
-            verify_cert: true,
             points_source: PointsSource::Path("../../../resources".to_string()),
             chain_id: 17000,
         };
@@ -158,7 +157,6 @@ mod tests {
             status_query_interval: 5,      // 5 ms
             wait_for_finalization: false,
             authenticated: true,
-            verify_cert: true,
             points_source: PointsSource::Path("../../../resources".to_string()),
             chain_id: 17000,
         };
@@ -197,7 +195,6 @@ mod tests {
             status_query_interval: 5000,   // 5000 ms
             wait_for_finalization: true,
             authenticated: true,
-            verify_cert: true,
             points_source: PointsSource::Path("../../../resources".to_string()),
             settlement_layer_confirmation_depth: 0,
             eigenda_eth_rpc: "https://ethereum-holesky-rpc.publicnode.com".to_string(),
@@ -242,7 +239,6 @@ mod tests {
             status_query_interval: 5,      // 5 ms
             wait_for_finalization: false,
             authenticated: false,
-            verify_cert: true,
             points_source: PointsSource::Path("../../../resources".to_string()),
             chain_id: 17000,
         };
@@ -284,7 +280,6 @@ mod tests {
             status_query_interval: 5,      // 5 ms
             wait_for_finalization: false,
             authenticated: true,
-            verify_cert: true,
             points_source: PointsSource::Path("../../../resources".to_string()),
             chain_id: 17000,
         };

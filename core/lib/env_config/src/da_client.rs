@@ -50,7 +50,6 @@ impl FromEnv for DAClientConfig {
                 status_query_interval: env::var("DA_STATUS_QUERY_INTERVAL")?.parse()?,
                 wait_for_finalization: env::var("DA_WAIT_FOR_FINALIZATION")?.parse()?,
                 authenticated: env::var("DA_AUTHENTICATED")?.parse()?,
-                verify_cert: env::var("DA_VERIFY_CERT")?.parse()?,
                 points_source: match env::var("DA_POINTS_SOURCE")?.as_str() {
                     "Path" => zksync_config::configs::da_client::eigen::PointsSource::Path(
                         env::var("DA_POINTS_PATH")?,
@@ -285,7 +284,6 @@ mod tests {
             DA_STATUS_QUERY_INTERVAL=3
             DA_WAIT_FOR_FINALIZATION=true
             DA_AUTHENTICATED=false
-            DA_VERIFY_CERT=false
             DA_POINTS_SOURCE="Path"
             DA_POINTS_PATH="resources"
             DA_CHAIN_ID=1
@@ -304,7 +302,6 @@ mod tests {
                 status_query_interval: 3,
                 wait_for_finalization: true,
                 authenticated: false,
-                verify_cert: false,
                 points_source: PointsSource::Path("resources".to_string()),
                 chain_id: 1
             })
