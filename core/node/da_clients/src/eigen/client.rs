@@ -1,7 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
-use celestia_types::Blob;
 use secp256k1::SecretKey;
 use subxt_signer::ExposeSecret;
 use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
@@ -10,7 +9,7 @@ use zksync_da_client::{
     DataAvailabilityClient,
 };
 
-use super::{blob_info::BlobInfo, sdk::RawEigenClient};
+use super::sdk::RawEigenClient;
 use crate::utils::to_retriable_da_error;
 
 /// EigenClient is a client for the Eigen DA service.

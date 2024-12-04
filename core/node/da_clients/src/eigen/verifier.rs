@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs::File, io::copy, path::Path, str::FromStr};
 
 use ark_bn254::{Fq, G1Affine};
-use ethabi::{encode, Token};
+use ethabi::{encode, ParamType, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
 use url::Url;
@@ -13,14 +13,7 @@ use zksync_types::{
     H160, U256, U64,
 };
 
-use super::{
-    blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment},
-    lib::{
-        BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR,
-        QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR,
-        QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR,
-    },
-};
+use super::blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment};
 
 #[async_trait::async_trait]
 pub trait VerifierClient: Sync + Send + std::fmt::Debug {
@@ -347,7 +340,9 @@ impl Verifier {
     ) -> Result<Vec<u8>, VerificationError> {
         let context_block = self.get_context_block().await?;
 
-        let mut data = BATCH_ID_TO_METADATA_HASH_FUNCTION_SELECTOR.to_vec();
+        let func_selector =
+            ethabi::short_signature("batchIdToBatchMetadataHash", &[ParamType::Uint(32)]);
+        let mut data = func_selector.to_vec();
         let mut batch_id_vec = [0u8; 32];
         U256::from(blob_info.blob_verification_proof.batch_id).to_big_endian(&mut batch_id_vec);
         data.append(batch_id_vec.to_vec().as_mut());
@@ -452,7 +447,8 @@ impl Verifier {
         &self,
         quorum_number: u32,
     ) -> Result<u8, VerificationError> {
-        let data = QUORUM_ADVERSARY_THRESHOLD_PERCENTAGES_FUNCTION_SELECTOR.to_vec();
+        let func_selector = ethabi::short_signature("quorumAdversaryThresholdPercentages", &[]);
+        let data = func_selector.to_vec();
 
         let call_request = CallRequest {
             to: Some(
@@ -481,7 +477,8 @@ impl Verifier {
     }
 
     async fn call_quorum_numbers_required(&self) -> Result<Vec<u8>, VerificationError> {
-        let data = QUORUM_NUMBERS_REQUIRED_FUNCTION_SELECTOR.to_vec();
+        let func_selector = ethabi::short_signature("quorumNumbersRequired", &[]);
+        let data = func_selector.to_vec();
         let call_request = CallRequest {
             to: Some(
                 H160::from_str(&self.cfg.svc_manager_addr)
