@@ -170,7 +170,7 @@ impl RawEigenClient {
         Ok(hex::encode(disperse_reply.request_id))
     }
 
-    pub async fn get_inclusion_data(&self, blob_id: &str) -> anyhow::Result<BlobInfo> {
+    pub async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<BlobInfo> {
         let disperse_time = Instant::now();
         let blob_info = self.await_for_inclusion(blob_id.to_string()).await?;
 
@@ -191,6 +191,11 @@ impl RawEigenClient {
 
         tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
         Ok(blob_info)
+    }
+
+    pub async fn get_inclusion_data(&self, blob_id: &str) -> anyhow::Result<Vec<u8>> {
+        let blob_info = self.get_commitment(blob_id).await?;
+        Ok(blob_info.blob_verification_proof.inclusion_proof)
     }
 
     pub async fn dispatch_blob(&self, data: Vec<u8>) -> anyhow::Result<String> {

@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
+use celestia_types::Blob;
 use secp256k1::SecretKey;
 use subxt_signer::ExposeSecret;
 use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
@@ -28,11 +29,6 @@ impl EigenClient {
             client: Arc::new(client),
         })
     }
-
-    pub async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<BlobInfo> {
-        let blob_info = self.client.get_inclusion_data(blob_id).await?;
-        Ok(blob_info)
-    }
 }
 
 #[async_trait]
@@ -52,11 +48,11 @@ impl DataAvailabilityClient for EigenClient {
     }
 
     async fn get_inclusion_data(&self, blob_id: &str) -> Result<Option<InclusionData>, DAError> {
-        let blob_info = self
-            .get_commitment(blob_id)
+        let inclusion_data = self
+            .client
+            .get_inclusion_data(blob_id)
             .await
             .map_err(to_retriable_da_error)?;
-        let inclusion_data = blob_info.blob_verification_proof.inclusion_proof;
         Ok(Some(InclusionData {
             data: inclusion_data,
         }))
@@ -90,6 +86,10 @@ mod tests {
             blob_id: BlobInfo,
         ) -> anyhow::Result<Option<Vec<u8>>, DAError> {
             self.client.get_blob_data(blob_id).await
+        }
+
+        pub async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<BlobInfo> {
+            self.client.get_commitment(blob_id).await
         }
     }
 
