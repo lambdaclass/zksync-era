@@ -60,14 +60,10 @@ mod tests {
     #[derive(Debug, Clone)]
     struct MockEigenFunction;
 
+    #[async_trait::async_trait]
     impl EigenFunction for MockEigenFunction {
-        fn call(
-            &self,
-            _input: &'_ str,
-        ) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = anyhow::Result<Option<Vec<u8>>>> + Send + '_>,
-        > {
-            Box::pin(async { Ok(None) })
+        async fn call(&self, _input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
+            Ok(None)
         }
     }
 

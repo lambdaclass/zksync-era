@@ -1,5 +1,3 @@
-use std::{future::Future, pin::Pin};
-
 use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
 use zksync_da_client::DataAvailabilityClient;
 use zksync_da_clients::eigen::{EigenClient, EigenFunction};
@@ -66,21 +64,17 @@ pub struct GetBlobFromDB {
     pool: ConnectionPool<Core>,
 }
 
+#[async_trait::async_trait]
 impl EigenFunction for GetBlobFromDB {
-    fn call(
-        &self,
-        input: &'_ str,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Option<Vec<u8>>>> + Send + '_>> {
+    async fn call(&self, input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
         let pool = self.pool.clone();
         let input = input.to_string();
-        Box::pin(async move {
-            let mut conn = pool.connection_tagged("da_dispatcher").await?;
-            let batch = conn
-                .data_availability_dal()
-                .get_blob_data_by_blob_id(&input)
-                .await?;
-            drop(conn);
-            Ok(batch.map(|b| b.pubdata))
-        })
+        let mut conn = pool.connection_tagged("da_dispatcher").await?;
+        let batch = conn
+            .data_availability_dal()
+            .get_blob_data_by_blob_id(&input)
+            .await?;
+        drop(conn);
+        Ok(batch.map(|b| b.pubdata))
     }
 }

@@ -1,4 +1,4 @@
-use std::{future::Future, pin::Pin, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
 use secp256k1::SecretKey;
@@ -12,10 +12,9 @@ use zksync_da_client::{
 use super::sdk::RawEigenClient;
 use crate::utils::to_retriable_da_error;
 
-type EigenFunctionReturn<'a> =
-    Pin<Box<dyn Future<Output = anyhow::Result<Option<Vec<u8>>>> + Send + 'a>>;
+#[async_trait]
 pub trait EigenFunction: Clone + std::fmt::Debug + Send + Sync {
-    fn call(&self, input: &'_ str) -> EigenFunctionReturn;
+    async fn call(&self, input: &str) -> anyhow::Result<Option<Vec<u8>>>;
 }
 
 /// EigenClient is a client for the Eigen DA service.
