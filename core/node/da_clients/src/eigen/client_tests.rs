@@ -18,9 +18,9 @@ mod tests {
     };
     use zksync_types::secrets::PrivateKey;
 
-    use crate::eigen::{blob_info::BlobInfo, EigenClient};
+    use crate::eigen::{blob_info::BlobInfo, EigenClient, EigenFunction};
 
-    impl EigenClient {
+    impl<T: EigenFunction> EigenClient<T> {
         pub async fn get_blob_data(
             &self,
             blob_id: BlobInfo,
@@ -35,8 +35,8 @@ mod tests {
     const STATUS_QUERY_TIMEOUT: u64 = 1800000; // 30 minutes
     const STATUS_QUERY_INTERVAL: u64 = 5; // 5 ms
 
-    async fn get_blob_info(
-        client: &EigenClient,
+    async fn get_blob_info<T: EigenFunction>(
+        client: &EigenClient<T>,
         result: &DispatchResponse,
     ) -> anyhow::Result<BlobInfo> {
         let blob_info = (|| async {
@@ -55,6 +55,20 @@ mod tests {
         .await?;
 
         Ok(blob_info)
+    }
+
+    #[derive(Debug, Clone)]
+    struct MockEigenFunction;
+
+    impl EigenFunction for MockEigenFunction {
+        fn call(
+            &self,
+            _input: &'_ str,
+        ) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = anyhow::Result<Option<Vec<u8>>>> + Send + '_>,
+        > {
+            Box::pin(async { Ok(None) })
+        }
     }
 
     #[ignore = "depends on external RPC"]
@@ -77,7 +91,9 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets).await.unwrap();
+        let client = EigenClient::new(config.clone(), secrets, Box::new(MockEigenFunction))
+            .await
+            .unwrap();
         let data = vec![1; 20];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
 
@@ -114,7 +130,9 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets).await.unwrap();
+        let client = EigenClient::new(config.clone(), secrets, Box::new(MockEigenFunction))
+            .await
+            .unwrap();
         let data = vec![1; 20];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
         let blob_info = get_blob_info(&client, &result).await.unwrap();
@@ -151,7 +169,9 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets).await.unwrap();
+        let client = EigenClient::new(config.clone(), secrets, Box::new(MockEigenFunction))
+            .await
+            .unwrap();
         let data = vec![1; 20];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
         let blob_info = get_blob_info(&client, &result).await.unwrap();
@@ -188,7 +208,9 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets).await.unwrap();
+        let client = EigenClient::new(config.clone(), secrets, Box::new(MockEigenFunction))
+            .await
+            .unwrap();
         let data = vec![1; 20];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
         let blob_info = get_blob_info(&client, &result).await.unwrap();
@@ -225,7 +247,9 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets).await.unwrap();
+        let client = EigenClient::new(config.clone(), secrets, Box::new(MockEigenFunction))
+            .await
+            .unwrap();
         let data = vec![1; 20];
         let result = client.dispatch_blob(0, data.clone()).await.unwrap();
         let blob_info = get_blob_info(&client, &result).await.unwrap();

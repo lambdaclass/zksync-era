@@ -17,6 +17,7 @@ use super::{
     blob_info::BlobInfo,
     disperser::BlobInfo as DisperserBlobInfo,
     verifier::{Verifier, VerifierConfig},
+    EigenFunction,
 };
 use crate::eigen::{
     blob_info,
@@ -29,19 +30,24 @@ use crate::eigen::{
 };
 
 #[derive(Debug, Clone)]
-pub(crate) struct RawEigenClient {
+pub(crate) struct RawEigenClient<T: EigenFunction> {
     client: Arc<Mutex<DisperserClient<Channel>>>,
     private_key: SecretKey,
     pub config: EigenConfig,
     verifier: Verifier,
+    function: Box<T>,
 }
 
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
 
-impl RawEigenClient {
+impl<T: EigenFunction> RawEigenClient<T> {
     const BLOB_SIZE_LIMIT: usize = 1024 * 1024 * 2; // 2 MB
 
-    pub async fn new(private_key: SecretKey, config: EigenConfig) -> anyhow::Result<Self> {
+    pub async fn new(
+        private_key: SecretKey,
+        config: EigenConfig,
+        function: Box<T>,
+    ) -> anyhow::Result<Self> {
         let endpoint =
             Endpoint::from_str(config.disperser_rpc.as_str())?.tls_config(ClientTlsConfig::new())?;
         let client = Arc::new(Mutex::new(DisperserClient::connect(endpoint).await?));
@@ -78,6 +84,7 @@ impl RawEigenClient {
             private_key,
             config,
             verifier,
+            function,
         })
     }
 
@@ -145,31 +152,38 @@ impl RawEigenClient {
     pub async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<Option<BlobInfo>> {
         let blob_info = self.try_get_inclusion_data(blob_id.to_string()).await?;
 
-        if let Some(blob_info) = blob_info {
-            let blob_info = blob_info::BlobInfo::try_from(blob_info)
-                .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
+        let Some(blob_info) = blob_info else {
+            return Ok(None);
+        };
+        let blob_info = blob_info::BlobInfo::try_from(blob_info)
+            .map_err(|e| anyhow::anyhow!("Failed to convert blob info: {}", e))?;
 
-            let data = self.get_blob_data(blob_info.clone()).await?;
-            if data.is_none() {
-                return Err(anyhow::anyhow!("Failed to get blob data"));
+        let Some(data) = self.get_blob_data(blob_info.clone()).await? else {
+            return Err(anyhow::anyhow!("Failed to get blob data"));
+        };
+        let data_db = self.function.call(blob_id).await?;
+        if let Some(data_db) = data_db {
+            if data_db != data {
+                return Err(anyhow::anyhow!(
+                    "Data from db and from disperser are different"
+                ));
             }
-            self.verifier
-                .verify_commitment(blob_info.blob_header.commitment.clone(), data.unwrap())
-                .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
-
-            let result = self
-                .verifier
-                .verify_inclusion_data_against_settlement_layer(blob_info.clone())
-                .await;
-            if result.is_err() {
-                return Ok(None);
-            }
-
-            tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
-            Ok(Some(blob_info))
-        } else {
-            Ok(None)
         }
+        self.verifier
+            .verify_commitment(blob_info.blob_header.commitment.clone(), data)
+            .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
+
+        let result = self
+            .verifier
+            .verify_inclusion_data_against_settlement_layer(blob_info.clone())
+            .await;
+        // in case of an error, the dispatcher will retry, so the need to return None
+        if result.is_err() {
+            return Ok(None);
+        }
+
+        tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
+        Ok(Some(blob_info))
     }
 
     pub async fn get_inclusion_data(&self, blob_id: &str) -> anyhow::Result<Option<Vec<u8>>> {
