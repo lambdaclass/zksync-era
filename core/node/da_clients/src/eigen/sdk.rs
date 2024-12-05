@@ -161,7 +161,7 @@ impl RawEigenClient {
                 .verifier
                 .verify_inclusion_data_against_settlement_layer(blob_info.clone())
                 .await;
-            if let Err(_) = result {
+            if result.is_err() {
                 return Ok(None);
             }
 
