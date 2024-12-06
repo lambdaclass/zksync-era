@@ -72,8 +72,8 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 wait_for_finalization: *required(&conf.wait_for_finalization)
                     .context("wait_for_finalization")?,
                 authenticated: *required(&conf.authenticated).context("authenticated")?,
-                g1_link: required(&conf.g1_link).context("g1_link")?.clone(),
-                g2_link: required(&conf.g2_link).context("g2_link")?.clone(),
+                g1_url: required(&conf.g1_url).context("g1_url")?.clone(),
+                g2_url: required(&conf.g2_url).context("g2_url")?.clone(),
                 chain_id: *required(&conf.chain_id).context("chain_id")?,
             }),
             proto::data_availability_client::Config::ObjectStore(conf) => {
@@ -121,8 +121,8 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 eigenda_svc_manager_address: Some(config.eigenda_svc_manager_address.clone()),
                 wait_for_finalization: Some(config.wait_for_finalization),
                 authenticated: Some(config.authenticated),
-                g1_link: Some(config.g1_link.clone()),
-                g2_link: Some(config.g2_link.clone()),
+                g1_url: Some(config.g1_url.clone()),
+                g2_url: Some(config.g2_url.clone()),
                 chain_id: Some(config.chain_id),
             }),
             ObjectStore(config) => proto::data_availability_client::Config::ObjectStore(

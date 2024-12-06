@@ -70,8 +70,8 @@ pub struct VerifierConfig {
     pub rpc_url: String,
     pub svc_manager_addr: String,
     pub max_blob_size: u32,
-    pub g1_link: String,
-    pub g2_link: String,
+    pub g1_url: String,
+    pub g2_url: String,
     pub settlement_layer_confirmation_depth: u32,
     pub private_key: String,
     pub chain_id: u64,
@@ -101,8 +101,8 @@ impl Verifier {
     pub const DEFAULT_PRIORITY_FEE_PER_GAS: u64 = 100;
     pub const SRSORDER: u32 = 268435456; // 2 ^ 28
 
-    async fn save_point(link: String, point: String) -> Result<(), VerificationError> {
-        let url = Url::parse(&link).map_err(|_| VerificationError::LinkError)?;
+    async fn save_point(url: String, point: String) -> Result<(), VerificationError> {
+        let url = Url::parse(&url).map_err(|_| VerificationError::LinkError)?;
         let response = reqwest::get(url)
             .await
             .map_err(|_| VerificationError::LinkError)?;
@@ -119,9 +119,9 @@ impl Verifier {
         copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
         Ok(())
     }
-    async fn save_points(link_g1: String, link_g2: String) -> Result<String, VerificationError> {
-        Self::save_point(link_g1.clone(), "g1.point".to_string()).await?;
-        Self::save_point(link_g2.clone(), "g2.point.powerOf2".to_string()).await?;
+    async fn save_points(url_g1: String, url_g2: String) -> Result<String, VerificationError> {
+        Self::save_point(url_g1.clone(), "g1.point".to_string()).await?;
+        Self::save_point(url_g2.clone(), "g2.point.powerOf2".to_string()).await?;
 
         Ok(".".to_string())
     }
@@ -130,7 +130,7 @@ impl Verifier {
         signing_client: T,
     ) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / 32;
-        let path = Self::save_points(cfg.clone().g1_link, cfg.clone().g2_link).await?;
+        let path = Self::save_points(cfg.clone().g1_url, cfg.clone().g2_url).await?;
         let kzg = Kzg::setup(
             &format!("{}{}", path, "/g1.point"),
             "",

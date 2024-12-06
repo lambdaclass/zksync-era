@@ -16,10 +16,10 @@ pub struct EigenConfig {
     pub wait_for_finalization: bool,
     /// Authenticated dispersal
     pub authenticated: bool,
-    /// Link to the file containing the G1 point used for KZG
-    pub g1_link: String,
-    /// Link to the file containing the G2 point used for KZG
-    pub g2_link: String,
+    /// Url to the file containing the G1 point used for KZG
+    pub g1_url: String,
+    /// Url to the file containing the G2 point used for KZG
+    pub g2_url: String,
     /// Chain ID of the Ethereum network
     pub chain_id: u64,
 }
