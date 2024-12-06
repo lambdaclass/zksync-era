@@ -264,8 +264,7 @@ mod tests {
     fn from_env_eigen_client() {
         let mut lock = MUTEX.lock();
         let config = r#"
-            EIGENDA_CLIENT="Eigen"
-            EIGENDA_EIGEN_CLIENT_TYPE="Disperser"
+            DA_CLIENT="Eigen"
             EIGENDA_DISPERSER_RPC="http://localhost:8080"
             EIGENDA_SETTLEMENT_LAYER_CONFIRMATION_DEPTH=0
             EIGENDA_EIGENDA_ETH_RPC="http://localhost:8545"
