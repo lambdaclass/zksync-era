@@ -56,7 +56,8 @@ impl<T: GetBlobData> RawEigenClient<T> {
             rpc_url: config.eigenda_eth_rpc.clone(),
             svc_manager_addr: config.eigenda_svc_manager_address.clone(),
             max_blob_size: Self::BLOB_SIZE_LIMIT as u32,
-            points: config.points_source.clone(),
+            g1_link: config.g1_link.clone(),
+            g2_link: config.g2_link.clone(),
             settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth.max(0)
                 as u32,
             private_key: hex::encode(private_key.secret_bytes()),

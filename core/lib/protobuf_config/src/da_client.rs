@@ -11,7 +11,7 @@ use zksync_config::configs::{
 use zksync_protobuf::{required, ProtoRepr};
 
 use crate::proto::{
-    da_client::{self as proto, Link, Path},
+    da_client::{self as proto},
     object_store as object_store_proto,
 };
 
@@ -72,17 +72,8 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 wait_for_finalization: *required(&conf.wait_for_finalization)
                     .context("wait_for_finalization")?,
                 authenticated: *required(&conf.authenticated).context("authenticated")?,
-                points_source: match conf.points_source.clone() {
-                    Some(proto::eigen_config::PointsSource::Path(path)) => {
-                        let path = required(&path.path).context("path")?;
-                        zksync_config::configs::da_client::eigen::PointsSource::Path(path.clone())
-                    }
-                    Some(proto::eigen_config::PointsSource::Link(link)) => {
-                        let link = required(&link.link).context("link")?;
-                        zksync_config::configs::da_client::eigen::PointsSource::Link(link.clone())
-                    }
-                    None => return Err(anyhow::anyhow!("Invalid Eigen DA configuration")),
-                },
+                g1_link: required(&conf.g1_link).context("g1_link")?.clone(),
+                g2_link: required(&conf.g2_link).context("g2_link")?.clone(),
                 chain_id: *required(&conf.chain_id).context("chain_id")?,
             }),
             proto::data_availability_client::Config::ObjectStore(conf) => {
@@ -130,18 +121,8 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 eigenda_svc_manager_address: Some(config.eigenda_svc_manager_address.clone()),
                 wait_for_finalization: Some(config.wait_for_finalization),
                 authenticated: Some(config.authenticated),
-                points_source: Some(match &config.points_source {
-                    zksync_config::configs::da_client::eigen::PointsSource::Path(path) => {
-                        proto::eigen_config::PointsSource::Path(Path {
-                            path: Some(path.to_string()),
-                        })
-                    }
-                    zksync_config::configs::da_client::eigen::PointsSource::Link(link) => {
-                        proto::eigen_config::PointsSource::Link(Link {
-                            link: Some(link.to_string()),
-                        })
-                    }
-                }),
+                g1_link: Some(config.g1_link.clone()),
+                g2_link: Some(config.g2_link.clone()),
                 chain_id: Some(config.chain_id),
             }),
             ObjectStore(config) => proto::data_availability_client::Config::ObjectStore(

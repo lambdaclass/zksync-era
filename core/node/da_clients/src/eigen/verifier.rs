@@ -6,7 +6,6 @@ use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tiny_keccak::{Hasher, Keccak};
 use url::Url;
 use zksync_basic_types::web3::CallRequest;
-use zksync_config::configs::da_client::eigen::PointsSource;
 use zksync_eth_client::{clients::PKSigningClient, EnrichedClientResult};
 use zksync_types::{
     web3::{self, BlockId, BlockNumber},
@@ -71,7 +70,8 @@ pub struct VerifierConfig {
     pub rpc_url: String,
     pub svc_manager_addr: String,
     pub max_blob_size: u32,
-    pub points: PointsSource,
+    pub g1_link: String,
+    pub g2_link: String,
     pub settlement_layer_confirmation_depth: u32,
     pub private_key: String,
     pub chain_id: u64,
@@ -102,14 +102,8 @@ impl Verifier {
     pub const SRSORDER: u32 = 268435456; // 2 ^ 28
 
     async fn save_point(link: String, point: String) -> Result<(), VerificationError> {
-        let mut url_base = Url::parse(&link).map_err(|_| VerificationError::LinkError)?;
-        if !url_base.as_str().ends_with('/') {
-            url_base.set_path(&format!("{}/", url_base.path()));
-        }
-        let url_g1 = url_base
-            .join(&point)
-            .map_err(|_| VerificationError::LinkError)?;
-        let response = reqwest::get(url_g1)
+        let url = Url::parse(&link).map_err(|_| VerificationError::LinkError)?;
+        let response = reqwest::get(url)
             .await
             .map_err(|_| VerificationError::LinkError)?;
         if !response.status().is_success() {
@@ -125,9 +119,9 @@ impl Verifier {
         copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
         Ok(())
     }
-    async fn save_points(link: String) -> Result<String, VerificationError> {
-        Self::save_point(link.clone(), "g1.point".to_string()).await?;
-        Self::save_point(link.clone(), "g2.point.powerOf2".to_string()).await?;
+    async fn save_points(link_g1: String, link_g2: String) -> Result<String, VerificationError> {
+        Self::save_point(link_g1.clone(), "g1.point".to_string()).await?;
+        Self::save_point(link_g2.clone(), "g2.point.powerOf2".to_string()).await?;
 
         Ok(".".to_string())
     }
@@ -136,10 +130,7 @@ impl Verifier {
         signing_client: T,
     ) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / 32;
-        let path = match cfg.points.clone() {
-            PointsSource::Path(path) => path,
-            PointsSource::Link(link) => Self::save_points(link).await?,
-        };
+        let path = Self::save_points(cfg.clone().g1_link, cfg.clone().g2_link).await?;
         let kzg = Kzg::setup(
             &format!("{}{}", path, "/g1.point"),
             "",

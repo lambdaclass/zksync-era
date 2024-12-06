@@ -48,15 +48,8 @@ impl FromEnv for DAClientConfig {
                 eigenda_svc_manager_address: env::var("DA_EIGENDA_SVC_MANAGER_ADDRESS")?,
                 wait_for_finalization: env::var("DA_WAIT_FOR_FINALIZATION")?.parse()?,
                 authenticated: env::var("DA_AUTHENTICATED")?.parse()?,
-                points_source: match env::var("DA_POINTS_SOURCE")?.as_str() {
-                    "Path" => zksync_config::configs::da_client::eigen::PointsSource::Path(
-                        env::var("DA_POINTS_PATH")?,
-                    ),
-                    "Link" => zksync_config::configs::da_client::eigen::PointsSource::Link(
-                        env::var("DA_POINTS_LINK")?,
-                    ),
-                    _ => anyhow::bail!("Unknown Eigen points type"),
-                },
+                g1_link: env::var("DA_G1_LINK")?.parse()?,
+                g2_link: env::var("DA_G2_LINK")?.parse()?,
                 chain_id: env::var("DA_CHAIN_ID")?.parse()?,
             }),
             OBJECT_STORE_CLIENT_CONFIG_NAME => {
@@ -118,7 +111,6 @@ mod tests {
         configs::{
             da_client::{
                 avail::{AvailClientConfig, AvailDefaultConfig},
-                eigen::PointsSource,
                 DAClientConfig::{self, ObjectStore},
             },
             object_store::ObjectStoreMode::GCS,
@@ -280,8 +272,8 @@ mod tests {
             DA_EIGENDA_SVC_MANAGER_ADDRESS="0x123"
             DA_WAIT_FOR_FINALIZATION=true
             DA_AUTHENTICATED=false
-            DA_POINTS_SOURCE="Path"
-            DA_POINTS_PATH="resources"
+            DA_G1_LINK="resources1"
+            DA_G2_LINK="resources2"
             DA_CHAIN_ID=1
         "#;
         lock.set_env(config);
@@ -296,7 +288,8 @@ mod tests {
                 eigenda_svc_manager_address: "0x123".to_string(),
                 wait_for_finalization: true,
                 authenticated: false,
-                points_source: PointsSource::Path("resources".to_string()),
+                g1_link: "resources1".to_string(),
+                g2_link: "resources2".to_string(),
                 chain_id: 1
             })
         );

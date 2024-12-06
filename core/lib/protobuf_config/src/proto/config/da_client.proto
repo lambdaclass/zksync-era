@@ -36,26 +36,16 @@ message CelestiaConfig {
   optional uint64 timeout_ms = 4;
 }
 
-message Path {
-  optional string path = 1;
-}
-
-message Link {
-  optional string link = 1;
-}
-
 message EigenConfig {
   optional string disperser_rpc = 3;
   optional int32 settlement_layer_confirmation_depth = 4;
   optional string eigenda_eth_rpc = 5;
   optional string eigenda_svc_manager_address = 6;
-  optional bool wait_for_finalization = 8;
-  optional bool authenticated = 9;
-  oneof points_source {
-    Path path = 10;
-    Link link = 11;
-  }
-  optional uint64 chain_id = 12;
+  optional bool wait_for_finalization = 7;
+  optional bool authenticated = 8;
+  optional string g1_link = 9;
+  optional string g2_link = 10;
+  optional uint64 chain_id = 11;
   reserved 1,2;
   reserved "rpc_node_url","inclusion_polling_interval_ms";
 }
