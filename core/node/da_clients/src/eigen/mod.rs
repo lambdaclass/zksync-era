@@ -5,7 +5,7 @@ mod sdk;
 mod verifier;
 mod verifier_tests;
 
-pub use self::client::{EigenClient, EigenFunction};
+pub use self::client::{EigenClient, GetBlobData};
 #[allow(clippy::all)]
 pub(crate) mod disperser {
     include!("generated/disperser.rs");

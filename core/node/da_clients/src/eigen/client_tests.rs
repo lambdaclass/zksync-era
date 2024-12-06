@@ -18,9 +18,9 @@ mod tests {
     };
     use zksync_types::secrets::PrivateKey;
 
-    use crate::eigen::{blob_info::BlobInfo, EigenClient, EigenFunction};
+    use crate::eigen::{blob_info::BlobInfo, EigenClient, GetBlobData};
 
-    impl<T: EigenFunction> EigenClient<T> {
+    impl<T: GetBlobData> EigenClient<T> {
         pub async fn get_blob_data(
             &self,
             blob_id: BlobInfo,
@@ -35,7 +35,7 @@ mod tests {
     const STATUS_QUERY_TIMEOUT: u64 = 1800000; // 30 minutes
     const STATUS_QUERY_INTERVAL: u64 = 5; // 5 ms
 
-    async fn get_blob_info<T: EigenFunction>(
+    async fn get_blob_info<T: GetBlobData>(
         client: &EigenClient<T>,
         result: &DispatchResponse,
     ) -> anyhow::Result<BlobInfo> {
@@ -58,10 +58,10 @@ mod tests {
     }
 
     #[derive(Debug, Clone)]
-    struct MockEigenFunction;
+    struct MockGetBlobData;
 
     #[async_trait::async_trait]
-    impl EigenFunction for MockEigenFunction {
+    impl GetBlobData for MockGetBlobData {
         async fn call(&self, _input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
             Ok(None)
         }
@@ -87,7 +87,7 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockEigenFunction))
+        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -126,7 +126,7 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockEigenFunction))
+        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -165,7 +165,7 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockEigenFunction))
+        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -204,7 +204,7 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockEigenFunction))
+        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -243,7 +243,7 @@ mod tests {
             )
             .unwrap(),
         };
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockEigenFunction))
+        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];

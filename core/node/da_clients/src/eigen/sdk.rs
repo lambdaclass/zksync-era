@@ -17,7 +17,7 @@ use super::{
     blob_info::BlobInfo,
     disperser::BlobInfo as DisperserBlobInfo,
     verifier::{Verifier, VerifierConfig},
-    EigenFunction,
+    GetBlobData,
 };
 use crate::eigen::{
     blob_info,
@@ -30,23 +30,23 @@ use crate::eigen::{
 };
 
 #[derive(Debug, Clone)]
-pub(crate) struct RawEigenClient<T: EigenFunction> {
+pub(crate) struct RawEigenClient<T: GetBlobData> {
     client: Arc<Mutex<DisperserClient<Channel>>>,
     private_key: SecretKey,
     pub config: EigenConfig,
     verifier: Verifier,
-    function: Box<T>,
+    get_blob_data: Box<T>,
 }
 
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
 
-impl<T: EigenFunction> RawEigenClient<T> {
+impl<T: GetBlobData> RawEigenClient<T> {
     const BLOB_SIZE_LIMIT: usize = 1024 * 1024 * 2; // 2 MB
 
     pub async fn new(
         private_key: SecretKey,
         config: EigenConfig,
-        function: Box<T>,
+        get_blob_data: Box<T>,
     ) -> anyhow::Result<Self> {
         let endpoint =
             Endpoint::from_str(config.disperser_rpc.as_str())?.tls_config(ClientTlsConfig::new())?;
@@ -84,7 +84,7 @@ impl<T: EigenFunction> RawEigenClient<T> {
             private_key,
             config,
             verifier,
-            function,
+            get_blob_data,
         })
     }
 
@@ -161,7 +161,7 @@ impl<T: EigenFunction> RawEigenClient<T> {
         let Some(data) = self.get_blob_data(blob_info.clone()).await? else {
             return Err(anyhow::anyhow!("Failed to get blob data"));
         };
-        let data_db = self.function.call(blob_id).await?;
+        let data_db = self.get_blob_data.call(blob_id).await?;
         if let Some(data_db) = data_db {
             if data_db != data {
                 return Err(anyhow::anyhow!(

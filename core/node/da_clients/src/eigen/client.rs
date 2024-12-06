@@ -13,26 +13,26 @@ use super::sdk::RawEigenClient;
 use crate::utils::to_retriable_da_error;
 
 #[async_trait]
-pub trait EigenFunction: Clone + std::fmt::Debug + Send + Sync {
+pub trait GetBlobData: Clone + std::fmt::Debug + Send + Sync {
     async fn call(&self, input: &str) -> anyhow::Result<Option<Vec<u8>>>;
 }
 
 /// EigenClient is a client for the Eigen DA service.
 #[derive(Debug, Clone)]
-pub struct EigenClient<T: EigenFunction> {
+pub struct EigenClient<T: GetBlobData> {
     pub(crate) client: Arc<RawEigenClient<T>>,
 }
 
-impl<T: EigenFunction> EigenClient<T> {
+impl<T: GetBlobData> EigenClient<T> {
     pub async fn new(
         config: EigenConfig,
         secrets: EigenSecrets,
-        function: Box<T>,
+        get_blob_data: Box<T>,
     ) -> anyhow::Result<Self> {
         let private_key = SecretKey::from_str(secrets.private_key.0.expose_secret().as_str())
             .map_err(|e| anyhow::anyhow!("Failed to parse private key: {}", e))?;
 
-        let client = RawEigenClient::new(private_key, config, function).await?;
+        let client = RawEigenClient::new(private_key, config, get_blob_data).await?;
         Ok(Self {
             client: Arc::new(client),
         })
@@ -40,7 +40,7 @@ impl<T: EigenFunction> EigenClient<T> {
 }
 
 #[async_trait]
-impl<T: EigenFunction + 'static> DataAvailabilityClient for EigenClient<T> {
+impl<T: GetBlobData + 'static> DataAvailabilityClient for EigenClient<T> {
     async fn dispatch_blob(
         &self,
         _: u32, // batch number

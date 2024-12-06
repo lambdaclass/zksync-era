@@ -1,6 +1,6 @@
 use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
 use zksync_da_client::DataAvailabilityClient;
-use zksync_da_clients::eigen::{EigenClient, EigenFunction};
+use zksync_da_clients::eigen::{EigenClient, GetBlobData};
 use zksync_dal::{ConnectionPool, Core, CoreDal};
 use zksync_node_framework_derive::FromContext;
 
@@ -65,7 +65,7 @@ pub struct GetBlobFromDB {
 }
 
 #[async_trait::async_trait]
-impl EigenFunction for GetBlobFromDB {
+impl GetBlobData for GetBlobFromDB {
     async fn call(&self, input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
         let pool = self.pool.clone();
         let input = input.to_string();
