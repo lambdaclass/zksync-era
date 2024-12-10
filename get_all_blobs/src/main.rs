@@ -25,9 +25,8 @@ const BLOB_DATA_JSON: &str = "blob_data.json";
 const ABI_JSON: &str = "./abi/commitBatchesSharedBridge.json";
 const COMMIT_BATCHES_SELECTOR: &str = "6edd4f12";
 
-async fn get_blob(commitment: &str) -> anyhow::Result<Vec<u8>> {
+async fn get_blob(blob_id: &str) -> anyhow::Result<Vec<u8>> {
     let client = EigenClientRetriever::new(EIGENDA_API_URL).await?;
-    let blob_id = commitment;
     let blob_info = client
         .get_blob_status(blob_id)
         .await?
