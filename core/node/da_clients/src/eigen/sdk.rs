@@ -192,16 +192,11 @@ impl<T: GetBlobData> RawEigenClient<T> {
             .verify_inclusion_data_against_settlement_layer(blob_info.clone())
             .await;
         // in case of an error, the dispatcher will retry, so the need to return None
-        match result {
-            Ok(_) => {}
-            Err(e) => match e {
-                VerificationError::EmptyHash => {
-                    return Ok(None);
-                }
-                _ => {
-                    return Err(anyhow::anyhow!("Failed to verify inclusion data: {:?}", e));
-                }
-            },
+        if let Err(e) = result {
+            match e {
+                VerificationError::EmptyHash => return Ok(None),
+                _ => return Err(anyhow::anyhow!("Failed to verify inclusion data: {:?}", e)),
+            }
         }
 
         tracing::info!("Blob dispatch confirmed, request id: {}", request_id);
