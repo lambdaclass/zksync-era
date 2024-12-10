@@ -266,7 +266,7 @@ mod tests {
             DAClientConfig::Eigen(EigenConfig {
                 disperser_rpc: "http://localhost:8080".to_string(),
                 settlement_layer_confirmation_depth: 0,
-                eigenda_eth_rpc: "http://localhost:8545".to_string(),
+                eigenda_eth_rpc: Some("http://localhost:8545".to_string()),
                 eigenda_svc_manager_address: "0x123".to_string(),
                 wait_for_finalization: true,
                 authenticated: false,

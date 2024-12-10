@@ -27,6 +27,7 @@ use crate::eigen::{
         disperser_client::DisperserClient,
         AuthenticatedReply, BlobAuthHeader,
     },
+    verifier::VerificationError,
 };
 
 #[derive(Debug, Clone)]
@@ -53,7 +54,10 @@ impl<T: GetBlobData> RawEigenClient<T> {
         let client = Arc::new(Mutex::new(DisperserClient::connect(endpoint).await?));
 
         let verifier_config = VerifierConfig {
-            rpc_url: config.eigenda_eth_rpc.clone(),
+            rpc_url: config
+                .eigenda_eth_rpc
+                .clone()
+                .ok_or(anyhow::anyhow!("EigenDA ETH RPC not set"))?,
             svc_manager_addr: config.eigenda_svc_manager_address.clone(),
             max_blob_size: Self::BLOB_SIZE_LIMIT as u32,
             g1_url: config.g1_url.clone(),
@@ -109,7 +113,11 @@ impl<T: GetBlobData> RawEigenClient<T> {
             .await?
             .into_inner();
 
-        Ok(hex::encode(disperse_reply.request_id))
+        match disperser::BlobStatus::try_from(disperse_reply.result)? {
+            disperser::BlobStatus::Failed => Err(anyhow::anyhow!("Blob dispatch failed")),
+
+            _ => Ok(hex::encode(disperse_reply.request_id)),
+        }
     }
 
     async fn dispatch_blob_authenticated(&self, data: Vec<u8>) -> anyhow::Result<String> {
@@ -147,7 +155,12 @@ impl<T: GetBlobData> RawEigenClient<T> {
         let disperser::authenticated_reply::Payload::DisperseReply(disperse_reply) = reply else {
             return Err(anyhow::anyhow!("Unexpected response from server"));
         };
-        Ok(hex::encode(disperse_reply.request_id))
+
+        match disperser::BlobStatus::try_from(disperse_reply.result)? {
+            disperser::BlobStatus::Failed => Err(anyhow::anyhow!("Blob dispatch failed")),
+
+            _ => Ok(hex::encode(disperse_reply.request_id)),
+        }
     }
 
     pub async fn get_commitment(&self, request_id: &str) -> anyhow::Result<Option<BlobInfo>> {
@@ -179,8 +192,16 @@ impl<T: GetBlobData> RawEigenClient<T> {
             .verify_inclusion_data_against_settlement_layer(blob_info.clone())
             .await;
         // in case of an error, the dispatcher will retry, so the need to return None
-        if result.is_err() {
-            return Ok(None);
+        match result {
+            Ok(_) => {}
+            Err(e) => match e {
+                VerificationError::EmptyHash => {
+                    return Ok(None);
+                }
+                _ => {
+                    return Err(anyhow::anyhow!("Failed to verify inclusion data: {:?}", e));
+                }
+            },
         }
 
         tracing::info!("Blob dispatch confirmed, request id: {}", request_id);
