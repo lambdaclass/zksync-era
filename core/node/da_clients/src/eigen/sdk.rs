@@ -150,8 +150,8 @@ impl<T: GetBlobData> RawEigenClient<T> {
         Ok(hex::encode(disperse_reply.request_id))
     }
 
-    pub async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<Option<BlobInfo>> {
-        let blob_info = self.try_get_inclusion_data(blob_id.to_string()).await?;
+    pub async fn get_commitment(&self, request_id: &str) -> anyhow::Result<Option<BlobInfo>> {
+        let blob_info = self.try_get_inclusion_data(request_id.to_string()).await?;
 
         let Some(blob_info) = blob_info else {
             return Ok(None);
@@ -162,7 +162,7 @@ impl<T: GetBlobData> RawEigenClient<T> {
         let Some(data) = self.get_blob_data(blob_info.clone()).await? else {
             return Err(anyhow::anyhow!("Failed to get blob data"));
         };
-        let data_db = self.get_blob_data.call(blob_id).await?;
+        let data_db = self.get_blob_data.call(request_id).await?;
         if let Some(data_db) = data_db {
             if data_db != data {
                 return Err(anyhow::anyhow!(
@@ -183,12 +183,12 @@ impl<T: GetBlobData> RawEigenClient<T> {
             return Ok(None);
         }
 
-        tracing::info!("Blob dispatch confirmed, blob id: {}", blob_id);
+        tracing::info!("Blob dispatch confirmed, request id: {}", request_id);
         Ok(Some(blob_info))
     }
 
-    pub async fn get_inclusion_data(&self, blob_id: &str) -> anyhow::Result<Option<Vec<u8>>> {
-        let blob_info = self.get_commitment(blob_id).await?;
+    pub async fn get_inclusion_data(&self, request_id: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        let blob_info = self.get_commitment(request_id).await?;
         if let Some(blob_info) = blob_info {
             Ok(Some(blob_info.blob_verification_proof.inclusion_proof))
         } else {
