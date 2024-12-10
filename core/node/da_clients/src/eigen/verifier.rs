@@ -102,6 +102,7 @@ impl Verifier {
     pub const SRSORDER: u32 = 268435456; // 2 ^ 28
     pub const G1POINT: &'static str = "g1.point";
     pub const G2POINT: &'static str = "g2.point.powerOf2";
+    pub const POINT_SIZE: u32 = 32;
 
     async fn save_point(url: String, point: String) -> Result<(), VerificationError> {
         let url = Url::parse(&url).map_err(|_| VerificationError::LinkError)?;
@@ -131,7 +132,7 @@ impl Verifier {
         cfg: VerifierConfig,
         signing_client: T,
     ) -> Result<Self, VerificationError> {
-        let srs_points_to_load = cfg.max_blob_size / 32;
+        let srs_points_to_load = cfg.max_blob_size / Self::POINT_SIZE;
         let path = Self::save_points(cfg.clone().g1_url, cfg.clone().g2_url).await?;
         let kzg = Kzg::setup(
             &format!("{}/{}", path, Self::G1POINT),
