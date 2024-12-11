@@ -79,6 +79,7 @@ members = [
   # Test infrastructure
   "core/tests/loadnext",
   "core/tests/vm-benchmark",
+  "get_all_blobs",
 ]
 resolver = "2"
 
