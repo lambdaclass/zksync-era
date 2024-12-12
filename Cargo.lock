@@ -3447,6 +3447,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "eigen-client"
+version = "0.1.0"
+dependencies = [
+ "ark-bn254",
+ "async-trait",
+ "backon",
+ "byteorder",
+ "bytes",
+ "ethabi",
+ "ethereum-types",
+ "hex",
+ "num-bigint 0.4.6",
+ "prost 0.12.6",
+ "rand 0.8.5",
+ "reqwest 0.12.9",
+ "rlp",
+ "rust-kzg-bn254",
+ "secp256k1 0.27.0",
+ "secrecy 0.8.0",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "sha3 0.10.8",
+ "subxt-signer",
+ "thiserror",
+ "tiny-keccak 2.0.2",
+ "tokio",
+ "tokio-stream",
+ "tonic 0.11.0",
+ "url",
+]
+
+[[package]]
 name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8664,8 +8697,17 @@ version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25996b82292a7a57ed3508f052cfff8640d38d32018784acd714758b43da9c8f"
 dependencies = [
- "secp256k1-sys",
+ "secp256k1-sys 0.8.1",
  "serde",
+]
+
+[[package]]
+name = "secp256k1"
+version = "0.28.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d24b59d129cdadea20aea4fb2352fa053712e5d713eee47d700cd4b2bc002f10"
+dependencies = [
+ "secp256k1-sys 0.9.2",
 ]
 
 [[package]]
@@ -8673,6 +8715,15 @@ name = "secp256k1-sys"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70a129b9e9efbfb223753b9163c4ab3b13cff7fd9c7f010fbac25ab4099fa07e"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "secp256k1-sys"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5d1746aae42c19d583c3c1a8c646bfad910498e2051c551a7f2e3c0c9fbb7eb"
 dependencies = [
  "cc",
 ]
@@ -10005,6 +10056,7 @@ dependencies = [
  "pbkdf2",
  "regex",
  "schnorrkel",
+ "secp256k1 0.28.2",
  "secrecy 0.8.0",
  "sha2 0.10.8",
  "sp-core-hashing",
@@ -12527,7 +12579,7 @@ dependencies = [
  "blake2 0.10.6",
  "hex",
  "rand 0.8.5",
- "secp256k1",
+ "secp256k1 0.27.0",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -12561,7 +12613,6 @@ name = "zksync_da_clients"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-bn254",
  "async-trait",
  "backon",
  "base58",
@@ -12571,43 +12622,33 @@ dependencies = [
  "blake2b_simd",
  "bytes",
  "celestia-types",
- "ethabi",
+ "eigen-client",
  "flate2",
  "futures 0.3.31",
  "hex",
  "http 1.1.0",
  "jsonrpsee 0.23.2",
- "num-bigint 0.4.6",
  "parity-scale-codec",
  "pbjson-types",
  "prost 0.12.6",
- "rand 0.8.5",
  "reqwest 0.12.9",
  "ripemd",
- "rust-kzg-bn254",
  "scale-encode",
- "secp256k1",
+ "secp256k1 0.27.0",
  "serde",
  "serde_json",
- "serial_test",
  "sha2 0.10.8",
- "sha3 0.10.8",
  "subxt-metadata",
  "subxt-signer",
- "tiny-keccak 2.0.2",
  "tokio",
- "tokio-stream",
  "tonic 0.11.0",
  "tracing",
- "url",
  "zksync_basic_types",
  "zksync_config",
  "zksync_da_client",
  "zksync_env_config",
- "zksync_eth_client",
  "zksync_object_store",
  "zksync_types",
- "zksync_web3_decl",
 ]
 
 [[package]]
@@ -13739,7 +13780,7 @@ dependencies = [
  "async-trait",
  "envy",
  "reqwest 0.12.9",
- "secp256k1",
+ "secp256k1 0.27.0",
  "serde",
  "thiserror",
  "tokio",
