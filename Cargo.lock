@@ -3449,6 +3449,7 @@ dependencies = [
 [[package]]
 name = "eigen-client"
 version = "0.1.0"
+source = "git+https://github.com/lambdaclass/eigenda-client-rs?branch=sync-latest-changes#f8d1babeb2308645851893ea7ae036236b1ef62d"
 dependencies = [
  "ark-bn254",
  "async-trait",
@@ -3462,7 +3463,6 @@ dependencies = [
  "prost 0.12.6",
  "rand 0.8.5",
  "reqwest 0.12.9",
- "rlp",
  "rust-kzg-bn254",
  "secp256k1 0.27.0",
  "secrecy 0.8.0",

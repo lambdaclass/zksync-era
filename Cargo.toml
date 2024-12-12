@@ -222,8 +222,8 @@ tonic = { version = "0.11.0", default-features = false }
 pbjson-types = "0.6.0"
 
 # Eigen
-#eigenda-client-rs = {git = "https://github.com/lambdaclass/eigenda-client-rs", branch = "sync-latest-changes", package = "eigen-client"}
-eigenda-client-rs = {path = "../../eigen/eigenda-client-rs", package = "eigen-client"}
+eigenda-client-rs = {git = "https://github.com/lambdaclass/eigenda-client-rs", branch = "sync-latest-changes", package = "eigen-client"}
+
 # Here and below:
 # We *always* pin the latest version of protocol to disallow accidental changes in the execution logic.
 # However, for the historical version of protocol crates, we have lax requirements. Otherwise,
