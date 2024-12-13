@@ -63,9 +63,7 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                     &conf.settlement_layer_confirmation_depth,
                 )
                 .context("settlement_layer_confirmation_depth")?,
-                eigenda_eth_rpc: required(&conf.eigenda_eth_rpc)
-                    .context("eigenda_eth_rpc")?
-                    .clone(),
+                eigenda_eth_rpc: required(&conf.eigenda_eth_rpc).ok().cloned(),
                 eigenda_svc_manager_address: required(&conf.eigenda_svc_manager_address)
                     .context("eigenda_svc_manager_address")?
                     .clone(),
@@ -117,7 +115,7 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 settlement_layer_confirmation_depth: Some(
                     config.settlement_layer_confirmation_depth,
                 ),
-                eigenda_eth_rpc: Some(config.eigenda_eth_rpc.clone()),
+                eigenda_eth_rpc: config.eigenda_eth_rpc.clone(),
                 eigenda_svc_manager_address: Some(config.eigenda_svc_manager_address.clone()),
                 wait_for_finalization: Some(config.wait_for_finalization),
                 authenticated: Some(config.authenticated),
