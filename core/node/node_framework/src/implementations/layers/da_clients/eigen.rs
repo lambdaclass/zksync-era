@@ -49,7 +49,7 @@ impl WiringLayer for EigenWiringLayer {
     }
 
     async fn wire(self, input: Self::Input) -> Result<Self::Output, WiringError> {
-        let master_pool = input.master_pool.get_custom(2).await?;
+        let master_pool = input.master_pool.get().await?;
         let get_blob_from_db = GetBlobFromDB { pool: master_pool };
         let client: Box<dyn DataAvailabilityClient> = Box::new(
             EigenClientProxy::new(self.config, self.secrets, Box::new(get_blob_from_db)).await?,
@@ -71,7 +71,7 @@ impl GetBlobData for GetBlobFromDB {
     async fn call(&self, input: &'_ str) -> Result<Option<Vec<u8>>, Box<dyn Error + Send + Sync>> {
         let pool = self.pool.clone();
         let input = input.to_string();
-        let mut conn = pool.connection_tagged("da_dispatcher").await?;
+        let mut conn = pool.connection_tagged("eigen_client").await?;
         let batch = conn
             .data_availability_dal()
             .get_blob_data_by_blob_id(&input)
