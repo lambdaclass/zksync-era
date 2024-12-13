@@ -55,3 +55,4 @@ pbjson-types.workspace = true
 
 # Eigen dependencies
 eigenda-client-rs.workspace = true
+zksync_dal.workspace = true

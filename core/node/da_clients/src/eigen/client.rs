@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{error::Error, str::FromStr};
 
 use eigenda_client_rs::{client::GetBlobData, EigenClient};
 use subxt_signer::ExposeSecret;
@@ -7,24 +7,27 @@ use zksync_da_client::{
     types::{DAError, DispatchResponse, InclusionData},
     DataAvailabilityClient,
 };
+use zksync_dal::{ConnectionPool, Core, CoreDal};
 
 use crate::utils::to_retriable_da_error;
 
 // We can't implement DataAvailabilityClient for an outside struct, so it is needed to defined this intermediate struct
 #[derive(Debug, Clone)]
-pub struct EigenClientProxy<T: GetBlobData> {
-    client: EigenClient<T>,
+pub struct EigenDAClient {
+    client: EigenClient<GetBlobFromDB>,
 }
-impl<T: GetBlobData> EigenClientProxy<T> {
+impl EigenDAClient {
     pub async fn new(
         config: EigenConfig,
         secrets: EigenSecrets,
-        get_blob_data: Box<T>,
+        pool: ConnectionPool<Core>,
     ) -> anyhow::Result<Self> {
         let eigen_config = eigenda_client_rs::config::EigenConfig {
             disperser_rpc: config.disperser_rpc,
             settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth,
-            eigenda_eth_rpc: config.eigenda_eth_rpc,
+            eigenda_eth_rpc: config.eigenda_eth_rpc.ok_or(anyhow::anyhow!(
+                "eigenda_eth_rpc is required for EigenClient"
+            ))?,
             eigenda_svc_manager_address: config.eigenda_svc_manager_address,
             wait_for_finalization: config.wait_for_finalization,
             authenticated: config.authenticated,
@@ -35,15 +38,36 @@ impl<T: GetBlobData> EigenClientProxy<T> {
             eigenda_client_rs::config::PrivateKey::from_str(secrets.private_key.0.expose_secret())
                 .map_err(|_| anyhow::anyhow!("Invalid private key"))?;
         let eigen_secrets = eigenda_client_rs::config::EigenSecrets { private_key };
-        let client = EigenClient::new(eigen_config, eigen_secrets, get_blob_data)
+        let get_blob_data = GetBlobFromDB { pool };
+        let client = EigenClient::new(eigen_config, eigen_secrets, Box::new(get_blob_data))
             .await
             .map_err(|e| anyhow::anyhow!("Eigen client Error: {:?}", e))?;
         Ok(Self { client })
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct GetBlobFromDB {
+    pool: ConnectionPool<Core>,
+}
+
 #[async_trait::async_trait]
-impl<T: GetBlobData + 'static> DataAvailabilityClient for EigenClientProxy<T> {
+impl GetBlobData for GetBlobFromDB {
+    async fn call(&self, input: &'_ str) -> Result<Option<Vec<u8>>, Box<dyn Error + Send + Sync>> {
+        let pool = self.pool.clone();
+        let input = input.to_string();
+        let mut conn = pool.connection_tagged("eigen_client").await?;
+        let batch = conn
+            .data_availability_dal()
+            .get_blob_data_by_blob_id(&input)
+            .await?;
+        drop(conn);
+        Ok(batch.map(|b| b.pubdata))
+    }
+}
+
+#[async_trait::async_trait]
+impl DataAvailabilityClient for EigenDAClient {
     async fn dispatch_blob(
         &self,
         _: u32, // batch number
