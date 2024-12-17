@@ -14,7 +14,7 @@ use crate::utils::to_retriable_da_error;
 
 #[async_trait]
 pub trait GetBlobData: Clone + std::fmt::Debug + Send + Sync {
-    async fn call(&self, input: &str) -> anyhow::Result<Option<Vec<u8>>>;
+    async fn get_blob_data(&self, input: &str) -> anyhow::Result<Option<Vec<u8>>>;
 }
 
 /// EigenClient is a client for the Eigen DA service.

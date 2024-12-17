@@ -59,7 +59,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl GetBlobData for MockGetBlobData {
-        async fn call(&self, _input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
+        async fn get_blob_data(&self, _input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
             Ok(None)
         }
     }
@@ -70,7 +70,7 @@ mod tests {
     async fn test_non_auth_dispersal() {
         let config = EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
-            settlement_layer_confirmation_depth: -1,
+            settlement_layer_confirmation_depth: 0,
             eigenda_eth_rpc: Some("https://ethereum-holesky-rpc.publicnode.com".to_string()),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             wait_for_finalization: false,
@@ -110,7 +110,7 @@ mod tests {
     async fn test_auth_dispersal() {
         let config = EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
-            settlement_layer_confirmation_depth: -1,
+            settlement_layer_confirmation_depth: 0,
             eigenda_eth_rpc: Some("https://ethereum-holesky-rpc.publicnode.com".to_string()),
             eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
             wait_for_finalization: false,
