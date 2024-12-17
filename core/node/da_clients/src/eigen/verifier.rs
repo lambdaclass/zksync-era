@@ -429,7 +429,6 @@ impl Verifier {
 
         let call_request = CallRequest {
             to: Some(self.cfg.svc_manager_addr),
-
             data: Some(zksync_basic_types::web3::Bytes(data)),
             ..Default::default()
         };
