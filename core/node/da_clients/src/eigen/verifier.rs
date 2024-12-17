@@ -295,10 +295,9 @@ impl Verifier {
             .map_err(|_| VerificationError::ServiceManagerError)?
             .as_u64();
 
-        if self.cfg.settlement_layer_confirmation_depth == 0 {
-            return Ok(latest);
-        }
-        Ok(latest - (self.cfg.settlement_layer_confirmation_depth as u64 - 1))
+        let depth = self.cfg.settlement_layer_confirmation_depth.saturating_sub(1);
+        let block_to_return = latest - depth as u64;
+        Ok(block_to_return)
     }
 
     async fn call_batch_id_to_metadata_hash(
