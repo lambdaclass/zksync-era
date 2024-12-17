@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use zksync_basic_types::secrets::PrivateKey;
+use zksync_basic_types::{secrets::PrivateKey, Address};
 /// Configuration for the EigenDA remote disperser client.
 #[derive(Clone, Debug, PartialEq, Deserialize, Default)]
 pub struct EigenConfig {
@@ -7,11 +7,11 @@ pub struct EigenConfig {
     pub disperser_rpc: String,
     /// Block height needed to reach in order to consider the blob finalized
     /// a value less or equal to 0 means that the disperser will not wait for finalization
-    pub settlement_layer_confirmation_depth: i32,
+    pub settlement_layer_confirmation_depth: u32,
     /// URL of the Ethereum RPC server
     pub eigenda_eth_rpc: Option<String>,
     /// Address of the service manager contract
-    pub eigenda_svc_manager_address: String,
+    pub eigenda_svc_manager_address: Address,
     /// Wait for the blob to be finalized before returning the response
     pub wait_for_finalization: bool,
     /// Authenticated dispersal

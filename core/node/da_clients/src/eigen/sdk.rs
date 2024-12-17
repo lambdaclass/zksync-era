@@ -10,7 +10,7 @@ use tonic::{
 use zksync_config::EigenConfig;
 use zksync_da_client::types::DAError;
 use zksync_eth_client::clients::PKSigningClient;
-use zksync_types::{url::SensitiveUrl, K256PrivateKey, SLChainId, H160};
+use zksync_types::{url::SensitiveUrl, K256PrivateKey, SLChainId};
 use zksync_web3_decl::client::{Client, DynClient, L1};
 
 use super::{
@@ -58,12 +58,11 @@ impl<T: GetBlobData> RawEigenClient<T> {
                 .eigenda_eth_rpc
                 .clone()
                 .ok_or(anyhow::anyhow!("EigenDA ETH RPC not set"))?,
-            svc_manager_addr: config.eigenda_svc_manager_address.clone(),
+            svc_manager_addr: config.eigenda_svc_manager_address,
             max_blob_size: Self::BLOB_SIZE_LIMIT as u32,
             g1_url: config.g1_url.clone(),
             g2_url: config.g2_url.clone(),
-            settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth.max(0)
-                as u32,
+            settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth,
             private_key: hex::encode(private_key.secret_bytes()),
             chain_id: config.chain_id,
         };
@@ -75,7 +74,7 @@ impl<T: GetBlobData> RawEigenClient<T> {
             K256PrivateKey::from_bytes(zksync_types::H256::from_str(
                 &verifier_config.private_key,
             )?)?,
-            H160::from_str(&verifier_config.svc_manager_addr)?,
+            verifier_config.svc_manager_addr,
             Verifier::DEFAULT_PRIORITY_FEE_PER_GAS,
             SLChainId(verifier_config.chain_id),
             query_client,
@@ -185,7 +184,7 @@ impl<T: GetBlobData> RawEigenClient<T> {
         let Some(data) = self.get_blob_data(blob_info.clone()).await? else {
             return Err(anyhow::anyhow!("Failed to get blob data"));
         };
-        let data_db = self.get_blob_data.call(request_id).await?;
+        let data_db = self.get_blob_data.get_blob_data(request_id).await?;
         if let Some(data_db) = data_db {
             if data_db != data {
                 return Err(anyhow::anyhow!(
