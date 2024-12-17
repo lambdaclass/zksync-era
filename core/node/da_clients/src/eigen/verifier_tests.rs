@@ -210,7 +210,7 @@ mod test {
                 quorum_indexes: vec![0, 1],
             },
         };
-        let result = verifier.verify_merkle_proof(cert);
+        let result = verifier.verify_merkle_proof(&cert);
         assert!(result.is_ok());
     }
 
@@ -293,7 +293,7 @@ mod test {
                 quorum_indexes: vec![0, 1],
             },
         };
-        let result = verifier.verify_merkle_proof(cert);
+        let result = verifier.verify_merkle_proof(&cert);
         assert!(result.is_ok());
     }
 
@@ -330,7 +330,7 @@ mod test {
                 },
             ],
         };
-        let result = verifier.hash_encode_blob_header(blob_header);
+        let result = verifier.hash_encode_blob_header(&blob_header);
         let expected = "ba4675a31c9bf6b2f7abfdcedd34b74645cb7332b35db39bff00ae8516a67393";
         assert_eq!(result, hex::decode(expected).unwrap());
     }
@@ -369,7 +369,7 @@ mod test {
                 },
             ],
         };
-        let result = verifier.hash_encode_blob_header(blob_header);
+        let result = verifier.hash_encode_blob_header(&blob_header);
         let expected = "ba4675a31c9bf6b2f7abfdcedd34b74645cb7332b35db39bff00ae8516a67393";
         assert_eq!(result, hex::decode(expected).unwrap());
     }
@@ -493,7 +493,7 @@ mod test {
                 quorum_indexes: vec![0, 1],
             },
         };
-        let result = verifier.verify_batch(cert).await;
+        let result = verifier.verify_batch(&cert).await;
         assert!(result.is_ok());
     }
 
@@ -601,7 +601,7 @@ mod test {
                 quorum_indexes: vec![0, 1],
             },
         };
-        let result = verifier.verify_batch(cert).await;
+        let result = verifier.verify_batch(&cert).await;
         assert!(result.is_ok());
     }
 
@@ -683,7 +683,7 @@ mod test {
                 quorum_indexes: vec![0, 1],
             },
         };
-        let result = verifier.verify_security_params(cert).await;
+        let result = verifier.verify_security_params(&cert).await;
         assert!(result.is_ok());
     }
 
@@ -808,7 +808,7 @@ mod test {
                 quorum_indexes: vec![0, 1],
             },
         };
-        let result = verifier.verify_security_params(cert).await;
+        let result = verifier.verify_security_params(&cert).await;
         assert!(result.is_ok());
     }
 }
