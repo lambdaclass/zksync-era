@@ -12,13 +12,13 @@ use super::{
 
 #[derive(Debug)]
 pub enum ConversionError {
-    NotPresentError,
+    NotPresent,
 }
 
 impl fmt::Display for ConversionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConversionError::NotPresentError => write!(f, "Failed to convert BlobInfo"),
+            ConversionError::NotPresent => write!(f, "Failed to convert BlobInfo"),
         }
     }
 }
@@ -112,9 +112,7 @@ impl TryFrom<DisperserBlobHeader> for BlobHeader {
             .map(|param| BlobQuorumParam::from(param.clone()))
             .collect();
         Ok(Self {
-            commitment: G1Commitment::from(
-                value.commitment.ok_or(ConversionError::NotPresentError)?,
-            ),
+            commitment: G1Commitment::from(value.commitment.ok_or(ConversionError::NotPresent)?),
             data_length: value.data_length,
             blob_quorum_params,
         })
@@ -179,9 +177,7 @@ impl TryFrom<DisperserBatchMetadata> for BatchMetadata {
     type Error = ConversionError;
     fn try_from(value: DisperserBatchMetadata) -> Result<Self, Self::Error> {
         Ok(Self {
-            batch_header: BatchHeader::from(
-                value.batch_header.ok_or(ConversionError::NotPresentError)?,
-            ),
+            batch_header: BatchHeader::from(value.batch_header.ok_or(ConversionError::NotPresent)?),
             signatory_record_hash: value.signatory_record_hash,
             fee: value.fee,
             confirmation_block_number: value.confirmation_block_number,
@@ -221,9 +217,7 @@ impl TryFrom<DisperserBlobVerificationProof> for BlobVerificationProof {
             batch_id: value.batch_id,
             blob_index: value.blob_index,
             batch_medatada: BatchMetadata::try_from(
-                value
-                    .batch_metadata
-                    .ok_or(ConversionError::NotPresentError)?,
+                value.batch_metadata.ok_or(ConversionError::NotPresent)?,
             )?,
             inclusion_proof: value.inclusion_proof,
             quorum_indexes: value.quorum_indexes,
@@ -254,12 +248,12 @@ impl TryFrom<DisperserBlobInfo> for BlobInfo {
     fn try_from(value: DisperserBlobInfo) -> Result<Self, Self::Error> {
         Ok(Self {
             blob_header: BlobHeader::try_from(
-                value.blob_header.ok_or(ConversionError::NotPresentError)?,
+                value.blob_header.ok_or(ConversionError::NotPresent)?,
             )?,
             blob_verification_proof: BlobVerificationProof::try_from(
                 value
                     .blob_verification_proof
-                    .ok_or(ConversionError::NotPresentError)?,
+                    .ok_or(ConversionError::NotPresent)?,
             )?,
         })
     }
