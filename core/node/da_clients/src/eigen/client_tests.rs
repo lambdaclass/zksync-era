@@ -59,7 +59,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl GetBlobData for MockGetBlobData {
-        async fn call(&self, _input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
+        async fn get_blob_data(&self, _input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
             Ok(None)
         }
     }

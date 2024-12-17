@@ -66,7 +66,7 @@ pub struct GetBlobFromDB {
 
 #[async_trait::async_trait]
 impl GetBlobData for GetBlobFromDB {
-    async fn call(&self, input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
+    async fn get_blob_data(&self, input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
         let pool = self.pool.clone();
         let input = input.to_string();
         let mut conn = pool.connection_tagged("eigen_client").await?;

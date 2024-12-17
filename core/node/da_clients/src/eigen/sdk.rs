@@ -184,7 +184,7 @@ impl<T: GetBlobData> RawEigenClient<T> {
         let Some(data) = self.get_blob_data(blob_info.clone()).await? else {
             return Err(anyhow::anyhow!("Failed to get blob data"));
         };
-        let data_db = self.get_blob_data.call(request_id).await?;
+        let data_db = self.get_blob_data.get_blob_data(request_id).await?;
         if let Some(data_db) = data_db {
             if data_db != data {
                 return Err(anyhow::anyhow!(
