@@ -106,16 +106,15 @@ impl BlobHeader {
 impl TryFrom<DisperserBlobHeader> for BlobHeader {
     type Error = ConversionError;
     fn try_from(value: DisperserBlobHeader) -> Result<Self, Self::Error> {
-        if value.commitment.is_none() {
-            return Err(ConversionError::NotPresentError);
-        }
         let blob_quorum_params: Vec<BlobQuorumParam> = value
             .blob_quorum_params
             .iter()
             .map(|param| BlobQuorumParam::from(param.clone()))
             .collect();
         Ok(Self {
-            commitment: G1Commitment::from(value.commitment.unwrap()),
+            commitment: G1Commitment::from(
+                value.commitment.ok_or(ConversionError::NotPresentError)?,
+            ),
             data_length: value.data_length,
             blob_quorum_params,
         })
@@ -179,11 +178,10 @@ impl BatchMetadata {
 impl TryFrom<DisperserBatchMetadata> for BatchMetadata {
     type Error = ConversionError;
     fn try_from(value: DisperserBatchMetadata) -> Result<Self, Self::Error> {
-        if value.batch_header.is_none() {
-            return Err(ConversionError::NotPresentError);
-        }
         Ok(Self {
-            batch_header: BatchHeader::from(value.batch_header.unwrap()),
+            batch_header: BatchHeader::from(
+                value.batch_header.ok_or(ConversionError::NotPresentError)?,
+            ),
             signatory_record_hash: value.signatory_record_hash,
             fee: value.fee,
             confirmation_block_number: value.confirmation_block_number,
@@ -219,13 +217,14 @@ impl BlobVerificationProof {
 impl TryFrom<DisperserBlobVerificationProof> for BlobVerificationProof {
     type Error = ConversionError;
     fn try_from(value: DisperserBlobVerificationProof) -> Result<Self, Self::Error> {
-        if value.batch_metadata.is_none() {
-            return Err(ConversionError::NotPresentError);
-        }
         Ok(Self {
             batch_id: value.batch_id,
             blob_index: value.blob_index,
-            batch_medatada: BatchMetadata::try_from(value.batch_metadata.unwrap())?,
+            batch_medatada: BatchMetadata::try_from(
+                value
+                    .batch_metadata
+                    .ok_or(ConversionError::NotPresentError)?,
+            )?,
             inclusion_proof: value.inclusion_proof,
             quorum_indexes: value.quorum_indexes,
         })
@@ -253,13 +252,14 @@ impl BlobInfo {
 impl TryFrom<DisperserBlobInfo> for BlobInfo {
     type Error = ConversionError;
     fn try_from(value: DisperserBlobInfo) -> Result<Self, Self::Error> {
-        if value.blob_header.is_none() || value.blob_verification_proof.is_none() {
-            return Err(ConversionError::NotPresentError);
-        }
         Ok(Self {
-            blob_header: BlobHeader::try_from(value.blob_header.unwrap())?,
+            blob_header: BlobHeader::try_from(
+                value.blob_header.ok_or(ConversionError::NotPresentError)?,
+            )?,
             blob_verification_proof: BlobVerificationProof::try_from(
-                value.blob_verification_proof.unwrap(),
+                value
+                    .blob_verification_proof
+                    .ok_or(ConversionError::NotPresentError)?,
             )?,
         })
     }
