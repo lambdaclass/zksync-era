@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::copy, path::Path};
+use std::{collections::HashMap, fs::File, io::copy, path::Path, str::FromStr};
 
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, ParamType, Token};
@@ -9,7 +9,7 @@ use zksync_basic_types::web3::CallRequest;
 use zksync_eth_client::{clients::PKSigningClient, EnrichedClientResult};
 use zksync_types::{
     web3::{self, BlockId, BlockNumber},
-    Address, U256, U64,
+    H160, U256, U64,
 };
 
 use super::blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment};
@@ -68,7 +68,7 @@ pub enum VerificationError {
 #[derive(Debug, Clone)]
 pub struct VerifierConfig {
     pub rpc_url: String,
-    pub svc_manager_addr: Address,
+    pub svc_manager_addr: String,
     pub max_blob_size: u32,
     pub g1_url: String,
     pub g2_url: String,
@@ -342,7 +342,10 @@ impl Verifier {
         data.append(batch_id_vec.to_vec().as_mut());
 
         let call_request = CallRequest {
-            to: Some(self.cfg.svc_manager_addr),
+            to: Some(
+                H160::from_str(&self.cfg.svc_manager_addr)
+                    .map_err(|_| VerificationError::ServiceManagerError)?,
+            ),
             data: Some(zksync_basic_types::web3::Bytes(data)),
             ..Default::default()
         };
@@ -442,8 +445,10 @@ impl Verifier {
         let data = func_selector.to_vec();
 
         let call_request = CallRequest {
-            to: Some(self.cfg.svc_manager_addr),
-
+            to: Some(
+                H160::from_str(&self.cfg.svc_manager_addr)
+                    .map_err(|_| VerificationError::ServiceManagerError)?,
+            ),
             data: Some(zksync_basic_types::web3::Bytes(data)),
             ..Default::default()
         };
@@ -469,7 +474,10 @@ impl Verifier {
         let func_selector = ethabi::short_signature("quorumNumbersRequired", &[]);
         let data = func_selector.to_vec();
         let call_request = CallRequest {
-            to: Some(self.cfg.svc_manager_addr),
+            to: Some(
+                H160::from_str(&self.cfg.svc_manager_addr)
+                    .map_err(|_| VerificationError::ServiceManagerError)?,
+            ),
             data: Some(zksync_basic_types::web3::Bytes(data)),
             ..Default::default()
         };
