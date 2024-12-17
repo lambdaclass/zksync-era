@@ -185,9 +185,9 @@ impl Verifier {
         Ok(())
     }
 
-    pub fn hash_encode_blob_header(&self, blob_header: BlobHeader) -> Vec<u8> {
+    pub fn hash_encode_blob_header(&self, blob_header: &BlobHeader) -> Vec<u8> {
         let mut blob_quorums = vec![];
-        for quorum in blob_header.blob_quorum_params {
+        for quorum in &blob_header.blob_quorum_params {
             let quorum = Token::Tuple(vec![
                 Token::Uint(ethabi::Uint::from(quorum.quorum_number)),
                 Token::Uint(ethabi::Uint::from(quorum.adversary_threshold_percentage)),
@@ -226,20 +226,16 @@ impl Verifier {
         }
         let mut computed_hash = leaf.to_vec();
         for i in 0..proof.len() / 32 {
-            let mut combined = proof[i * 32..(i + 1) * 32]
-                .iter()
-                .chain(computed_hash.iter())
-                .cloned()
-                .collect::<Vec<u8>>();
+            let mut buffer = [0u8; 64];
             if index % 2 == 0 {
-                combined = computed_hash
-                    .iter()
-                    .chain(proof[i * 32..(i + 1) * 32].iter())
-                    .cloned()
-                    .collect::<Vec<u8>>();
-            };
+                buffer[..32].copy_from_slice(&computed_hash);
+                buffer[32..].copy_from_slice(&proof[i * 32..(i + 1) * 32]);
+            } else {
+                buffer[..32].copy_from_slice(&proof[i * 32..(i + 1) * 32]);
+                buffer[32..].copy_from_slice(&computed_hash);
+            }
             let mut keccak = Keccak::v256();
-            keccak.update(&combined);
+            keccak.update(&buffer);
             let mut hash = [0u8; 32];
             keccak.finalize(&mut hash);
             computed_hash = hash.to_vec();
@@ -250,15 +246,15 @@ impl Verifier {
     }
 
     /// Verifies the certificate's batch root
-    pub fn verify_merkle_proof(&self, cert: BlobInfo) -> Result<(), VerificationError> {
-        let inclusion_proof = cert.blob_verification_proof.inclusion_proof;
-        let root = cert
+    pub fn verify_merkle_proof(&self, cert: &BlobInfo) -> Result<(), VerificationError> {
+        let inclusion_proof = &cert.blob_verification_proof.inclusion_proof;
+        let root = &cert
             .blob_verification_proof
             .batch_medatada
             .batch_header
             .batch_root;
         let blob_index = cert.blob_verification_proof.blob_index;
-        let blob_header = cert.blob_header;
+        let blob_header = &cert.blob_header;
 
         let blob_header_hash = self.hash_encode_blob_header(blob_header);
         let mut keccak = Keccak::v256();
@@ -267,9 +263,9 @@ impl Verifier {
         keccak.finalize(&mut leaf_hash);
 
         let generated_root =
-            self.process_inclusion_proof(&inclusion_proof, &leaf_hash, blob_index)?;
+            self.process_inclusion_proof(inclusion_proof, &leaf_hash, blob_index)?;
 
-        if generated_root != root {
+        if generated_root != *root {
             return Err(VerificationError::DifferentRoots);
         }
         Ok(())
@@ -277,14 +273,14 @@ impl Verifier {
 
     fn hash_batch_metadata(
         &self,
-        batch_header: BatchHeader,
-        signatory_record_hash: Vec<u8>,
+        batch_header: &BatchHeader,
+        signatory_record_hash: &[u8],
         confirmation_block_number: u32,
     ) -> Vec<u8> {
         let batch_header_token = Token::Tuple(vec![
-            Token::FixedBytes(batch_header.batch_root),
-            Token::Bytes(batch_header.quorum_numbers),
-            Token::Bytes(batch_header.quorum_signed_percentages),
+            Token::FixedBytes(batch_header.batch_root.clone()), // Clone only where necessary
+            Token::Bytes(batch_header.quorum_numbers.clone()),
+            Token::Bytes(batch_header.quorum_signed_percentages.clone()),
             Token::Uint(ethabi::Uint::from(batch_header.reference_block_number)),
         ]);
 
@@ -297,7 +293,7 @@ impl Verifier {
 
         let hash_token = Token::Tuple(vec![
             Token::FixedBytes(header_hash.to_vec()),
-            Token::FixedBytes(signatory_record_hash),
+            Token::FixedBytes(signatory_record_hash.to_owned()), // Clone only if required
         ]);
 
         let mut hash_encoded = encode(&[hash_token]);
@@ -330,7 +326,7 @@ impl Verifier {
 
     async fn call_batch_id_to_metadata_hash(
         &self,
-        blob_info: BlobInfo,
+        blob_info: &BlobInfo,
     ) -> Result<Vec<u8>, VerificationError> {
         let context_block = self.get_context_block().await?;
 
@@ -364,21 +360,19 @@ impl Verifier {
     }
 
     /// Verifies the certificate batch hash
-    pub async fn verify_batch(&self, blob_info: BlobInfo) -> Result<(), VerificationError> {
-        let expected_hash = self
-            .call_batch_id_to_metadata_hash(blob_info.clone())
-            .await?;
+    pub async fn verify_batch(&self, blob_info: &BlobInfo) -> Result<(), VerificationError> {
+        let expected_hash = self.call_batch_id_to_metadata_hash(blob_info).await?;
 
         if expected_hash == vec![0u8; 32] {
             return Err(VerificationError::EmptyHash);
         }
 
         let actual_hash = self.hash_batch_metadata(
-            blob_info
+            &blob_info
                 .blob_verification_proof
                 .batch_medatada
                 .batch_header,
-            blob_info
+            &blob_info
                 .blob_verification_proof
                 .batch_medatada
                 .signatory_record_hash,
@@ -401,15 +395,11 @@ impl Verifier {
         }
 
         // Read the offset (first 32 bytes)
-        let offset = {
-            let mut offset_bytes = [0u8; 32];
-            offset_bytes.copy_from_slice(&encoded[0..32]);
-            usize::from_be_bytes(
-                offset_bytes[24..32]
-                    .try_into()
-                    .map_err(|_| "Offset is too large")?,
-            )
-        };
+        let offset = usize::from_be_bytes(
+            encoded[24..32]
+                .try_into()
+                .map_err(|_| "Offset is too large")?,
+        );
 
         // Check if offset is valid
         if offset + 32 > encoded.len() {
@@ -417,15 +407,11 @@ impl Verifier {
         }
 
         // Read the length (32 bytes at the offset position)
-        let length = {
-            let mut length_bytes = [0u8; 32];
-            length_bytes.copy_from_slice(&encoded[offset..offset + 32]);
-            usize::from_be_bytes(
-                length_bytes[24..32]
-                    .try_into()
-                    .map_err(|_| "Offset is too large")?,
-            )
-        };
+        let length = usize::from_be_bytes(
+            encoded[offset + 24..offset + 32]
+                .try_into()
+                .map_err(|_| "Length is too large")?,
+        );
 
         // Check if the length is valid
         if offset + 32 + length > encoded.len() {
@@ -494,9 +480,9 @@ impl Verifier {
     }
 
     /// Verifies that the certificate's blob quorum params are correct
-    pub async fn verify_security_params(&self, cert: BlobInfo) -> Result<(), VerificationError> {
-        let blob_header = cert.blob_header;
-        let batch_header = cert.blob_verification_proof.batch_medatada.batch_header;
+    pub async fn verify_security_params(&self, cert: &BlobInfo) -> Result<(), VerificationError> {
+        let blob_header = &cert.blob_header;
+        let batch_header = &cert.blob_verification_proof.batch_medatada.batch_header;
 
         let mut confirmed_quorums: HashMap<u32, bool> = HashMap::new();
         for i in 0..blob_header.blob_quorum_params.len() {
@@ -545,9 +531,9 @@ impl Verifier {
         &self,
         cert: BlobInfo,
     ) -> Result<(), VerificationError> {
-        self.verify_batch(cert.clone()).await?;
-        self.verify_merkle_proof(cert.clone())?;
-        self.verify_security_params(cert.clone()).await?;
+        self.verify_batch(&cert).await?;
+        self.verify_merkle_proof(&cert)?;
+        self.verify_security_params(&cert).await?;
         Ok(())
     }
 }
