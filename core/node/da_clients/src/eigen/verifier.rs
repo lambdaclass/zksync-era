@@ -3,7 +3,6 @@ use std::{collections::HashMap, fs::File, io::copy, path::Path};
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, ParamType, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
-use tiny_keccak::{Hasher, Keccak};
 use url::Url;
 use zksync_basic_types::web3::CallRequest;
 use zksync_eth_client::{clients::PKSigningClient, EnrichedClientResult};
@@ -206,12 +205,7 @@ impl Verifier {
         ]);
 
         let encoded = encode(&[blob_header]);
-
-        let mut keccak = Keccak::v256();
-        keccak.update(&encoded);
-        let mut hash = [0u8; 32];
-        keccak.finalize(&mut hash);
-        hash.to_vec()
+        web3::keccak256(&encoded).to_vec()
     }
 
     pub fn process_inclusion_proof(
@@ -234,11 +228,7 @@ impl Verifier {
                 buffer[..32].copy_from_slice(&proof[i * 32..(i + 1) * 32]);
                 buffer[32..].copy_from_slice(&computed_hash);
             }
-            let mut keccak = Keccak::v256();
-            keccak.update(&buffer);
-            let mut hash = [0u8; 32];
-            keccak.finalize(&mut hash);
-            computed_hash = hash.to_vec();
+            computed_hash = web3::keccak256(&buffer).to_vec();
             index /= 2;
         }
 
@@ -257,10 +247,7 @@ impl Verifier {
         let blob_header = &cert.blob_header;
 
         let blob_header_hash = self.hash_encode_blob_header(blob_header);
-        let mut keccak = Keccak::v256();
-        keccak.update(&blob_header_hash);
-        let mut leaf_hash = [0u8; 32];
-        keccak.finalize(&mut leaf_hash);
+        let leaf_hash = web3::keccak256(&blob_header_hash).to_vec();
 
         let generated_root =
             self.process_inclusion_proof(inclusion_proof, &leaf_hash, blob_index)?;
@@ -285,11 +272,7 @@ impl Verifier {
         ]);
 
         let encoded = encode(&[batch_header_token]);
-
-        let mut keccak = Keccak::v256();
-        keccak.update(&encoded);
-        let mut header_hash = [0u8; 32];
-        keccak.finalize(&mut header_hash);
+        let header_hash = web3::keccak256(&encoded).to_vec();
 
         let hash_token = Token::Tuple(vec![
             Token::FixedBytes(header_hash.to_vec()),
@@ -299,13 +282,7 @@ impl Verifier {
         let mut hash_encoded = encode(&[hash_token]);
 
         hash_encoded.append(&mut confirmation_block_number.to_be_bytes().to_vec());
-
-        let mut keccak = Keccak::v256();
-        keccak.update(&hash_encoded);
-        let mut hash = [0u8; 32];
-        keccak.finalize(&mut hash);
-
-        hash.to_vec()
+        web3::keccak256(&hash_encoded).to_vec()
     }
 
     /// Retrieves the block to make the request to the service manager
