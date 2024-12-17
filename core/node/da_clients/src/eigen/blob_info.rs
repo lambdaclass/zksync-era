@@ -29,18 +29,6 @@ pub struct G1Commitment {
     pub y: Vec<u8>,
 }
 
-impl G1Commitment {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        bytes.extend(&self.x.len().to_be_bytes());
-        bytes.extend(&self.x);
-        bytes.extend(&self.y.len().to_be_bytes());
-        bytes.extend(&self.y);
-
-        bytes
-    }
-}
-
 impl From<DisperserG1Commitment> for G1Commitment {
     fn from(value: DisperserG1Commitment) -> Self {
         Self {
@@ -56,18 +44,6 @@ pub struct BlobQuorumParam {
     pub adversary_threshold_percentage: u32,
     pub confirmation_threshold_percentage: u32,
     pub chunk_length: u32,
-}
-
-impl BlobQuorumParam {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        bytes.extend(&self.quorum_number.to_be_bytes());
-        bytes.extend(&self.adversary_threshold_percentage.to_be_bytes());
-        bytes.extend(&self.confirmation_threshold_percentage.to_be_bytes());
-        bytes.extend(&self.chunk_length.to_be_bytes());
-
-        bytes
-    }
 }
 
 impl From<DisperserBlobQuorumParam> for BlobQuorumParam {
@@ -86,21 +62,6 @@ pub struct BlobHeader {
     pub commitment: G1Commitment,
     pub data_length: u32,
     pub blob_quorum_params: Vec<BlobQuorumParam>,
-}
-
-impl BlobHeader {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        bytes.extend(self.commitment.to_bytes());
-        bytes.extend(&self.data_length.to_be_bytes());
-        bytes.extend(&self.blob_quorum_params.len().to_be_bytes());
-
-        for quorum in &self.blob_quorum_params {
-            bytes.extend(quorum.to_bytes());
-        }
-
-        bytes
-    }
 }
 
 impl TryFrom<DisperserBlobHeader> for BlobHeader {
@@ -127,21 +88,6 @@ pub struct BatchHeader {
     pub reference_block_number: u32,
 }
 
-impl BatchHeader {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        bytes.extend(&self.batch_root.len().to_be_bytes());
-        bytes.extend(&self.batch_root);
-        bytes.extend(&self.quorum_numbers.len().to_be_bytes());
-        bytes.extend(&self.quorum_numbers);
-        bytes.extend(&self.quorum_signed_percentages.len().to_be_bytes());
-        bytes.extend(&self.quorum_signed_percentages);
-        bytes.extend(&self.reference_block_number.to_be_bytes());
-
-        bytes
-    }
-}
-
 impl From<DisperserBatchHeader> for BatchHeader {
     fn from(value: DisperserBatchHeader) -> Self {
         Self {
@@ -160,17 +106,6 @@ pub struct BatchMetadata {
     pub fee: Vec<u8>,
     pub confirmation_block_number: u32,
     pub batch_header_hash: Vec<u8>,
-}
-
-impl BatchMetadata {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        bytes.extend(self.batch_header.to_bytes());
-        bytes.extend(&self.signatory_record_hash);
-        bytes.extend(&self.confirmation_block_number.to_be_bytes());
-
-        bytes
-    }
 }
 
 impl TryFrom<DisperserBatchMetadata> for BatchMetadata {
@@ -195,21 +130,6 @@ pub struct BlobVerificationProof {
     pub quorum_indexes: Vec<u8>,
 }
 
-impl BlobVerificationProof {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        bytes.extend(&self.batch_id.to_be_bytes());
-        bytes.extend(&self.blob_index.to_be_bytes());
-        bytes.extend(self.batch_medatada.to_bytes());
-        bytes.extend(&self.inclusion_proof.len().to_be_bytes());
-        bytes.extend(&self.inclusion_proof);
-        bytes.extend(&self.quorum_indexes.len().to_be_bytes());
-        bytes.extend(&self.quorum_indexes);
-
-        bytes
-    }
-}
-
 impl TryFrom<DisperserBlobVerificationProof> for BlobVerificationProof {
     type Error = ConversionError;
     fn try_from(value: DisperserBlobVerificationProof) -> Result<Self, Self::Error> {
@@ -229,18 +149,6 @@ impl TryFrom<DisperserBlobVerificationProof> for BlobVerificationProof {
 pub struct BlobInfo {
     pub blob_header: BlobHeader,
     pub blob_verification_proof: BlobVerificationProof,
-}
-
-impl BlobInfo {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        let blob_header_bytes = self.blob_header.to_bytes();
-        bytes.extend(blob_header_bytes.len().to_be_bytes());
-        bytes.extend(blob_header_bytes);
-        let blob_verification_proof_bytes = self.blob_verification_proof.to_bytes();
-        bytes.extend(blob_verification_proof_bytes);
-        bytes
-    }
 }
 
 impl TryFrom<DisperserBlobInfo> for BlobInfo {
