@@ -62,8 +62,7 @@ impl<T: GetBlobData> RawEigenClient<T> {
             max_blob_size: Self::BLOB_SIZE_LIMIT as u32,
             g1_url: config.g1_url.clone(),
             g2_url: config.g2_url.clone(),
-            settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth.max(0)
-                as u32,
+            settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth,
             private_key: hex::encode(private_key.secret_bytes()),
             chain_id: config.chain_id,
         };
