@@ -295,7 +295,10 @@ impl Verifier {
             .map_err(|_| VerificationError::ServiceManagerError)?
             .as_u64();
 
-        let depth = self.cfg.settlement_layer_confirmation_depth.saturating_sub(1);
+        let depth = self
+            .cfg
+            .settlement_layer_confirmation_depth
+            .saturating_sub(1);
         let block_to_return = latest - depth as u64;
         Ok(block_to_return)
     }
@@ -362,38 +365,16 @@ impl Verifier {
     }
 
     fn decode_bytes(&self, encoded: Vec<u8>) -> Result<Vec<u8>, String> {
-        // Ensure the input has at least 64 bytes (offset + length)
-        if encoded.len() < 64 {
-            return Err("Encoded data is too short".to_string());
+        let output_type = [ParamType::Bytes];
+        let tokens: Vec<Token> = ethabi::decode(&output_type, &encoded)
+            .map_err(|_| "Incorrect result on contract call")?;
+        let token = tokens
+            .get(0)
+            .ok_or_else(|| "Incorrect result on contract call")?;
+        match token {
+            Token::Bytes(data) => Ok(data.to_vec()),
+            _ => Err("Incorrect result on contract call".to_string()),
         }
-
-        // Read the offset (first 32 bytes)
-        let offset = usize::from_be_bytes(
-            encoded[24..32]
-                .try_into()
-                .map_err(|_| "Offset is too large")?,
-        );
-
-        // Check if offset is valid
-        if offset + 32 > encoded.len() {
-            return Err("Offset points outside the encoded data".to_string());
-        }
-
-        // Read the length (32 bytes at the offset position)
-        let length = usize::from_be_bytes(
-            encoded[offset + 24..offset + 32]
-                .try_into()
-                .map_err(|_| "Length is too large")?,
-        );
-
-        // Check if the length is valid
-        if offset + 32 + length > encoded.len() {
-            return Err("Length extends beyond the encoded data".to_string());
-        }
-
-        // Extract the bytes data
-        let data = encoded[offset + 32..offset + 32 + length].to_vec();
-        Ok(data)
     }
 
     async fn get_quorum_adversary_threshold(
