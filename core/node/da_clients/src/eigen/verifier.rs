@@ -1,8 +1,9 @@
-use std::{collections::HashMap, fs::File, io::copy, path::Path};
+use std::{collections::HashMap, path::Path};
 
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, ParamType, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
+use tokio::{fs::File, io::AsyncWriteExt};
 use url::Url;
 use zksync_basic_types::web3::CallRequest;
 use zksync_eth_client::{clients::PKSigningClient, EnrichedClientResult};
@@ -113,12 +114,14 @@ impl Verifier {
         }
         let path = format!("./{}", point);
         let path = Path::new(&path);
-        let mut file = File::create(path).map_err(|_| VerificationError::LinkError)?;
+        let mut file = File::create(path).await.map_err(|_| VerificationError::LinkError)?;
         let content = response
             .bytes()
             .await
             .map_err(|_| VerificationError::LinkError)?;
-        copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
+        file.write_all(&content)
+            .await
+            .map_err(|_| VerificationError::LinkError)?;
         Ok(())
     }
     async fn save_points(url_g1: String, url_g2: String) -> Result<String, VerificationError> {
@@ -133,15 +136,20 @@ impl Verifier {
     ) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / Self::POINT_SIZE;
         let path = Self::save_points(cfg.clone().g1_url, cfg.clone().g2_url).await?;
-        let kzg = Kzg::setup(
-            &format!("{}/{}", path, Self::G1POINT),
-            "",
-            &format!("{}/{}", path, Self::G2POINT),
-            Self::SRSORDER,
-            srs_points_to_load,
-            "".to_string(),
-        );
-        let kzg = kzg.map_err(|e| {
+        let kzg_handle = tokio::task::spawn_blocking(move || {
+            Kzg::setup(
+                &format!("{}/{}", path, Self::G1POINT),
+                "",
+                &format!("{}/{}", path, Self::G2POINT),
+                Self::SRSORDER,
+                srs_points_to_load,
+                "".to_string(),
+            )
+        });
+        let kzg = kzg_handle.await.map_err(|e| {
+            tracing::error!("Failed to setup KZG: {:?}", e);
+            VerificationError::KzgError
+        })?.map_err(|e| {
             tracing::error!("Failed to setup KZG: {:?}", e);
             VerificationError::KzgError
         })?;
