@@ -7,6 +7,7 @@ use tonic::{
     transport::{Channel, ClientTlsConfig, Endpoint},
     Streaming,
 };
+use url::Url;
 use zksync_config::EigenConfig;
 use zksync_da_client::types::DAError;
 use zksync_eth_client::clients::PKSigningClient;
@@ -60,8 +61,8 @@ impl<T: GetBlobData> RawEigenClient<T> {
                 .ok_or(anyhow::anyhow!("EigenDA ETH RPC not set"))?,
             svc_manager_addr: Address::from_str(&config.eigenda_svc_manager_address)?,
             max_blob_size: Self::BLOB_SIZE_LIMIT as u32,
-            g1_url: config.g1_url.clone(),
-            g2_url: config.g2_url.clone(),
+            g1_url: Url::parse(&config.g1_url)?,
+            g2_url: Url::parse(&config.g2_url)?,
             settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth,
             private_key: hex::encode(private_key.secret_bytes()),
             chain_id: config.chain_id,
