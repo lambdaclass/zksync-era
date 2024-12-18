@@ -70,8 +70,8 @@ pub struct VerifierConfig {
     pub rpc_url: String,
     pub svc_manager_addr: Address,
     pub max_blob_size: u32,
-    pub g1_url: String,
-    pub g2_url: String,
+    pub g1_url: Url,
+    pub g2_url: Url,
     pub settlement_layer_confirmation_depth: u32,
     pub private_key: String,
     pub chain_id: u64,
@@ -104,8 +104,8 @@ impl Verifier {
     pub const G2POINT: &'static str = "g2.point.powerOf2";
     pub const POINT_SIZE: u32 = 32;
 
-    async fn save_point(url: String, point: String) -> Result<(), VerificationError> {
-        let url = Url::parse(&url).map_err(|_| VerificationError::LinkError)?;
+    async fn save_point(url: Url, point: String) -> Result<(), VerificationError> {
+        //let url = Url::parse(&url).map_err(|_| VerificationError::LinkError)?;
         let response = reqwest::get(url)
             .await
             .map_err(|_| VerificationError::LinkError)?;
@@ -124,9 +124,9 @@ impl Verifier {
             .map_err(|_| VerificationError::LinkError)?;
         Ok(())
     }
-    async fn save_points(url_g1: String, url_g2: String) -> Result<String, VerificationError> {
-        Self::save_point(url_g1.clone(), Self::G1POINT.to_string()).await?;
-        Self::save_point(url_g2.clone(), Self::G2POINT.to_string()).await?;
+    async fn save_points(url_g1: Url, url_g2: Url) -> Result<String, VerificationError> {
+        Self::save_point(url_g1, Self::G1POINT.to_string()).await?;
+        Self::save_point(url_g2, Self::G2POINT.to_string()).await?;
 
         Ok(".".to_string())
     }
@@ -373,38 +373,16 @@ impl Verifier {
     }
 
     fn decode_bytes(&self, encoded: Vec<u8>) -> Result<Vec<u8>, String> {
-        // Ensure the input has at least 64 bytes (offset + length)
-        if encoded.len() < 64 {
-            return Err("Encoded data is too short".to_string());
+        let output_type = [ParamType::Bytes];
+        let tokens: Vec<Token> = ethabi::decode(&output_type, &encoded)
+            .map_err(|_| "Incorrect result on contract call")?;
+        let token = tokens
+            .get(0)
+            .ok_or_else(|| "Incorrect result on contract call")?;
+        match token {
+            Token::Bytes(data) => Ok(data.to_vec()),
+            _ => Err("Incorrect result on contract call".to_string()),
         }
-
-        // Read the offset (first 32 bytes)
-        let offset = usize::from_be_bytes(
-            encoded[24..32]
-                .try_into()
-                .map_err(|_| "Offset is too large")?,
-        );
-
-        // Check if offset is valid
-        if offset + 32 > encoded.len() {
-            return Err("Offset points outside the encoded data".to_string());
-        }
-
-        // Read the length (32 bytes at the offset position)
-        let length = usize::from_be_bytes(
-            encoded[offset + 24..offset + 32]
-                .try_into()
-                .map_err(|_| "Length is too large")?,
-        );
-
-        // Check if the length is valid
-        if offset + 32 + length > encoded.len() {
-            return Err("Length extends beyond the encoded data".to_string());
-        }
-
-        // Extract the bytes data
-        let data = encoded[offset + 32..offset + 32 + length].to_vec();
-        Ok(data)
     }
 
     async fn get_quorum_adversary_threshold(
