@@ -43,7 +43,7 @@ impl Clone for RawEigenClient {
     fn clone(&self) -> Self {
         Self {
             client: self.client.clone(),
-            private_key: self.private_key.clone(),
+            private_key: self.private_key,
             config: self.config.clone(),
             verifier: self.verifier.clone(),
             get_blob_data: self.get_blob_data.clone_boxed(),
