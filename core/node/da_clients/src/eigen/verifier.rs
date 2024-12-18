@@ -69,8 +69,8 @@ pub struct VerifierConfig {
     pub rpc_url: String,
     pub svc_manager_addr: Address,
     pub max_blob_size: u32,
-    pub g1_url: String,
-    pub g2_url: String,
+    pub g1_url: Url,
+    pub g2_url: Url,
     pub settlement_layer_confirmation_depth: u32,
     pub private_key: String,
     pub chain_id: u64,
@@ -103,8 +103,8 @@ impl Verifier {
     pub const G2POINT: &'static str = "g2.point.powerOf2";
     pub const POINT_SIZE: u32 = 32;
 
-    async fn save_point(url: String, point: String) -> Result<(), VerificationError> {
-        let url = Url::parse(&url).map_err(|_| VerificationError::LinkError)?;
+    async fn save_point(url: Url, point: String) -> Result<(), VerificationError> {
+        //let url = Url::parse(&url).map_err(|_| VerificationError::LinkError)?;
         let response = reqwest::get(url)
             .await
             .map_err(|_| VerificationError::LinkError)?;
@@ -121,9 +121,9 @@ impl Verifier {
         copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
         Ok(())
     }
-    async fn save_points(url_g1: String, url_g2: String) -> Result<String, VerificationError> {
-        Self::save_point(url_g1.clone(), Self::G1POINT.to_string()).await?;
-        Self::save_point(url_g2.clone(), Self::G2POINT.to_string()).await?;
+    async fn save_points(url_g1: Url, url_g2: Url) -> Result<String, VerificationError> {
+        Self::save_point(url_g1, Self::G1POINT.to_string()).await?;
+        Self::save_point(url_g2, Self::G2POINT.to_string()).await?;
 
         Ok(".".to_string())
     }
