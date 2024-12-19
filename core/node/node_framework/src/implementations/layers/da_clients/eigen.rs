@@ -70,7 +70,7 @@ impl GetBlobData for GetBlobFromDB {
         let mut conn = self.pool.connection_tagged("eigen_client").await?;
         let batch = conn
             .data_availability_dal()
-            .get_blob_data_by_blob_id(&input)
+            .get_blob_data_by_blob_id(input)
             .await?;
         Ok(batch.map(|b| b.pubdata))
     }
