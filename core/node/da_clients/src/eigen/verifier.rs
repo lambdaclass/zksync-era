@@ -296,7 +296,7 @@ impl Verifier {
             .as_u64();
 
         let depth = self.cfg.settlement_layer_confirmation_depth.saturating_sub(1);
-        let block_to_return = latest - depth as u64;
+        let block_to_return = latest.saturating_sub(depth as u64);
         Ok(block_to_return)
     }
 
