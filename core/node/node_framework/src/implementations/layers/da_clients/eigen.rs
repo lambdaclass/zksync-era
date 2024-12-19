@@ -74,4 +74,8 @@ impl GetBlobData for GetBlobFromDB {
             .await?;
         Ok(batch.map(|b| b.pubdata))
     }
+
+    fn clone_boxed(&self) -> Box<dyn GetBlobData> {
+        Box::new(self.clone())
+    }
 }

@@ -17,7 +17,7 @@ mod tests {
 
     use crate::eigen::{blob_info::BlobInfo, EigenClient, GetBlobData};
 
-    impl<T: GetBlobData> EigenClient<T> {
+    impl EigenClient {
         pub async fn get_blob_data(
             &self,
             blob_id: BlobInfo,
@@ -32,8 +32,8 @@ mod tests {
     const STATUS_QUERY_TIMEOUT: u64 = 1800000; // 30 minutes
     const STATUS_QUERY_INTERVAL: u64 = 5; // 5 ms
 
-    async fn get_blob_info<T: GetBlobData>(
-        client: &EigenClient<T>,
+    async fn get_blob_info(
+        client: &EigenClient,
         result: &DispatchResponse,
     ) -> anyhow::Result<BlobInfo> {
         let blob_info = (|| async {
@@ -61,6 +61,10 @@ mod tests {
     impl GetBlobData for MockGetBlobData {
         async fn get_blob_data(&self, _input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
             Ok(None)
+        }
+
+        fn clone_boxed(&self) -> Box<dyn GetBlobData> {
+            Box::new(self.clone())
         }
     }
 
