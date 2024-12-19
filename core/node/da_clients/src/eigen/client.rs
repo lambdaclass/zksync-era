@@ -14,7 +14,7 @@ use crate::utils::to_retriable_da_error;
 // We can't implement DataAvailabilityClient for an outside struct, so it is needed to defined this intermediate struct
 #[derive(Debug, Clone)]
 pub struct EigenDAClient {
-    client: EigenClient<GetBlobFromDB>,
+    client: EigenClient,
 }
 impl EigenDAClient {
     pub async fn new(
@@ -53,16 +53,17 @@ pub struct GetBlobFromDB {
 
 #[async_trait::async_trait]
 impl GetBlobData for GetBlobFromDB {
-    async fn call(&self, input: &'_ str) -> Result<Option<Vec<u8>>, Box<dyn Error + Send + Sync>> {
-        let pool = self.pool.clone();
-        let input = input.to_string();
-        let mut conn = pool.connection_tagged("eigen_client").await?;
+    async fn get_blob_data(&self, input: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        let mut conn = self.pool.connection_tagged("eigen_client").await?;
         let batch = conn
             .data_availability_dal()
-            .get_blob_data_by_blob_id(&input)
+            .get_blob_data_by_blob_id(input)
             .await?;
-        drop(conn);
         Ok(batch.map(|b| b.pubdata))
+    }
+
+    fn clone_boxed(&self) -> Box<dyn GetBlobData> {
+        Box::new(self.clone())
     }
 }
 
