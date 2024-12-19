@@ -31,24 +31,36 @@ use crate::eigen::{
     verifier::VerificationError,
 };
 
-#[derive(Debug, Clone)]
-pub(crate) struct RawEigenClient<T: GetBlobData> {
+#[derive(Debug)]
+pub(crate) struct RawEigenClient {
     client: Arc<Mutex<DisperserClient<Channel>>>,
     private_key: SecretKey,
     pub config: EigenConfig,
     verifier: Verifier,
-    get_blob_data: Box<T>,
+    get_blob_data: Box<dyn GetBlobData>,
+}
+
+impl Clone for RawEigenClient {
+    fn clone(&self) -> Self {
+        Self {
+            client: self.client.clone(),
+            private_key: self.private_key,
+            config: self.config.clone(),
+            verifier: self.verifier.clone(),
+            get_blob_data: self.get_blob_data.clone_boxed(),
+        }
+    }
 }
 
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
 
-impl<T: GetBlobData> RawEigenClient<T> {
+impl RawEigenClient {
     const BLOB_SIZE_LIMIT: usize = 1024 * 1024 * 2; // 2 MB
 
     pub async fn new(
         private_key: SecretKey,
         config: EigenConfig,
-        get_blob_data: Box<T>,
+        get_blob_data: Box<dyn GetBlobData>,
     ) -> anyhow::Result<Self> {
         let endpoint =
             Endpoint::from_str(config.disperser_rpc.as_str())?.tls_config(ClientTlsConfig::new())?;
