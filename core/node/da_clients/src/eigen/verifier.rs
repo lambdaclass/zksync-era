@@ -363,14 +363,16 @@ impl Verifier {
         Ok(())
     }
 
-    fn decode_bytes(&self, encoded: Vec<u8>) -> Result<Vec<u8>, String> {
+    fn decode_bytes(&self, encoded: Vec<u8>) -> Result<Vec<u8>, VerificationError> {
         let output_type = [ParamType::Bytes];
         let tokens: Vec<Token> = ethabi::decode(&output_type, &encoded)
-            .map_err(|_| "Incorrect result on contract call")?;
-        let token = tokens.first().ok_or("Incorrect result on contract call")?;
+            .map_err(|_| VerificationError::ServiceManagerError)?;
+        let token = tokens
+            .first()
+            .ok_or(VerificationError::ServiceManagerError)?;
         match token {
             Token::Bytes(data) => Ok(data.to_vec()),
-            _ => Err("Incorrect result on contract call".to_string()),
+            _ => Err(VerificationError::ServiceManagerError),
         }
     }
 
@@ -394,9 +396,7 @@ impl Verifier {
             .await
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let percentages = self
-            .decode_bytes(res.0.to_vec())
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+        let percentages = self.decode_bytes(res.0.to_vec())?;
 
         if percentages.len() > quorum_number as usize {
             return Ok(percentages[quorum_number as usize]);
@@ -421,7 +421,6 @@ impl Verifier {
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
         self.decode_bytes(res.0.to_vec())
-            .map_err(|_| VerificationError::ServiceManagerError)
     }
 
     /// Verifies that the certificate's blob quorum params are correct
