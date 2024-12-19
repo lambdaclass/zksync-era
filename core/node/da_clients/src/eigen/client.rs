@@ -53,7 +53,10 @@ pub struct GetBlobFromDB {
 
 #[async_trait::async_trait]
 impl GetBlobData for GetBlobFromDB {
-    async fn get_blob_data(&self, input: &str) -> anyhow::Result<Option<Vec<u8>>> {
+    async fn get_blob_data(
+        &self,
+        input: &str,
+    ) -> Result<Option<Vec<u8>>, Box<dyn Error + Send + Sync>> {
         let mut conn = self.pool.connection_tagged("eigen_client").await?;
         let batch = conn
             .data_availability_dal()
