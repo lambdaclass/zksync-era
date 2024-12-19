@@ -1,8 +1,9 @@
-use std::{collections::HashMap, fs::File, io::copy, path::Path};
+use std::{collections::HashMap, path::Path};
 
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, ParamType, Token};
 use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
+use tokio::{fs::File, io::AsyncWriteExt};
 use url::Url;
 use zksync_basic_types::web3::CallRequest;
 use zksync_eth_client::{clients::PKSigningClient, EnrichedClientResult};
@@ -69,8 +70,8 @@ pub struct VerifierConfig {
     pub rpc_url: String,
     pub svc_manager_addr: Address,
     pub max_blob_size: u32,
-    pub g1_url: String,
-    pub g2_url: String,
+    pub g1_url: Url,
+    pub g2_url: Url,
     pub settlement_layer_confirmation_depth: u32,
     pub private_key: String,
     pub chain_id: u64,
@@ -103,8 +104,7 @@ impl Verifier {
     pub const G2POINT: &'static str = "g2.point.powerOf2";
     pub const POINT_SIZE: u32 = 32;
 
-    async fn save_point(url: String, point: String) -> Result<(), VerificationError> {
-        let url = Url::parse(&url).map_err(|_| VerificationError::LinkError)?;
+    async fn save_point(url: Url, point: String) -> Result<(), VerificationError> {
         let response = reqwest::get(url)
             .await
             .map_err(|_| VerificationError::LinkError)?;
@@ -113,17 +113,19 @@ impl Verifier {
         }
         let path = format!("./{}", point);
         let path = Path::new(&path);
-        let mut file = File::create(path).map_err(|_| VerificationError::LinkError)?;
+        let mut file = File::create(path).await.map_err(|_| VerificationError::LinkError)?;
         let content = response
             .bytes()
             .await
             .map_err(|_| VerificationError::LinkError)?;
-        copy(&mut content.as_ref(), &mut file).map_err(|_| VerificationError::LinkError)?;
+        file.write_all(&content)
+            .await
+            .map_err(|_| VerificationError::LinkError)?;
         Ok(())
     }
-    async fn save_points(url_g1: String, url_g2: String) -> Result<String, VerificationError> {
-        Self::save_point(url_g1.clone(), Self::G1POINT.to_string()).await?;
-        Self::save_point(url_g2.clone(), Self::G2POINT.to_string()).await?;
+    async fn save_points(url_g1: Url, url_g2: Url) -> Result<String, VerificationError> {
+        Self::save_point(url_g1, Self::G1POINT.to_string()).await?;
+        Self::save_point(url_g2, Self::G2POINT.to_string()).await?;
 
         Ok(".".to_string())
     }
@@ -133,15 +135,20 @@ impl Verifier {
     ) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / Self::POINT_SIZE;
         let path = Self::save_points(cfg.clone().g1_url, cfg.clone().g2_url).await?;
-        let kzg = Kzg::setup(
-            &format!("{}/{}", path, Self::G1POINT),
-            "",
-            &format!("{}/{}", path, Self::G2POINT),
-            Self::SRSORDER,
-            srs_points_to_load,
-            "".to_string(),
-        );
-        let kzg = kzg.map_err(|e| {
+        let kzg_handle = tokio::task::spawn_blocking(move || {
+            Kzg::setup(
+                &format!("{}/{}", path, Self::G1POINT),
+                "",
+                &format!("{}/{}", path, Self::G2POINT),
+                Self::SRSORDER,
+                srs_points_to_load,
+                "".to_string(),
+            )
+        });
+        let kzg = kzg_handle.await.map_err(|e| {
+            tracing::error!("Failed to setup KZG: {:?}", e);
+            VerificationError::KzgError
+        })?.map_err(|e| {
             tracing::error!("Failed to setup KZG: {:?}", e);
             VerificationError::KzgError
         })?;
@@ -295,7 +302,10 @@ impl Verifier {
             .map_err(|_| VerificationError::ServiceManagerError)?
             .as_u64();
 
-        let depth = self.cfg.settlement_layer_confirmation_depth.saturating_sub(1);
+        let depth = self
+            .cfg
+            .settlement_layer_confirmation_depth
+            .saturating_sub(1);
         let block_to_return = latest.saturating_sub(depth as u64);
         Ok(block_to_return)
     }
@@ -361,39 +371,17 @@ impl Verifier {
         Ok(())
     }
 
-    fn decode_bytes(&self, encoded: Vec<u8>) -> Result<Vec<u8>, String> {
-        // Ensure the input has at least 64 bytes (offset + length)
-        if encoded.len() < 64 {
-            return Err("Encoded data is too short".to_string());
+    fn decode_bytes(&self, encoded: Vec<u8>) -> Result<Vec<u8>, VerificationError> {
+        let output_type = [ParamType::Bytes];
+        let tokens: Vec<Token> = ethabi::decode(&output_type, &encoded)
+            .map_err(|_| VerificationError::ServiceManagerError)?;
+        let token = tokens
+            .first()
+            .ok_or(VerificationError::ServiceManagerError)?;
+        match token {
+            Token::Bytes(data) => Ok(data.to_vec()),
+            _ => Err(VerificationError::ServiceManagerError),
         }
-
-        // Read the offset (first 32 bytes)
-        let offset = usize::from_be_bytes(
-            encoded[24..32]
-                .try_into()
-                .map_err(|_| "Offset is too large")?,
-        );
-
-        // Check if offset is valid
-        if offset + 32 > encoded.len() {
-            return Err("Offset points outside the encoded data".to_string());
-        }
-
-        // Read the length (32 bytes at the offset position)
-        let length = usize::from_be_bytes(
-            encoded[offset + 24..offset + 32]
-                .try_into()
-                .map_err(|_| "Length is too large")?,
-        );
-
-        // Check if the length is valid
-        if offset + 32 + length > encoded.len() {
-            return Err("Length extends beyond the encoded data".to_string());
-        }
-
-        // Extract the bytes data
-        let data = encoded[offset + 32..offset + 32 + length].to_vec();
-        Ok(data)
     }
 
     async fn get_quorum_adversary_threshold(
@@ -416,9 +404,7 @@ impl Verifier {
             .await
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
-        let percentages = self
-            .decode_bytes(res.0.to_vec())
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+        let percentages = self.decode_bytes(res.0.to_vec())?;
 
         if percentages.len() > quorum_number as usize {
             return Ok(percentages[quorum_number as usize]);
@@ -443,7 +429,6 @@ impl Verifier {
             .map_err(|_| VerificationError::ServiceManagerError)?;
 
         self.decode_bytes(res.0.to_vec())
-            .map_err(|_| VerificationError::ServiceManagerError)
     }
 
     /// Verifies that the certificate's blob quorum params are correct
