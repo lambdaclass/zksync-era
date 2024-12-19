@@ -105,7 +105,6 @@ impl Verifier {
     pub const POINT_SIZE: u32 = 32;
 
     async fn save_point(url: Url, point: String) -> Result<(), VerificationError> {
-        //let url = Url::parse(&url).map_err(|_| VerificationError::LinkError)?;
         let response = reqwest::get(url)
             .await
             .map_err(|_| VerificationError::LinkError)?;
@@ -376,9 +375,7 @@ impl Verifier {
         let output_type = [ParamType::Bytes];
         let tokens: Vec<Token> = ethabi::decode(&output_type, &encoded)
             .map_err(|_| "Incorrect result on contract call")?;
-        let token = tokens
-            .get(0)
-            .ok_or_else(|| "Incorrect result on contract call")?;
+        let token = tokens.first().ok_or("Incorrect result on contract call")?;
         match token {
             Token::Bytes(data) => Ok(data.to_vec()),
             _ => Err("Incorrect result on contract call".to_string()),
