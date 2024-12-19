@@ -113,7 +113,9 @@ impl Verifier {
         }
         let path = format!("./{}", point);
         let path = Path::new(&path);
-        let mut file = File::create(path).await.map_err(|_| VerificationError::LinkError)?;
+        let mut file = File::create(path)
+            .await
+            .map_err(|_| VerificationError::LinkError)?;
         let content = response
             .bytes()
             .await
@@ -145,13 +147,16 @@ impl Verifier {
                 "".to_string(),
             )
         });
-        let kzg = kzg_handle.await.map_err(|e| {
-            tracing::error!("Failed to setup KZG: {:?}", e);
-            VerificationError::KzgError
-        })?.map_err(|e| {
-            tracing::error!("Failed to setup KZG: {:?}", e);
-            VerificationError::KzgError
-        })?;
+        let kzg = kzg_handle
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to setup KZG: {:?}", e);
+                VerificationError::KzgError
+            })?
+            .map_err(|e| {
+                tracing::error!("Failed to setup KZG: {:?}", e);
+                VerificationError::KzgError
+            })?;
 
         Ok(Self {
             kzg,
