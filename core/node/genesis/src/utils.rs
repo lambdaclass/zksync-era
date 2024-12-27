@@ -12,7 +12,7 @@ use zksync_types::{
     block::{DeployedContract, L1BatchTreeData},
     bytecode::BytecodeHash,
     commitment::L1BatchCommitment,
-    get_code_key, get_known_code_key, get_system_context_init_logs, h256_to_u256,
+    get_code_key, get_known_code_key, get_system_contracts_init_logs, h256_to_u256,
     tokens::{TokenInfo, TokenMetadata},
     u256_to_h256,
     zk_evm_types::{LogQuery, Timestamp},
@@ -45,7 +45,7 @@ pub(super) fn get_storage_logs(system_contracts: &[DeployedContract]) -> Vec<Sto
     let system_context_init_logs =
         // During the genesis all chains have the same id.
         // TODO(EVM-579): make sure that the logic is compatible with Era.
-        get_system_context_init_logs(L2ChainId::from(DEFAULT_ERA_CHAIN_ID))
+        get_system_contracts_init_logs(L2ChainId::from(DEFAULT_ERA_CHAIN_ID))
     ;
 
     let known_code_storage_logs: Vec<_> = system_contracts
@@ -74,7 +74,7 @@ pub(super) fn get_storage_logs(system_contracts: &[DeployedContract]) -> Vec<Sto
     storage_logs
 }
 
-pub(super) fn get_deduped_log_queries(storage_logs: &[StorageLog]) -> Vec<LogQuery> {
+pub fn get_deduped_log_queries(storage_logs: &[StorageLog]) -> Vec<LogQuery> {
     // we don't produce proof for the genesis block,
     // but we still need to populate the table
     // to have the correct initial state of the merkle tree
@@ -172,29 +172,32 @@ pub(super) async fn save_genesis_l1_batch_metadata(
     Ok(())
 }
 
-pub(super) async fn insert_system_contracts(
-    storage: &mut Connection<'_, Core>,
-    factory_deps: HashMap<H256, Vec<u8>>,
+pub(super) async fn insert_storage_logs(
+    transaction: &mut Connection<'_, Core>,
     storage_logs: &[StorageLog],
 ) -> Result<(), GenesisError> {
-    let (deduplicated_writes, protective_reads): (Vec<_>, Vec<_>) =
-        get_deduped_log_queries(storage_logs)
-            .into_iter()
-            .partition(|log_query| log_query.rw_flag);
-
-    let mut transaction = storage.start_transaction().await?;
     transaction
         .storage_logs_dal()
         .insert_storage_logs(L2BlockNumber(0), storage_logs)
         .await?;
+    Ok(())
+}
+
+pub(super) async fn insert_deduplicated_writes_and_protective_reads(
+    transaction: &mut Connection<'_, Core>,
+    deduped_log_queries: &[LogQuery],
+) -> Result<(), GenesisError> {
+    let (deduplicated_writes, protective_reads): (Vec<_>, Vec<_>) = deduped_log_queries
+        .iter()
+        .partition(|log_query| log_query.rw_flag);
 
     transaction
         .storage_logs_dedup_dal()
         .insert_protective_reads(
             L1BatchNumber(0),
             &protective_reads
-                .into_iter()
-                .map(StorageLog::from)
+                .iter()
+                .map(|log_query: &LogQuery| StorageLog::from(*log_query)) // Pass the log_query to from()
                 .collect::<Vec<_>>(),
         )
         .await?;
@@ -205,16 +208,22 @@ pub(super) async fn insert_system_contracts(
             StorageKey::new(AccountTreeId::new(log.address), u256_to_h256(log.key)).hashed_key()
         })
         .collect();
+
     transaction
         .storage_logs_dedup_dal()
         .insert_initial_writes(L1BatchNumber(0), &written_storage_keys)
         .await?;
 
+    Ok(())
+}
+
+pub(super) async fn insert_factory_deps(
+    transaction: &mut Connection<'_, Core>,
+    factory_deps: HashMap<H256, Vec<u8>>,
+) -> Result<(), GenesisError> {
     transaction
         .factory_deps_dal()
         .insert_factory_deps(L2BlockNumber(0), &factory_deps)
         .await?;
-
-    transaction.commit().await?;
     Ok(())
 }

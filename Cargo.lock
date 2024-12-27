@@ -1699,7 +1699,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "lazy_static",
  "lazycell",
  "log",
@@ -2981,6 +2981,24 @@ dependencies = [
  "rand_core 0.6.4",
  "subtle-ng",
  "zeroize",
+]
+
+[[package]]
+name = "custom_genesis_export"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "clap 4.5.23",
+ "futures 0.3.31",
+ "sqlx",
+ "tokio",
+ "zksync_contracts",
+ "zksync_core_leftovers",
+ "zksync_dal",
+ "zksync_node_genesis",
+ "zksync_protobuf_config",
+ "zksync_types",
 ]
 
 [[package]]
@@ -5872,7 +5890,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -7571,7 +7589,7 @@ checksum = "22505a5c94da8e3b7c2996394d1c933236c4d743e81a410bcca4e6989fc066a4"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -12889,6 +12907,7 @@ dependencies = [
  "tokio",
  "tonic 0.11.0",
  "tracing",
+ "url",
  "zksync_basic_types",
  "zksync_config",
  "zksync_da_client",
@@ -13025,6 +13044,7 @@ dependencies = [
  "zksync_eth_client",
  "zksync_health_check",
  "zksync_l1_contract_interface",
+ "zksync_mini_merkle_tree",
  "zksync_node_fee_model",
  "zksync_node_test_utils",
  "zksync_object_store",
@@ -13060,6 +13080,7 @@ dependencies = [
  "tracing",
  "vise",
  "zksync_concurrency",
+ "zksync_config",
  "zksync_contracts",
  "zksync_dal",
  "zksync_eth_client",
@@ -13254,6 +13275,7 @@ dependencies = [
  "zksync_kzg",
  "zksync_prover_interface",
  "zksync_solidity_vk_codegen",
+ "zksync_system_constants",
  "zksync_types",
 ]
 
@@ -13345,6 +13367,7 @@ name = "zksync_mini_merkle_tree"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "hex",
  "once_cell",
  "zksync_basic_types",
  "zksync_crypto_primitives",
@@ -13446,6 +13469,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "hex",
  "rand 0.8.5",
  "secrecy 0.8.0",
  "semver 1.0.24",
@@ -13469,6 +13493,7 @@ dependencies = [
  "zksync_l1_contract_interface",
  "zksync_merkle_tree",
  "zksync_metadata_calculator",
+ "zksync_multivm",
  "zksync_node_api_server",
  "zksync_node_genesis",
  "zksync_node_sync",
@@ -13562,6 +13587,7 @@ dependencies = [
  "zksync_house_keeper",
  "zksync_logs_bloom_backfill",
  "zksync_metadata_calculator",
+ "zksync_mini_merkle_tree",
  "zksync_node_api_server",
  "zksync_node_consensus",
  "zksync_node_db_pruner",
@@ -13599,6 +13625,7 @@ name = "zksync_node_genesis"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "itertools 0.10.5",
  "thiserror 1.0.69",
  "tokio",
@@ -13661,6 +13688,7 @@ dependencies = [
  "zksync_dal",
  "zksync_eth_client",
  "zksync_health_check",
+ "zksync_multivm",
  "zksync_node_genesis",
  "zksync_node_test_utils",
  "zksync_shared_metrics",
@@ -14084,11 +14112,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_matches",
+ "async-trait",
  "bigdecimal",
  "bincode",
  "blake2 0.10.6",
  "chrono",
  "derive_more 1.0.0",
+ "ethabi",
  "hex",
  "itertools 0.10.5",
  "num",

@@ -41,6 +41,8 @@ impl EthConfig {
                 pubdata_sending_mode: PubdataSendingMode::Calldata,
                 tx_aggregation_paused: false,
                 tx_aggregation_only_prove_and_execute: false,
+                ignore_db_nonce: None,
+                priority_tree_start_index: Some(0),
                 time_in_mempool_in_l1_blocks_cap: 1800,
             }),
             gas_adjuster: Some(GasAdjusterConfig {
@@ -117,7 +119,10 @@ pub struct SenderConfig {
     /// special mode specifically for gateway migration to decrease number of non-executed batches
     #[serde(default = "SenderConfig::default_tx_aggregation_only_prove_and_execute")]
     pub tx_aggregation_only_prove_and_execute: bool,
-
+    /// Used to ignore db nonce check for sender and only use the RPC one.
+    pub ignore_db_nonce: Option<bool>,
+    /// Index of the priority operation to start building the `PriorityMerkleTree` from.
+    pub priority_tree_start_index: Option<usize>,
     /// Cap of time in mempool for price calculations
     #[serde(default = "SenderConfig::default_time_in_mempool_in_l1_blocks_cap")]
     pub time_in_mempool_in_l1_blocks_cap: u32,
@@ -156,6 +161,14 @@ impl SenderConfig {
             .map(|pk| pk.parse().unwrap())
     }
 
+    // Don't load gateway private key, if it's not required
+    #[deprecated]
+    pub fn private_key_gateway(&self) -> Option<H256> {
+        std::env::var("ETH_SENDER_SENDER_OPERATOR_GATEWAY_PRIVATE_KEY")
+            .ok()
+            .map(|pk| pk.parse().unwrap())
+    }
+
     const fn default_tx_aggregation_paused() -> bool {
         false
     }
@@ -183,9 +196,13 @@ pub struct GasAdjusterConfig {
     /// Parameter of the transaction base_fee_per_gas pricing formula
     #[serde(default = "GasAdjusterConfig::default_pricing_formula_parameter_b")]
     pub pricing_formula_parameter_b: f64,
-    /// Parameter by which the base fee will be multiplied for internal purposes
+    /// Parameter by which the base fee will be multiplied for internal purposes.
+    /// TODO(EVM-920): Note, that while the name says "L1", this same parameter is actually used for
+    /// any settlement layer.
     pub internal_l1_pricing_multiplier: f64,
-    /// If equal to Some(x), then it will always provide `x` as the L1 gas price
+    /// If equal to Some(x), then it will always provide `x` as the L1 gas price.
+    /// TODO(EVM-920): Note, that while the name says "L1", this same parameter is actually used for
+    /// any settlement layer.
     pub internal_enforced_l1_gas_price: Option<u64>,
     /// If equal to Some(x), then it will always provide `x` as the pubdata price
     pub internal_enforced_pubdata_price: Option<u64>,

@@ -37,11 +37,13 @@ const FORGE_PATH_PREFIX: &str = "contracts/l1-contracts/out";
 const BRIDGEHUB_CONTRACT_FILE: (&str, &str) = ("bridgehub", "IBridgehub.sol/IBridgehub.json");
 const STATE_TRANSITION_CONTRACT_FILE: (&str, &str) = (
     "state-transition",
-    "IStateTransitionManager.sol/IStateTransitionManager.json",
+    "IChainTypeManager.sol/IChainTypeManager.json",
 );
+const BYTECODE_SUPPLIER_CONTRACT_FILE: (&str, &str) =
+    ("upgrades", "BytecodesSupplier.sol/BytecodesSupplier.json");
 const ZKSYNC_HYPERCHAIN_CONTRACT_FILE: (&str, &str) = (
     "state-transition/chain-interfaces",
-    "IZkSyncHyperchain.sol/IZkSyncHyperchain.json",
+    "IZKChain.sol/IZKChain.json",
 );
 const DIAMOND_INIT_CONTRACT_FILE: (&str, &str) = (
     "state-transition",
@@ -52,6 +54,10 @@ const CHAIN_ADMIN_CONTRACT_FILE: (&str, &str) = ("governance", "IChainAdmin.sol/
 const GETTERS_FACET_CONTRACT_FILE: (&str, &str) = (
     "state-transition/chain-interfaces",
     "IGetters.sol/IGetters.json",
+);
+const ADMIN_FACET_CONTRACT_FILE: (&str, &str) = (
+    "state-transition/chain-interfaces",
+    "IAdmin.sol/IAdmin.json",
 );
 
 const MULTICALL3_CONTRACT_FILE: (&str, &str) = ("dev-contracts", "Multicall3.sol/Multicall3.json");
@@ -150,8 +156,16 @@ pub fn getters_facet_contract() -> Contract {
     load_contract_for_both_compilers(GETTERS_FACET_CONTRACT_FILE)
 }
 
+pub fn admin_facet_contract() -> Contract {
+    load_contract_for_both_compilers(ADMIN_FACET_CONTRACT_FILE)
+}
+
 pub fn state_transition_manager_contract() -> Contract {
     load_contract_for_both_compilers(STATE_TRANSITION_CONTRACT_FILE)
+}
+
+pub fn bytecode_supplier_contract() -> Contract {
+    load_contract_for_both_compilers(BYTECODE_SUPPLIER_CONTRACT_FILE)
 }
 
 pub fn hyperchain_contract() -> Contract {
@@ -176,6 +190,14 @@ pub fn deployer_contract() -> Contract {
 
 pub fn l1_messenger_contract() -> Contract {
     load_sys_contract("L1Messenger")
+}
+
+pub fn l2_message_root() -> Contract {
+    load_contract("contracts/l1-contracts/zkout/MessageRoot.sol/MessageRoot.json")
+}
+
+pub fn l2_rollup_da_validator_bytecode() -> Vec<u8> {
+    read_bytecode("contracts/l2-contracts/zkout/RollupL2DAValidator.sol/RollupL2DAValidator.json")
 }
 
 /// Reads bytecode from the path RELATIVE to the Cargo workspace location.
@@ -488,9 +510,8 @@ impl BaseSystemContracts {
     }
 
     pub fn playground_gateway() -> Self {
-        let bootloader_bytecode = read_zbin_bytecode(
-            "etc/multivm_bootloaders/vm_gateway/playground_batch.yul/playground_batch.yul.zbin",
-        );
+        // TODO: the value should be taken from the `multivm_bootloaders` folder
+        let bootloader_bytecode = read_bootloader_code("playground_batch");
         BaseSystemContracts::load_with_bootloader(bootloader_bytecode)
     }
 
@@ -565,9 +586,8 @@ impl BaseSystemContracts {
     }
 
     pub fn estimate_gas_gateway() -> Self {
-        let bootloader_bytecode = read_zbin_bytecode(
-            "etc/multivm_bootloaders/vm_gateway/fee_estimate.yul/fee_estimate.yul.zbin",
-        );
+        // TODO: the value should be taken from the `multivm_bootloaders` folder
+        let bootloader_bytecode = read_bootloader_code("fee_estimate");
         BaseSystemContracts::load_with_bootloader(bootloader_bytecode)
     }
 
@@ -707,14 +727,14 @@ pub static PRE_BOOJUM_COMMIT_FUNCTION: Lazy<Function> = Lazy::new(|| {
     serde_json::from_str(abi).unwrap()
 });
 
-pub static SET_CHAIN_ID_EVENT: Lazy<Event> = Lazy::new(|| {
+pub static GENESIS_UPGRADE_EVENT: Lazy<Event> = Lazy::new(|| {
     let abi = r#"
     {
       "anonymous": false,
       "inputs": [
         {
           "indexed": true,
-          "name": "_stateTransitionChain",
+          "name": "_hyperchain",
           "type": "address"
         },
         {
@@ -792,9 +812,14 @@ pub static SET_CHAIN_ID_EVENT: Lazy<Event> = Lazy::new(|| {
           "indexed": true,
           "name": "_protocolVersion",
           "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "name": "_factoryDeps",
+          "type": "bytes[]"
         }
       ],
-      "name": "SetChainIdUpgrade",
+      "name": "GenesisUpgrade",
       "type": "event"
     }"#;
     serde_json::from_str(abi).unwrap()
@@ -1408,30 +1433,5 @@ pub static POST_SHARED_BRIDGE_EXECUTE_FUNCTION: Lazy<Function> = Lazy::new(|| {
       "stateMutability": "nonpayable",
       "type": "function"
     }"#;
-    serde_json::from_str(abi).unwrap()
-});
-
-// Temporary thing, should be removed when new contracts are merged.
-pub static MESSAGE_ROOT_CONTRACT: Lazy<Contract> = Lazy::new(|| {
-    let abi = r#"
-    [{
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_chainId",
-          "type": "uint256"
-        }
-      ],
-      "name": "getChainRoot",
-      "outputs": [
-        {
-          "internalType": "bytes32",
-          "name": "",
-          "type": "bytes32"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    }]"#;
     serde_json::from_str(abi).unwrap()
 });

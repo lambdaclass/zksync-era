@@ -61,7 +61,6 @@ mod tests {
                     aggregated_block_execute_deadline: 4_000,
                     max_aggregated_tx_gas: 4_000_000,
                     max_eth_tx_data_size: 120_000,
-
                     timestamp_criteria_max_allowed_lag: 30,
                     max_aggregated_blocks_to_commit: 3,
                     max_aggregated_blocks_to_execute: 4,
@@ -75,6 +74,8 @@ mod tests {
                     pubdata_sending_mode: PubdataSendingMode::Calldata,
                     tx_aggregation_only_prove_and_execute: false,
                     tx_aggregation_paused: false,
+                    ignore_db_nonce: None,
+                    priority_tree_start_index: None,
                     time_in_mempool_in_l1_blocks_cap: 2000,
                 }),
                 gas_adjuster: Some(GasAdjusterConfig {
