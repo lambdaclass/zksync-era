@@ -9,8 +9,7 @@ use xshell::Shell;
 use zksync_basic_types::L2ChainId;
 use zksync_config::{
     configs::{gateway::GatewayChainConfig, GatewayConfig},
-    DAClientConfig::Avail,
-    DAClientConfig::Eigen,
+    DAClientConfig::{Avail, Eigen},
 };
 
 use crate::{

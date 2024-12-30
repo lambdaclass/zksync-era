@@ -31,7 +31,7 @@ pub struct ValidiumTypeArgs {
 pub enum ValidiumTypeInternal {
     NoDA,
     Avail,
-    EigenDA
+    EigenDA,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, EnumIter, Display, ValueEnum)]
@@ -44,7 +44,7 @@ pub enum AvailClientTypeInternal {
 pub enum ValidiumType {
     NoDA,
     Avail((AvailConfig, AvailSecrets)),
-    EigenDA
+    EigenDA,
 }
 
 impl ValidiumType {
