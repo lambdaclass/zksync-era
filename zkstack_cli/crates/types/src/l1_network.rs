@@ -48,4 +48,14 @@ impl L1Network {
             L1Network::Mainnet => None, // TODO: add mainnet address after it is known
         }
     }
+
+    pub fn eigenda_l1_validator_addr(&self) -> Option<Address> {
+        match self {
+            L1Network::Localhost => None,
+            L1Network::Sepolia | L1Network::Holesky => {
+                Some(Address::from_str("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap()) //TODO: add real address
+            }
+            L1Network::Mainnet => None, // TODO: add mainnet address after it is known
+        }
+    }
 }
