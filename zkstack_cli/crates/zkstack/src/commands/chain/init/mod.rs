@@ -237,6 +237,7 @@ pub(crate) fn get_l1_da_validator(chain_config: &ChainConfig) -> anyhow::Result<
             if let Some(da_client_config) = general_config.da_client_config {
                 match da_client_config {
                     DAClientConfig::Avail(_) => contracts_config.l1.avail_l1_da_validator_addr,
+                    DAClientConfig::Eigen(_) => contracts_config.l1.no_da_validium_l1_validator_addr, // TODO: change to EigenDA
                     _ => anyhow::bail!("DA client config is not supported"),
                 }
             } else {
