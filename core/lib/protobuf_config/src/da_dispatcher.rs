@@ -12,7 +12,6 @@ impl ProtoRepr for proto::DataAvailabilityDispatcher {
             max_rows_to_dispatch: self.max_rows_to_dispatch,
             max_retries: self.max_retries.map(|x| x as u16),
             use_dummy_inclusion_data: self.use_dummy_inclusion_data,
-            max_concurrent_requests: self.max_concurrent_requests,
         })
     }
 
@@ -22,7 +21,6 @@ impl ProtoRepr for proto::DataAvailabilityDispatcher {
             max_rows_to_dispatch: this.max_rows_to_dispatch,
             max_retries: this.max_retries.map(Into::into),
             use_dummy_inclusion_data: this.use_dummy_inclusion_data,
-            max_concurrent_requests: this.max_concurrent_requests,
         }
     }
 }
