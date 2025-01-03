@@ -1,48 +1,77 @@
-use std::{str::FromStr, sync::Arc};
+use std::{error::Error, str::FromStr};
 
-use async_trait::async_trait;
-use secp256k1::SecretKey;
+use eigenda_client_rs::{client::GetBlobData, EigenClient};
 use subxt_signer::ExposeSecret;
 use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
 use zksync_da_client::{
     types::{DAError, DispatchResponse, InclusionData},
     DataAvailabilityClient,
 };
+use zksync_dal::{ConnectionPool, Core, CoreDal};
 
-use super::sdk::RawEigenClient;
 use crate::utils::to_retriable_da_error;
 
-#[async_trait]
-pub trait GetBlobData: std::fmt::Debug + Send + Sync {
-    async fn get_blob_data(&self, input: &str) -> anyhow::Result<Option<Vec<u8>>>;
-
-    fn clone_boxed(&self) -> Box<dyn GetBlobData>;
-}
-
-/// EigenClient is a client for the Eigen DA service.
+// We can't implement DataAvailabilityClient for an outside struct, so it is needed to defined this intermediate struct
 #[derive(Debug, Clone)]
-pub struct EigenClient {
-    pub(crate) client: Arc<RawEigenClient>,
+pub struct EigenDAClient {
+    client: EigenClient,
 }
-
-impl EigenClient {
+impl EigenDAClient {
     pub async fn new(
         config: EigenConfig,
         secrets: EigenSecrets,
-        get_blob_data: Box<dyn GetBlobData>,
+        pool: ConnectionPool<Core>,
     ) -> anyhow::Result<Self> {
-        let private_key = SecretKey::from_str(secrets.private_key.0.expose_secret().as_str())
-            .map_err(|e| anyhow::anyhow!("Failed to parse private key: {}", e))?;
-
-        let client = RawEigenClient::new(private_key, config, get_blob_data).await?;
-        Ok(Self {
-            client: Arc::new(client),
-        })
+        let eigen_config = eigenda_client_rs::config::EigenConfig {
+            disperser_rpc: config.disperser_rpc,
+            settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth,
+            eigenda_eth_rpc: config.eigenda_eth_rpc.ok_or(anyhow::anyhow!(
+                "eigenda_eth_rpc is required for EigenClient"
+            ))?,
+            eigenda_svc_manager_address: config.eigenda_svc_manager_address,
+            wait_for_finalization: config.wait_for_finalization,
+            authenticated: config.authenticated,
+            g1_url: config.g1_url,
+            g2_url: config.g2_url,
+        };
+        let private_key =
+            eigenda_client_rs::config::PrivateKey::from_str(secrets.private_key.0.expose_secret())
+                .map_err(|_| anyhow::anyhow!("Invalid private key"))?;
+        let eigen_secrets = eigenda_client_rs::config::EigenSecrets { private_key };
+        let get_blob_data = GetBlobFromDB { pool };
+        let client = EigenClient::new(eigen_config, eigen_secrets, Box::new(get_blob_data))
+            .await
+            .map_err(|e| anyhow::anyhow!("Eigen client Error: {:?}", e))?;
+        Ok(Self { client })
     }
 }
 
-#[async_trait]
-impl DataAvailabilityClient for EigenClient {
+#[derive(Debug, Clone)]
+pub struct GetBlobFromDB {
+    pool: ConnectionPool<Core>,
+}
+
+#[async_trait::async_trait]
+impl GetBlobData for GetBlobFromDB {
+    async fn get_blob_data(
+        &self,
+        input: &str,
+    ) -> Result<Option<Vec<u8>>, Box<dyn Error + Send + Sync>> {
+        let mut conn = self.pool.connection_tagged("eigen_client").await?;
+        let batch = conn
+            .data_availability_dal()
+            .get_blob_data_by_blob_id(input)
+            .await?;
+        Ok(batch.map(|b| b.pubdata))
+    }
+
+    fn clone_boxed(&self) -> Box<dyn GetBlobData> {
+        Box::new(self.clone())
+    }
+}
+
+#[async_trait::async_trait]
+impl DataAvailabilityClient for EigenDAClient {
     async fn dispatch_blob(
         &self,
         _: u32, // batch number
@@ -77,6 +106,6 @@ impl DataAvailabilityClient for EigenClient {
     }
 
     fn blob_size_limit(&self) -> Option<usize> {
-        Some(RawEigenClient::blob_size_limit())
+        self.client.blob_size_limit()
     }
 }
