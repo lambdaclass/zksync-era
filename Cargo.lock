@@ -3457,7 +3457,7 @@ dependencies = [
 [[package]]
 name = "eigen-client"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/eigenda-client-rs?branch=sync-latest-changes#cabdb5656840a2a164720a77e7141322688ac10c"
+source = "git+https://github.com/lambdaclass/eigenda-client-rs?branch=client-implementation#01935adca57213575a6c7b8709db95cb6b9a1882"
 dependencies = [
  "ark-bn254",
  "async-trait",
