@@ -198,7 +198,7 @@ impl Verifier {
         Ok(())
     }
 
-    pub fn hash_encode_blob_header(&self, blob_header: &BlobHeader) -> Vec<u8> {
+    pub(crate) fn hash_encode_blob_header(&self, blob_header: &BlobHeader) -> Vec<u8> {
         let mut blob_quorums = vec![];
         for quorum in &blob_header.blob_quorum_params {
             let quorum = Token::Tuple(vec![
@@ -222,7 +222,7 @@ impl Verifier {
         web3::keccak256(&encoded).to_vec()
     }
 
-    pub fn process_inclusion_proof(
+    pub(crate) fn process_inclusion_proof(
         &self,
         proof: &[u8],
         leaf: [u8; 32],
@@ -250,7 +250,7 @@ impl Verifier {
     }
 
     /// Verifies the certificate's batch root
-    pub fn verify_merkle_proof(&self, cert: &BlobInfo) -> Result<(), VerificationError> {
+    pub(crate) fn verify_merkle_proof(&self, cert: &BlobInfo) -> Result<(), VerificationError> {
         let inclusion_proof = &cert.blob_verification_proof.inclusion_proof;
         let root = &cert
             .blob_verification_proof
@@ -350,7 +350,7 @@ impl Verifier {
     }
 
     /// Verifies the certificate batch hash
-    pub async fn verify_batch(&self, blob_info: &BlobInfo) -> Result<(), VerificationError> {
+    pub(crate) async fn verify_batch(&self, blob_info: &BlobInfo) -> Result<(), VerificationError> {
         let expected_hash = self.call_batch_id_to_metadata_hash(blob_info).await?;
 
         if expected_hash == vec![0u8; 32] {
