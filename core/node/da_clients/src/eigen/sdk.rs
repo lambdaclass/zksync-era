@@ -206,7 +206,7 @@ impl RawEigenClient {
             }
         }
         self.verifier
-            .verify_commitment(blob_info.blob_header.commitment.clone(), data)
+            .verify_commitment(blob_info.blob_header.commitment.clone(), &data)
             .map_err(|_| anyhow::anyhow!("Failed to verify commitment"))?;
 
         let result = self

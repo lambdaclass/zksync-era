@@ -168,8 +168,8 @@ impl Verifier {
     }
 
     /// Return the commitment from a blob
-    fn commit(&self, blob: Vec<u8>) -> Result<G1Affine, VerificationError> {
-        let blob = Blob::from_bytes_and_pad(&blob.to_vec());
+    fn commit(&self, blob: &[u8]) -> Result<G1Affine, VerificationError> {
+        let blob = Blob::from_bytes_and_pad(blob);
         self.kzg
             .blob_to_kzg_commitment(&blob, PolynomialFormat::InEvaluationForm)
             .map_err(|_| VerificationError::KzgError)
@@ -179,7 +179,7 @@ impl Verifier {
     pub fn verify_commitment(
         &self,
         expected_commitment: G1Commitment,
-        blob: Vec<u8>,
+        blob: &[u8],
     ) -> Result<(), VerificationError> {
         let actual_commitment = self.commit(blob)?;
         let expected_commitment = G1Affine::new_unchecked(

@@ -107,7 +107,7 @@ mod test {
             ],
         };
         let blob = vec![1u8; 100]; // Actual blob sent was this blob but kzg-padded, but Blob::from_bytes_and_pad padds it inside, so we don't need to pad it here.
-        let result = verifier.verify_commitment(commitment, blob);
+        let result = verifier.verify_commitment(commitment, &blob);
         assert!(result.is_ok());
     }
 
@@ -129,7 +129,7 @@ mod test {
             ],
         };
         let blob = vec![1u8; 100]; // Actual blob sent was this blob but kzg-padded, but Blob::from_bytes_and_pad padds it inside, so we don't need to pad it here.
-        let result = verifier.verify_commitment(commitment, blob);
+        let result = verifier.verify_commitment(commitment, &blob);
         assert!(result.is_ok());
     }
 
