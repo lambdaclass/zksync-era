@@ -233,13 +233,13 @@ impl Verifier {
             return Err(VerificationError::WrongProof);
         }
         let mut computed_hash = leaf.to_vec();
-        for i in 0..proof.len() / 32 {
+        for chunk in proof.chunks(32) {
             let mut buffer = [0u8; 64];
             if index % 2 == 0 {
                 buffer[..32].copy_from_slice(&computed_hash);
-                buffer[32..].copy_from_slice(&proof[i * 32..(i + 1) * 32]);
+                buffer[32..].copy_from_slice(chunk);
             } else {
-                buffer[..32].copy_from_slice(&proof[i * 32..(i + 1) * 32]);
+                buffer[..32].copy_from_slice(chunk);
                 buffer[32..].copy_from_slice(&computed_hash);
             }
             computed_hash = web3::keccak256(&buffer).to_vec();
