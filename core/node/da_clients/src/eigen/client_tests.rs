@@ -18,14 +18,14 @@ mod tests {
     use crate::eigen::{blob_info::BlobInfo, EigenClient, GetBlobData};
 
     impl EigenClient {
-        pub async fn get_blob_data(
+        async fn get_blob_data(
             &self,
             blob_id: BlobInfo,
         ) -> anyhow::Result<Option<Vec<u8>>, DAError> {
             self.client.get_blob_data(blob_id).await
         }
 
-        pub async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<Option<BlobInfo>> {
+        async fn get_commitment(&self, blob_id: &str) -> anyhow::Result<Option<BlobInfo>> {
             self.client.get_commitment(blob_id).await
         }
     }
