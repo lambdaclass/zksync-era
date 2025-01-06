@@ -29,6 +29,7 @@ mod tests {
             self.client.get_commitment(blob_id).await
         }
     }
+
     const STATUS_QUERY_TIMEOUT: u64 = 1800000; // 30 minutes
     const STATUS_QUERY_INTERVAL: u64 = 5; // 5 ms
 
@@ -68,11 +69,8 @@ mod tests {
         }
     }
 
-    #[ignore = "depends on external RPC"]
-    #[tokio::test]
-    #[file_serial]
-    async fn test_non_auth_dispersal() {
-        let config = EigenConfig {
+    fn test_config() -> EigenConfig {
+        EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
             settlement_layer_confirmation_depth: 0,
             eigenda_eth_rpc: Some("https://ethereum-holesky-rpc.publicnode.com".to_string()),
@@ -82,13 +80,24 @@ mod tests {
             g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
             g2_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
             chain_id: 17000,
-        };
-        let secrets = EigenSecrets {
+        }
+    }
+
+    fn test_secrets() -> EigenSecrets {
+        EigenSecrets {
             private_key: PrivateKey::from_str(
                 "d08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
             )
             .unwrap(),
-        };
+        }
+    }
+
+    #[ignore = "depends on external RPC"]
+    #[tokio::test]
+    #[file_serial]
+    async fn test_non_auth_dispersal() {
+        let config = test_config();
+        let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
             .unwrap();
@@ -112,23 +121,9 @@ mod tests {
     #[tokio::test]
     #[file_serial]
     async fn test_auth_dispersal() {
-        let config = EigenConfig {
-            disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
-            settlement_layer_confirmation_depth: 0,
-            eigenda_eth_rpc: Some("https://ethereum-holesky-rpc.publicnode.com".to_string()),
-            eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            wait_for_finalization: false,
-            authenticated: true,
-            g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
-            g2_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
-            chain_id: 17000,
-        };
-        let secrets = EigenSecrets {
-            private_key: PrivateKey::from_str(
-                "d08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
-            )
-            .unwrap(),
-        };
+        let mut config = test_config();
+        config.authenticated = true;
+        let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
             .unwrap();
@@ -152,23 +147,11 @@ mod tests {
     #[tokio::test]
     #[file_serial]
     async fn test_wait_for_finalization() {
-        let config = EigenConfig {
-            disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
-            wait_for_finalization: true,
-            authenticated: true,
-            g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
-            g2_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
-            settlement_layer_confirmation_depth: 0,
-            eigenda_eth_rpc: Some("https://ethereum-holesky-rpc.publicnode.com".to_string()),
-            eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            chain_id: 17000,
-        };
-        let secrets = EigenSecrets {
-            private_key: PrivateKey::from_str(
-                "d08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
-            )
-            .unwrap(),
-        };
+        let mut config = test_config();
+        config.wait_for_finalization = true;
+        config.authenticated = true;
+        let secrets = test_secrets();
+
         let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
             .unwrap();
@@ -192,23 +175,9 @@ mod tests {
     #[tokio::test]
     #[file_serial]
     async fn test_settlement_layer_confirmation_depth() {
-        let config = EigenConfig {
-            disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
-            settlement_layer_confirmation_depth: 5,
-            eigenda_eth_rpc: Some("https://ethereum-holesky-rpc.publicnode.com".to_string()),
-            eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            wait_for_finalization: false,
-            authenticated: false,
-            g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
-            g2_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
-            chain_id: 17000,
-        };
-        let secrets = EigenSecrets {
-            private_key: PrivateKey::from_str(
-                "d08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
-            )
-            .unwrap(),
-        };
+        let mut config = test_config();
+        config.settlement_layer_confirmation_depth = 5;
+        let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
             .unwrap();
@@ -232,23 +201,10 @@ mod tests {
     #[tokio::test]
     #[file_serial]
     async fn test_auth_dispersal_settlement_layer_confirmation_depth() {
-        let config = EigenConfig {
-            disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
-            settlement_layer_confirmation_depth: 5,
-            eigenda_eth_rpc: Some("https://ethereum-holesky-rpc.publicnode.com".to_string()),
-            eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            wait_for_finalization: false,
-            authenticated: true,
-            g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
-            g2_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
-            chain_id: 17000,
-        };
-        let secrets = EigenSecrets {
-            private_key: PrivateKey::from_str(
-                "d08aa7ae1bb5ddd46c3c2d8cdb5894ab9f54dec467233686ca42629e826ac4c6",
-            )
-            .unwrap(),
-        };
+        let mut config = test_config();
+        config.settlement_layer_confirmation_depth = 5;
+        config.authenticated = true;
+        let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
             .unwrap();
