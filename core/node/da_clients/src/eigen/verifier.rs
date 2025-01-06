@@ -48,19 +48,31 @@ impl VerifierClient for PKSigningClient {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum VerificationError {
+    #[error("Service manager error")]
     ServiceManagerError,
+    #[error("KZG error")]
     KzgError,
+    #[error("Wrong proof")]
     WrongProof,
+    #[error("Different commitments")]
     DifferentCommitments,
+    #[error("Different roots")]
     DifferentRoots,
+    #[error("Empty hash")]
     EmptyHash,
+    #[error("Different hashes")]
     DifferentHashes,
+    #[error("Wrong quorum params")]
     WrongQuorumParams,
+    #[error("Quorum not confirmed")]
     QuorumNotConfirmed,
+    #[error("Commitment not on curve")]
     CommitmentNotOnCurve,
+    #[error("Commitment not on correct subgroup")]
     CommitmentNotOnCorrectSubgroup,
+    #[error("Link error")]
     LinkError,
 }
 

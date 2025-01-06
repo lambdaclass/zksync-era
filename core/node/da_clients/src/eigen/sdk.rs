@@ -1,5 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
+use anyhow::Context;
 use secp256k1::{ecdsa::RecoverableSignature, SecretKey};
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
@@ -95,7 +96,7 @@ impl RawEigenClient {
 
         let verifier = Verifier::new(verifier_config, Box::new(signing_client))
             .await
-            .map_err(|e| anyhow::anyhow!(format!("Failed to create verifier {:?}", e)))?;
+            .context("Failed to create verifier")?;
         Ok(RawEigenClient {
             client,
             private_key,
