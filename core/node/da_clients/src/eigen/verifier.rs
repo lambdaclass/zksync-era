@@ -133,9 +133,9 @@ impl Verifier {
         Ok(".".to_string())
     }
 
-    pub async fn new<T: VerifierClient + 'static>(
+    pub(crate) async fn new(
         cfg: VerifierConfig,
-        signing_client: T,
+        signing_client: Box<dyn VerifierClient>,
     ) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / Self::POINT_SIZE;
         let path = Self::save_points(cfg.clone().g1_url, cfg.clone().g2_url).await?;
@@ -163,7 +163,7 @@ impl Verifier {
         Ok(Self {
             kzg,
             cfg,
-            signing_client: Box::new(signing_client),
+            signing_client,
         })
     }
 

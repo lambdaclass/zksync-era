@@ -93,7 +93,7 @@ impl RawEigenClient {
             query_client,
         );
 
-        let verifier = Verifier::new(verifier_config, signing_client)
+        let verifier = Verifier::new(verifier_config, Box::new(signing_client))
             .await
             .map_err(|e| anyhow::anyhow!(format!("Failed to create verifier {:?}", e)))?;
         Ok(RawEigenClient {
