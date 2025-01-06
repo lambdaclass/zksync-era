@@ -7,7 +7,7 @@ mod tests {
     use std::{str::FromStr, time::Duration};
 
     use backon::{ConstantBuilder, Retryable};
-    use serial_test::serial;
+    use serial_test::file_serial;
     use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
     use zksync_da_client::{
         types::{DAError, DispatchResponse},
@@ -70,7 +70,7 @@ mod tests {
 
     #[ignore = "depends on external RPC"]
     #[tokio::test]
-    #[serial]
+    #[file_serial]
     async fn test_non_auth_dispersal() {
         let config = EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
@@ -110,7 +110,7 @@ mod tests {
 
     #[ignore = "depends on external RPC"]
     #[tokio::test]
-    #[serial]
+    #[file_serial]
     async fn test_auth_dispersal() {
         let config = EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
@@ -150,7 +150,7 @@ mod tests {
 
     #[ignore = "depends on external RPC"]
     #[tokio::test]
-    #[serial]
+    #[file_serial]
     async fn test_wait_for_finalization() {
         let config = EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
@@ -190,7 +190,7 @@ mod tests {
 
     #[ignore = "depends on external RPC"]
     #[tokio::test]
-    #[serial]
+    #[file_serial]
     async fn test_settlement_layer_confirmation_depth() {
         let config = EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
@@ -230,7 +230,7 @@ mod tests {
 
     #[ignore = "depends on external RPC"]
     #[tokio::test]
-    #[serial]
+    #[file_serial]
     async fn test_auth_dispersal_settlement_layer_confirmation_depth() {
         let config = EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
