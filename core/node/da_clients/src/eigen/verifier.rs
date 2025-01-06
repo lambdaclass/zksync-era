@@ -125,12 +125,14 @@ impl Verifier {
             .map_err(|_| VerificationError::LinkError)?;
         Ok(())
     }
+
     async fn save_points(url_g1: Url, url_g2: Url) -> Result<String, VerificationError> {
         Self::save_point(url_g1, Self::G1POINT.to_string()).await?;
         Self::save_point(url_g2, Self::G2POINT.to_string()).await?;
 
         Ok(".".to_string())
     }
+
     pub async fn new<T: VerifierClient + 'static>(
         cfg: VerifierConfig,
         signing_client: T,
