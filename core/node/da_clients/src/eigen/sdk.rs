@@ -211,7 +211,7 @@ impl RawEigenClient {
 
         let result = self
             .verifier
-            .verify_inclusion_data_against_settlement_layer(blob_info.clone())
+            .verify_inclusion_data_against_settlement_layer(&blob_info)
             .await;
         // in case of an error, the dispatcher will retry, so the need to return None
         if let Err(e) = result {

@@ -488,11 +488,11 @@ impl Verifier {
     /// Verifies that the certificate is valid
     pub async fn verify_inclusion_data_against_settlement_layer(
         &self,
-        cert: BlobInfo,
+        cert: &BlobInfo,
     ) -> Result<(), VerificationError> {
-        self.verify_batch(&cert).await?;
-        self.verify_merkle_proof(&cert)?;
-        self.verify_security_params(&cert).await?;
+        self.verify_batch(cert).await?;
+        self.verify_merkle_proof(cert)?;
+        self.verify_security_params(cert).await?;
         Ok(())
     }
 }
