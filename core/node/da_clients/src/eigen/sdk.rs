@@ -1,8 +1,8 @@
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
 
 use anyhow::Context;
 use secp256k1::{ecdsa::RecoverableSignature, SecretKey};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 use tonic::{
     transport::{Channel, ClientTlsConfig, Endpoint},
@@ -34,7 +34,7 @@ use crate::eigen::{
 
 #[derive(Debug)]
 pub(crate) struct RawEigenClient {
-    client: Arc<Mutex<DisperserClient<Channel>>>,
+    client: DisperserClient<Channel>,
     private_key: SecretKey,
     pub config: EigenConfig,
     verifier: Verifier,
@@ -65,7 +65,7 @@ impl RawEigenClient {
     ) -> anyhow::Result<Self> {
         let endpoint =
             Endpoint::from_str(config.disperser_rpc.as_str())?.tls_config(ClientTlsConfig::new())?;
-        let client = Arc::new(Mutex::new(DisperserClient::connect(endpoint).await?));
+        let client = DisperserClient::connect(endpoint).await?;
 
         let verifier_config = VerifierConfig {
             rpc_url: config
@@ -120,8 +120,7 @@ impl RawEigenClient {
 
         let disperse_reply = self
             .client
-            .lock()
-            .await
+            .clone()
             .disperse_blob(request)
             .await?
             .into_inner();
@@ -149,8 +148,6 @@ impl RawEigenClient {
         let mut response_stream = self
             .client
             .clone()
-            .lock()
-            .await
             .disperse_blob_authenticated(UnboundedReceiverStream::new(rx))
             .await?;
         let response_stream = response_stream.get_mut();
@@ -324,8 +321,7 @@ impl RawEigenClient {
 
         let resp = self
             .client
-            .lock()
-            .await
+            .clone()
             .get_blob_status(polling_request.clone())
             .await?
             .into_inner();
@@ -366,8 +362,7 @@ impl RawEigenClient {
             .batch_header_hash;
         let get_response = self
             .client
-            .lock()
-            .await
+            .clone()
             .retrieve_blob(disperser::RetrieveBlobRequest {
                 batch_header_hash,
                 blob_index,
@@ -402,7 +397,7 @@ fn get_account_id(secret_key: &SecretKey) -> String {
 fn convert_by_padding_empty_byte(data: &[u8]) -> Vec<u8> {
     let parse_size = DATA_CHUNK_SIZE - 1;
 
-    let chunk_count = (data.len() as usize).div_ceil(parse_size);
+    let chunk_count = (data.len()).div_ceil(parse_size);
     let mut valid_data = Vec::with_capacity(data.len() + chunk_count);
 
     for chunk in data.chunks(parse_size) {
