@@ -225,7 +225,7 @@ impl Verifier {
     pub fn process_inclusion_proof(
         &self,
         proof: &[u8],
-        leaf: &[u8],
+        leaf: [u8; 32],
         index: u32,
     ) -> Result<Vec<u8>, VerificationError> {
         let mut index = index;
@@ -261,10 +261,10 @@ impl Verifier {
         let blob_header = &cert.blob_header;
 
         let blob_header_hash = self.hash_encode_blob_header(blob_header);
-        let leaf_hash = web3::keccak256(&blob_header_hash).to_vec();
+        let leaf_hash = web3::keccak256(&blob_header_hash);
 
         let generated_root =
-            self.process_inclusion_proof(inclusion_proof, &leaf_hash, blob_index)?;
+            self.process_inclusion_proof(inclusion_proof, leaf_hash, blob_index)?;
 
         if generated_root != *root {
             return Err(VerificationError::DifferentRoots);
