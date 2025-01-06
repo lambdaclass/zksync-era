@@ -338,17 +338,13 @@ impl RawEigenClient {
             }
             disperser::BlobStatus::Confirmed => {
                 if !self.config.wait_for_finalization {
-                    let blob_info = resp
-                        .info
-                        .ok_or_else(|| anyhow::anyhow!("No blob header in response"))?;
+                    let blob_info = resp.info.context("No blob header in response")?;
                     return Ok(Some(blob_info));
                 }
                 Ok(None)
             }
             disperser::BlobStatus::Finalized => {
-                let blob_info = resp
-                    .info
-                    .ok_or_else(|| anyhow::anyhow!("No blob header in response"))?;
+                let blob_info = resp.info.context("No blob header in response")?;
                 Ok(Some(blob_info))
             }
 
