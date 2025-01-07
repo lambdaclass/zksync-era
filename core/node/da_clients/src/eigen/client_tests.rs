@@ -69,20 +69,6 @@ mod tests {
         }
     }
 
-    fn test_config() -> EigenConfig {
-        EigenConfig {
-            disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
-            settlement_layer_confirmation_depth: 0,
-            eigenda_eth_rpc: Some("https://ethereum-holesky-rpc.publicnode.com".to_string()),
-            eigenda_svc_manager_address: "0xD4A7E1Bd8015057293f0D0A557088c286942e84b".to_string(),
-            wait_for_finalization: false,
-            authenticated: false,
-            g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
-            g2_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
-            chain_id: 17000,
-        }
-    }
-
     fn test_secrets() -> EigenSecrets {
         EigenSecrets {
             private_key: PrivateKey::from_str(
@@ -96,7 +82,7 @@ mod tests {
     #[tokio::test]
     #[file_serial]
     async fn test_non_auth_dispersal() {
-        let config = test_config();
+        let config = EigenConfig::default();
         let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
@@ -121,8 +107,10 @@ mod tests {
     #[tokio::test]
     #[file_serial]
     async fn test_auth_dispersal() {
-        let mut config = test_config();
-        config.authenticated = true;
+        let config = EigenConfig {
+            authenticated: true,
+            ..EigenConfig::default()
+        };
         let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
@@ -147,9 +135,11 @@ mod tests {
     #[tokio::test]
     #[file_serial]
     async fn test_wait_for_finalization() {
-        let mut config = test_config();
-        config.wait_for_finalization = true;
-        config.authenticated = true;
+        let config = EigenConfig {
+            wait_for_finalization: true,
+            authenticated: true,
+            ..EigenConfig::default()
+        };
         let secrets = test_secrets();
 
         let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
@@ -175,8 +165,10 @@ mod tests {
     #[tokio::test]
     #[file_serial]
     async fn test_settlement_layer_confirmation_depth() {
-        let mut config = test_config();
-        config.settlement_layer_confirmation_depth = 5;
+        let config = EigenConfig {
+            settlement_layer_confirmation_depth: 5,
+            ..EigenConfig::default()
+        };
         let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
@@ -201,9 +193,11 @@ mod tests {
     #[tokio::test]
     #[file_serial]
     async fn test_auth_dispersal_settlement_layer_confirmation_depth() {
-        let mut config = test_config();
-        config.settlement_layer_confirmation_depth = 5;
-        config.authenticated = true;
+        let config = EigenConfig {
+            settlement_layer_confirmation_depth: 5,
+            authenticated: true,
+            ..EigenConfig::default()
+        };
         let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
             .await
