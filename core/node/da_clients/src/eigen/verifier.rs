@@ -46,28 +46,33 @@ impl VerifierClient for PKSigningClient {
 pub enum VerificationError {
     #[error("Service manager error")]
     ServiceManagerError,
-    #[error("KZG error")]
-    KzgError,
+    #[error(transparent)]
+    KzgError(#[from] rust_kzg_bn254::errors::KzgError),
     #[error("Wrong proof")]
     WrongProof,
-    #[error("Different commitments")]
-    DifferentCommitments,
-    #[error("Different roots")]
-    DifferentRoots,
+    #[error("Different commitments: expected {expected:?}, got {actual:?}")]
+    DifferentCommitments {
+        expected: G1Affine,
+        actual: G1Affine,
+    },
+    #[error("Different roots: expected {expected:?}, got {actual:?}")]
+    DifferentRoots { expected: String, actual: String },
     #[error("Empty hash")]
     EmptyHash,
-    #[error("Different hashes")]
-    DifferentHashes,
+    #[error("Different hashes: expected {expected:?}, got {actual:?}")]
+    DifferentHashes { expected: String, actual: String },
     #[error("Wrong quorum params")]
     WrongQuorumParams,
     #[error("Quorum not confirmed")]
     QuorumNotConfirmed,
-    #[error("Commitment not on curve")]
-    CommitmentNotOnCurve,
-    #[error("Commitment not on correct subgroup")]
-    CommitmentNotOnCorrectSubgroup,
-    #[error("Link error")]
-    LinkError,
+    #[error("Commitment not on curve: {0}")]
+    CommitmentNotOnCurve(G1Affine),
+    #[error("Commitment not on correct subgroup: {0}")]
+    CommitmentNotOnCorrectSubgroup(G1Affine),
+    #[error("Link Error: {0}")]
+    LinkError(String),
+    #[error(transparent)]
+    JoinError(#[from] tokio::task::JoinError),
 }
 
 /// Configuration for the verifier used for authenticated dispersals
@@ -103,22 +108,22 @@ impl Verifier {
     async fn save_point(url: Url, point: String) -> Result<(), VerificationError> {
         let response = reqwest::get(url)
             .await
-            .map_err(|_| VerificationError::LinkError)?;
+            .map_err(|e| VerificationError::LinkError(e.to_string()))?;
         if !response.status().is_success() {
-            return Err(VerificationError::LinkError);
+            return Err(VerificationError::LinkError("Failed to get point".to_string()));
         }
         let path = format!("./{}", point);
         let path = Path::new(&path);
         let mut file = File::create(path)
             .await
-            .map_err(|_| VerificationError::LinkError)?;
+            .map_err(|e| VerificationError::LinkError(e.to_string()))?;
         let content = response
             .bytes()
             .await
-            .map_err(|_| VerificationError::LinkError)?;
+            .map_err(|e| VerificationError::LinkError(e.to_string()))?;
         file.write_all(&content)
             .await
-            .map_err(|_| VerificationError::LinkError)?;
+            .map_err(|e| VerificationError::LinkError(e.to_string()))?;
         Ok(())
     }
 
@@ -145,16 +150,7 @@ impl Verifier {
                 "".to_string(),
             )
         });
-        let kzg = kzg_handle
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to setup KZG: {:?}", e);
-                VerificationError::KzgError
-            })?
-            .map_err(|e| {
-                tracing::error!("Failed to setup KZG: {:?}", e);
-                VerificationError::KzgError
-            })?;
+        let kzg = kzg_handle.await??;
 
         Ok(Self {
             kzg,
@@ -168,7 +164,7 @@ impl Verifier {
         let blob = Blob::from_bytes_and_pad(blob);
         self.kzg
             .blob_to_kzg_commitment(&blob, PolynomialFormat::InEvaluationForm)
-            .map_err(|_| VerificationError::KzgError)
+            .map_err(VerificationError::KzgError)
     }
 
     /// Compare the given commitment with the commitment generated with the blob
@@ -183,13 +179,18 @@ impl Verifier {
             Fq::from(num_bigint::BigUint::from_bytes_be(&expected_commitment.y)),
         );
         if !expected_commitment.is_on_curve() {
-            return Err(VerificationError::CommitmentNotOnCurve);
+            return Err(VerificationError::CommitmentNotOnCurve(expected_commitment));
         }
         if !expected_commitment.is_in_correct_subgroup_assuming_on_curve() {
-            return Err(VerificationError::CommitmentNotOnCorrectSubgroup);
+            return Err(VerificationError::CommitmentNotOnCorrectSubgroup(
+                expected_commitment,
+            ));
         }
         if actual_commitment != expected_commitment {
-            return Err(VerificationError::DifferentCommitments);
+            return Err(VerificationError::DifferentCommitments {
+                expected: expected_commitment,
+                actual: actual_commitment,
+            });
         }
         Ok(())
     }
@@ -263,7 +264,10 @@ impl Verifier {
             self.process_inclusion_proof(inclusion_proof, leaf_hash, blob_index)?;
 
         if generated_root != *root {
-            return Err(VerificationError::DifferentRoots);
+            return Err(VerificationError::DifferentRoots {
+                expected: hex::encode(root),
+                actual: hex::encode(&generated_root),
+            });
         }
         Ok(())
     }
@@ -369,7 +373,10 @@ impl Verifier {
         );
 
         if expected_hash != actual_hash {
-            return Err(VerificationError::DifferentHashes);
+            return Err(VerificationError::DifferentHashes {
+                expected: hex::encode(&expected_hash),
+                actual: hex::encode(&actual_hash),
+            });
         }
         Ok(())
     }
