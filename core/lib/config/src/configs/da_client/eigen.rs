@@ -32,7 +32,7 @@ impl Default for EigenConfig {
             disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
             settlement_layer_confirmation_depth: 0,
             eigenda_eth_rpc: Some("https://ethereum-holesky-rpc.publicnode.com".to_string()),
-            eigenda_svc_manager_address: H160::from_str("0xD4A7E1Bd8015057293f0D0A557088c286942e84b").unwrap(),
+            eigenda_svc_manager_address: H160::from_str("0xD4A7E1Bd8015057293f0D0A557088c286942e84b").unwrap_or_default(),
             wait_for_finalization: false,
             authenticated: false,
             g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
