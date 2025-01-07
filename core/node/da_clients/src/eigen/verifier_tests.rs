@@ -51,7 +51,6 @@ mod test {
 
     #[async_trait::async_trait]
     impl VerifierClient for MockVerifierClient {
-
         async fn block_number(&self) -> EnrichedClientResult<U64> {
             Ok(U64::from(42))
         }

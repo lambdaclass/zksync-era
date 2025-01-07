@@ -12,7 +12,7 @@ use url::Url;
 use zksync_config::EigenConfig;
 use zksync_da_client::types::DAError;
 use zksync_eth_client::clients::PKSigningClient;
-use zksync_types::{url::SensitiveUrl, Address, K256PrivateKey, SLChainId};
+use zksync_types::{url::SensitiveUrl, K256PrivateKey, SLChainId};
 use zksync_web3_decl::client::{Client, DynClient, L1};
 
 use super::{
@@ -60,7 +60,7 @@ impl RawEigenClient {
                 .eigenda_eth_rpc
                 .clone()
                 .ok_or(anyhow::anyhow!("EigenDA ETH RPC not set"))?,
-            svc_manager_addr: Address::from_str(&config.eigenda_svc_manager_address)?,
+            svc_manager_addr: config.eigenda_svc_manager_address,
             max_blob_size: Self::BLOB_SIZE_LIMIT as u32,
             g1_url: Url::parse(&config.g1_url)?,
             g2_url: Url::parse(&config.g2_url)?,
