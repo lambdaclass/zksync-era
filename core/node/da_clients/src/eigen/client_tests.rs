@@ -4,7 +4,7 @@
 /// `cargo test -p zksync_da_clients -- --ignored`
 #[cfg(test)]
 mod tests {
-    use std::{str::FromStr, time::Duration};
+    use std::{str::FromStr, sync::Arc, time::Duration};
 
     use backon::{ConstantBuilder, Retryable};
     use serial_test::file_serial;
@@ -63,10 +63,6 @@ mod tests {
         async fn get_blob_data(&self, _input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
             Ok(None)
         }
-
-        fn clone_boxed(&self) -> Box<dyn GetBlobData> {
-            Box::new(self.clone())
-        }
     }
 
     fn test_secrets() -> EigenSecrets {
@@ -84,7 +80,7 @@ mod tests {
     async fn test_non_auth_dispersal() {
         let config = EigenConfig::default();
         let secrets = test_secrets();
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
+        let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -112,7 +108,7 @@ mod tests {
             ..EigenConfig::default()
         };
         let secrets = test_secrets();
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
+        let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -142,7 +138,7 @@ mod tests {
         };
         let secrets = test_secrets();
 
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
+        let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -170,7 +166,7 @@ mod tests {
             ..EigenConfig::default()
         };
         let secrets = test_secrets();
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
+        let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];
@@ -199,7 +195,7 @@ mod tests {
             ..EigenConfig::default()
         };
         let secrets = test_secrets();
-        let client = EigenClient::new(config.clone(), secrets, Box::new(MockGetBlobData))
+        let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
             .unwrap();
         let data = vec![1; 20];

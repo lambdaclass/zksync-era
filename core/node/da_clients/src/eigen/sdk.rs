@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use anyhow::Context;
 use secp256k1::{ecdsa::RecoverableSignature, SecretKey};
@@ -32,25 +32,13 @@ use crate::eigen::{
     verifier::VerificationError,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct RawEigenClient {
     client: DisperserClient<Channel>,
     private_key: SecretKey,
     pub config: EigenConfig,
     verifier: Verifier,
-    get_blob_data: Box<dyn GetBlobData>,
-}
-
-impl Clone for RawEigenClient {
-    fn clone(&self) -> Self {
-        Self {
-            client: self.client.clone(),
-            private_key: self.private_key,
-            config: self.config.clone(),
-            verifier: self.verifier.clone(),
-            get_blob_data: self.get_blob_data.clone_boxed(),
-        }
-    }
+    get_blob_data: Arc<dyn GetBlobData>,
 }
 
 pub(crate) const DATA_CHUNK_SIZE: usize = 32;
@@ -61,7 +49,7 @@ impl RawEigenClient {
     pub async fn new(
         private_key: SecretKey,
         config: EigenConfig,
-        get_blob_data: Box<dyn GetBlobData>,
+        get_blob_data: Arc<dyn GetBlobData>,
     ) -> anyhow::Result<Self> {
         let endpoint =
             Endpoint::from_str(config.disperser_rpc.as_str())?.tls_config(ClientTlsConfig::new())?;
@@ -94,7 +82,7 @@ impl RawEigenClient {
             query_client,
         );
 
-        let verifier = Verifier::new(verifier_config, Box::new(signing_client))
+        let verifier = Verifier::new(verifier_config, Arc::new(signing_client))
             .await
             .context("Failed to create verifier")?;
         Ok(RawEigenClient {

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use ark_bn254::{Fq, G1Affine};
 use ethabi::{encode, ParamType, Token};
@@ -16,8 +16,6 @@ use super::blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment};
 
 #[async_trait::async_trait]
 pub trait VerifierClient: Sync + Send + std::fmt::Debug {
-    fn clone_boxed(&self) -> Box<dyn VerifierClient>;
-
     /// Returns the current block number.
     async fn block_number(&self) -> EnrichedClientResult<U64>;
 
@@ -31,10 +29,6 @@ pub trait VerifierClient: Sync + Send + std::fmt::Debug {
 
 #[async_trait::async_trait]
 impl VerifierClient for PKSigningClient {
-    fn clone_boxed(&self) -> Box<dyn VerifierClient> {
-        Box::new(self.clone())
-    }
-
     async fn block_number(&self) -> EnrichedClientResult<U64> {
         self.as_ref().block_number().await
     }
@@ -92,21 +86,11 @@ pub struct VerifierConfig {
 /// Verifier used to verify the integrity of the blob info
 /// Kzg is used for commitment verification
 /// EigenDA service manager is used to connect to the service manager contract
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Verifier {
     kzg: Kzg,
     cfg: VerifierConfig,
-    signing_client: Box<dyn VerifierClient>,
-}
-
-impl Clone for Verifier {
-    fn clone(&self) -> Self {
-        Self {
-            kzg: self.kzg.clone(),
-            cfg: self.cfg.clone(),
-            signing_client: self.signing_client.clone_boxed(),
-        }
-    }
+    signing_client: Arc<dyn VerifierClient>,
 }
 
 impl Verifier {
@@ -147,7 +131,7 @@ impl Verifier {
 
     pub(crate) async fn new(
         cfg: VerifierConfig,
-        signing_client: Box<dyn VerifierClient>,
+        signing_client: Arc<dyn VerifierClient>,
     ) -> Result<Self, VerificationError> {
         let srs_points_to_load = cfg.max_blob_size / Self::POINT_SIZE;
         let path = Self::save_points(cfg.clone().g1_url, cfg.clone().g2_url).await?;
