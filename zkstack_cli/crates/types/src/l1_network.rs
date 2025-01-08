@@ -59,4 +59,8 @@ impl L1Network {
             L1Network::Mainnet => None, // TODO: add mainnet address after it is known
         }
     }
+
+    pub fn eigenda_blob_verifier_addr(&self) -> Address {
+        Address::from_str("0x00CfaC4fF61D52771eF27d07c5b6f1263C2994A1").unwrap() // Modify this for your current blob verifier (This should be erased once we have the bridge in a separate repository)
+    }
 }
