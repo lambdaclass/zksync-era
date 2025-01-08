@@ -12,7 +12,7 @@ use zksync_types::{
     Address, U256, U64,
 };
 
-use super::blob_info::{BatchHeader, BlobHeader, BlobInfo, G1Commitment};
+use super::blob_info::{BatchHeader, BlobHeader, BlobInfo, BlobQuorumParam, G1Commitment};
 
 #[async_trait::async_trait]
 pub trait VerifierClient: Sync + Send + std::fmt::Debug {
@@ -61,8 +61,8 @@ pub enum VerificationError {
     EmptyHash,
     #[error("Different hashes: expected {expected:?}, got {actual:?}")]
     DifferentHashes { expected: String, actual: String },
-    #[error("Wrong quorum params")]
-    WrongQuorumParams,
+    #[error("Wrong quorum params: {blob_quorum_params:?}")]
+    WrongQuorumParams { blob_quorum_params: BlobQuorumParam },
     #[error("Quorum not confirmed")]
     QuorumNotConfirmed,
     #[error("Commitment not on curve: {0}")]
@@ -110,7 +110,9 @@ impl Verifier {
             .await
             .map_err(|e| VerificationError::LinkError(e.to_string()))?;
         if !response.status().is_success() {
-            return Err(VerificationError::LinkError("Failed to get point".to_string()));
+            return Err(VerificationError::LinkError(
+                "Failed to get point".to_string(),
+            ));
         }
         let path = format!("./{}", point);
         let path = Path::new(&path);
@@ -451,12 +453,16 @@ impl Verifier {
             if batch_header.quorum_numbers[i] as u32
                 != blob_header.blob_quorum_params[i].quorum_number
             {
-                return Err(VerificationError::WrongQuorumParams);
+                return Err(VerificationError::WrongQuorumParams {
+                    blob_quorum_params: blob_header.blob_quorum_params[i].clone(),
+                });
             }
             if blob_header.blob_quorum_params[i].adversary_threshold_percentage
                 > blob_header.blob_quorum_params[i].confirmation_threshold_percentage
             {
-                return Err(VerificationError::WrongQuorumParams);
+                return Err(VerificationError::WrongQuorumParams {
+                    blob_quorum_params: blob_header.blob_quorum_params[i].clone(),
+                });
             }
             let quorum_adversary_threshold = self
                 .get_quorum_adversary_threshold(blob_header.blob_quorum_params[i].quorum_number)
@@ -466,13 +472,17 @@ impl Verifier {
                 && blob_header.blob_quorum_params[i].adversary_threshold_percentage
                     < quorum_adversary_threshold as u32
             {
-                return Err(VerificationError::WrongQuorumParams);
+                return Err(VerificationError::WrongQuorumParams {
+                    blob_quorum_params: blob_header.blob_quorum_params[i].clone(),
+                });
             }
 
             if (batch_header.quorum_signed_percentages[i] as u32)
                 < blob_header.blob_quorum_params[i].confirmation_threshold_percentage
             {
-                return Err(VerificationError::WrongQuorumParams);
+                return Err(VerificationError::WrongQuorumParams {
+                    blob_quorum_params: blob_header.blob_quorum_params[i].clone(),
+                });
             }
 
             confirmed_quorums.insert(blob_header.blob_quorum_params[i].quorum_number, true);
