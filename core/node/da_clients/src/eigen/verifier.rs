@@ -6,7 +6,7 @@ use rust_kzg_bn254::{blob::Blob, kzg::Kzg, polynomial::PolynomialFormat};
 use tokio::{fs::File, io::AsyncWriteExt};
 use url::Url;
 use zksync_basic_types::web3::CallRequest;
-use zksync_eth_client::{clients::PKSigningClient, EnrichedClientResult};
+use zksync_eth_client::{clients::PKSigningClient, EnrichedClientError, EnrichedClientResult};
 use zksync_types::{
     web3::{self, BlockId, BlockNumber},
     Address, U256, U64,
@@ -51,9 +51,20 @@ pub enum KzgError {
 }
 
 #[derive(Debug, thiserror::Error)]
+pub enum ServiceManagerError {
+    #[error(transparent)]
+    EnrichedClient(#[from] EnrichedClientError),
+    #[error("Decoding error: {0}")]
+    Decoding(String),
+    #[cfg(test)]
+    #[error("Parsing error: {0}")]
+    Parsing(String),
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum VerificationError {
-    #[error("Service manager error")]
-    ServiceManagerError,
+    #[error(transparent)]
+    ServiceManager(#[from] ServiceManagerError),
     #[error(transparent)]
     Kzg(#[from] KzgError),
     #[error("Wrong proof")]
@@ -318,7 +329,7 @@ impl Verifier {
             .as_ref()
             .block_number()
             .await
-            .map_err(|_| VerificationError::ServiceManagerError)?
+            .map_err(ServiceManagerError::EnrichedClient)?
             .as_u64();
 
         let depth = self
@@ -356,7 +367,7 @@ impl Verifier {
                 Some(BlockId::Number(BlockNumber::Number(context_block.into()))),
             )
             .await
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+            .map_err(ServiceManagerError::EnrichedClient)?;
 
         Ok(res.0.to_vec())
     }
@@ -396,13 +407,15 @@ impl Verifier {
     fn decode_bytes(&self, encoded: Vec<u8>) -> Result<Vec<u8>, VerificationError> {
         let output_type = [ParamType::Bytes];
         let tokens: Vec<Token> = ethabi::decode(&output_type, &encoded)
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+            .map_err(|e| ServiceManagerError::Decoding(e.to_string()))?;
         let token = tokens
             .first()
-            .ok_or(VerificationError::ServiceManagerError)?;
+            .ok_or(ServiceManagerError::Decoding("No tokens found".to_string()))?;
         match token {
             Token::Bytes(data) => Ok(data.to_vec()),
-            _ => Err(VerificationError::ServiceManagerError),
+            _ => Err(VerificationError::from(ServiceManagerError::Decoding(
+                "Token type mismatch".to_string(),
+            ))),
         }
     }
 
@@ -424,7 +437,7 @@ impl Verifier {
             .as_ref()
             .call_contract_function(call_request, None)
             .await
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+            .map_err(ServiceManagerError::EnrichedClient)?;
 
         let percentages = self.decode_bytes(res.0.to_vec())?;
 
@@ -448,7 +461,7 @@ impl Verifier {
             .as_ref()
             .call_contract_function(call_request, None)
             .await
-            .map_err(|_| VerificationError::ServiceManagerError)?;
+            .map_err(ServiceManagerError::EnrichedClient)?;
 
         self.decode_bytes(res.0.to_vec())
     }
@@ -533,12 +546,13 @@ mod test {
     };
     use zksync_web3_decl::client::{Client, DynClient, L1};
 
+    use super::ServiceManagerError;
     use crate::eigen::{
         blob_info::{
             BatchHeader, BatchMetadata, BlobHeader, BlobInfo, BlobQuorumParam,
             BlobVerificationProof, G1Commitment,
         },
-        verifier::{VerificationError, Verifier, VerifierClient, VerifierConfig},
+        verifier::{Verifier, VerifierClient, VerifierConfig},
     };
 
     fn get_verifier_config() -> VerifierConfig {
@@ -594,10 +608,10 @@ mod test {
         PKSigningClient::new_raw(
             K256PrivateKey::from_bytes(
                 zksync_types::H256::from_str(&cfg.private_key)
-                    .map_err(|_| VerificationError::ServiceManagerError)
+                    .map_err(|e| ServiceManagerError::Parsing(e.to_string()))
                     .unwrap(),
             )
-            .map_err(|_| VerificationError::ServiceManagerError)
+            .map_err(|e| ServiceManagerError::Parsing(e.to_string()))
             .unwrap(),
             cfg.svc_manager_addr,
             Verifier::DEFAULT_PRIORITY_FEE_PER_GAS,
