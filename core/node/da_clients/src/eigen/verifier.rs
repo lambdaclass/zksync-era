@@ -43,11 +43,19 @@ impl VerifierClient for PKSigningClient {
 }
 
 #[derive(Debug, thiserror::Error)]
+pub enum KzgError {
+    #[error("Kzg setup error: {0}")]
+    Setup(String),
+    #[error(transparent)]
+    Internal(#[from] rust_kzg_bn254::errors::KzgError),
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum VerificationError {
     #[error("Service manager error")]
     ServiceManagerError,
     #[error(transparent)]
-    KzgError(#[from] rust_kzg_bn254::errors::KzgError),
+    Kzg(#[from] KzgError),
     #[error("Wrong proof")]
     WrongProof,
     #[error("Different commitments: expected {expected:?}, got {actual:?}")]
@@ -71,8 +79,6 @@ pub enum VerificationError {
     CommitmentNotOnCorrectSubgroup(G1Affine),
     #[error("Link Error: {0}")]
     LinkError(String),
-    #[error(transparent)]
-    JoinError(#[from] tokio::task::JoinError),
 }
 
 /// Configuration for the verifier used for authenticated dispersals
@@ -152,7 +158,11 @@ impl Verifier {
                 "".to_string(),
             )
         });
-        let kzg = kzg_handle.await??;
+
+        let kzg = kzg_handle
+            .await
+            .map_err(|e| VerificationError::Kzg(KzgError::Setup(e.to_string())))?
+            .map_err(KzgError::Internal)?;
 
         Ok(Self {
             kzg,
@@ -166,7 +176,7 @@ impl Verifier {
         let blob = Blob::from_bytes_and_pad(blob);
         self.kzg
             .blob_to_kzg_commitment(&blob, PolynomialFormat::InEvaluationForm)
-            .map_err(VerificationError::KzgError)
+            .map_err(|e| VerificationError::Kzg(KzgError::Internal(e)))
     }
 
     /// Compare the given commitment with the commitment generated with the blob
