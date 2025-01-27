@@ -19,10 +19,6 @@ use crate::vm_latest::CurrentExecutionState;
 pub(crate) static BASE_SYSTEM_CONTRACTS: Lazy<BaseSystemContracts> =
     Lazy::new(BaseSystemContracts::load_from_disk);
 
-pub fn lambda_storage_key_to_zk(key: StorageKey) -> ZKStorageKey {
-    ZKStorageKey::new(AccountTreeId::new(key.address), u256_to_h256(key.key))
-}
-
 pub fn zk_storage_key_to_lambda(key: &ZKStorageKey) -> StorageKey {
     StorageKey {
         address: key.address().clone(),

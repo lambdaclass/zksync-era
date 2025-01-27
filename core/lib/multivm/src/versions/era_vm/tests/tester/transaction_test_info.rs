@@ -5,7 +5,7 @@ use era_vm::{
     store::StorageKey,
 };
 use zksync_state::ReadStorage;
-use zksync_types::{ExecuteTransactionCommon, Transaction, H160, U256};
+use zksync_types::{ExecuteTransactionCommon, Transaction, U256};
 
 use super::VmTester;
 use crate::{

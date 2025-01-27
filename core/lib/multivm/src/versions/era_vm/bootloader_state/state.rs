@@ -130,13 +130,14 @@ impl BootloaderState {
         memory
     }
 
-    pub(crate) fn last_l2_block(&self) -> &BootloaderL2Block {
-        self.l2_blocks.last().unwrap()
-    }
     pub(crate) fn get_pubdata_information(&self) -> &PubdataInput {
         self.pubdata_information
             .get()
             .expect("Pubdata information is not set")
+    }
+
+    pub(crate) fn last_l2_block(&self) -> &BootloaderL2Block {
+        self.l2_blocks.last().unwrap()
     }
 
     fn last_mut_l2_block(&mut self) -> &mut BootloaderL2Block {
