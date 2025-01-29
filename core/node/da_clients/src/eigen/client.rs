@@ -21,14 +21,13 @@ impl EigenDAClient {
         config: EigenConfig,
         secrets: EigenSecrets,
         pool: ConnectionPool<Core>,
+        // get_blob_data: Box<dyn GetBlobData>, // TODO: repalce `pool` above for this
     ) -> anyhow::Result<Self> {
         let eigen_config = eigenda_client_rs::config::EigenConfig {
             disperser_rpc: config.disperser_rpc,
             settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth,
-            eigenda_eth_rpc: config.eigenda_eth_rpc.ok_or(anyhow::anyhow!(
-                "eigenda_eth_rpc is required for EigenClient"
-            ))?,
-            eigenda_svc_manager_address: config.eigenda_svc_manager_address,
+            eigenda_eth_rpc: "TODO: FIX".to_string(),
+            eigenda_svc_manager_address: "TODO: FIX".to_string(), // config.eigenda_svc_manager_address,
             wait_for_finalization: config.wait_for_finalization,
             authenticated: config.authenticated,
             g1_url: config.g1_url,

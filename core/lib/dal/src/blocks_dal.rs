@@ -16,11 +16,10 @@ use zksync_db_connection::{
 use zksync_types::{
     aggregated_operations::AggregatedActionType,
     block::{
-        L1BatchHeader, L1BatchStatistics, L1BatchTreeData, L2BlockHeader, StorageOracleInfo,
-        UnsealedL1BatchHeader,
+        CommonL1BatchHeader, L1BatchHeader, L1BatchStatistics, L1BatchTreeData, L2BlockHeader,
+        StorageOracleInfo, UnsealedL1BatchHeader,
     },
     commitment::{L1BatchCommitmentArtifacts, L1BatchWithMetadata},
-    fee_model::BatchFeeInput,
     l2_to_l1_log::{BatchAndChainMerklePath, UserL2ToL1Log},
     writes::TreeWrite,
     Address, Bloom, L1BatchNumber, L2BlockNumber, ProtocolVersionId, SLChainId, H256, U256,
@@ -32,7 +31,8 @@ use crate::{
     models::{
         parse_protocol_version,
         storage_block::{
-            StorageL1Batch, StorageL1BatchHeader, StorageL2BlockHeader, UnsealedStorageL1Batch,
+            CommonStorageL1BatchHeader, StorageL1Batch, StorageL1BatchHeader, StorageL2BlockHeader,
+            UnsealedStorageL1Batch,
         },
         storage_event::StorageL2ToL1Log,
         storage_oracle_info::DbStorageOracleInfo,
@@ -103,6 +103,7 @@ impl BlocksDal<'_, '_> {
         Ok(count == 0)
     }
 
+    /// Returns the number of the last sealed L1 batch present in the DB, or `None` if there are no L1 batches.
     pub async fn get_sealed_l1_batch_number(&mut self) -> DalResult<Option<L1BatchNumber>> {
         let row = sqlx::query!(
             r#"
@@ -120,6 +121,39 @@ impl BlocksDal<'_, '_> {
         .await?;
 
         Ok(row.number.map(|num| L1BatchNumber(num as u32)))
+    }
+
+    /// Returns latest L1 batch's header (could be unsealed). The header contains fields that are
+    /// common for both unsealed and sealed batches. Returns `None` if there are no L1 batches.
+    pub async fn get_latest_l1_batch_header(&mut self) -> DalResult<Option<CommonL1BatchHeader>> {
+        let Some(header) = sqlx::query_as!(
+            CommonStorageL1BatchHeader,
+            r#"
+            SELECT
+                number,
+                is_sealed,
+                timestamp,
+                protocol_version,
+                fee_address,
+                l1_gas_price,
+                l2_fair_gas_price,
+                fair_pubdata_price
+            FROM
+                l1_batches
+            ORDER BY
+                number DESC
+            LIMIT
+                1
+            "#,
+        )
+        .instrument("get_latest_l1_batch_header")
+        .fetch_optional(self.storage)
+        .await?
+        else {
+            return Ok(None);
+        };
+
+        Ok(Some(header.into()))
     }
 
     pub async fn get_sealed_l2_block_number(&mut self) -> DalResult<Option<L2BlockNumber>> {
@@ -349,7 +383,10 @@ impl BlocksDal<'_, '_> {
                 local_root,
                 state_diff_hash,
                 data_availability.inclusion_data,
-                data_availability.blob_id AS "blob_id?"
+                data_availability.blob_id AS "blob_id?",
+                l1_gas_price,
+                l2_fair_gas_price,
+                fair_pubdata_price
             FROM
                 l1_batches
             LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
@@ -390,7 +427,10 @@ impl BlocksDal<'_, '_> {
                 protocol_version,
                 system_logs,
                 pubdata_input,
-                fee_address
+                fee_address,
+                l1_gas_price,
+                l2_fair_gas_price,
+                fair_pubdata_price
             FROM
                 l1_batches
             WHERE
@@ -796,10 +836,21 @@ impl BlocksDal<'_, '_> {
                 l1_gas_price,
                 l2_fair_gas_price,
                 fair_pubdata_price
-            FROM
-                l1_batches
-            WHERE
-                NOT is_sealed
+            FROM (
+                SELECT
+                    number,
+                    timestamp,
+                    protocol_version,
+                    fee_address,
+                    l1_gas_price,
+                    l2_fair_gas_price,
+                    fair_pubdata_price,
+                    is_sealed
+                FROM l1_batches
+                ORDER BY number DESC
+                LIMIT 1
+            ) AS u
+            WHERE NOT is_sealed
             "#,
         )
         .instrument("get_unsealed_l1_batch")
@@ -1215,7 +1266,10 @@ impl BlocksDal<'_, '_> {
                 local_root,
                 state_diff_hash,
                 data_availability.inclusion_data,
-                data_availability.blob_id AS "blob_id?"
+                data_availability.blob_id AS "blob_id?",
+                l1_gas_price,
+                l2_fair_gas_price,
+                fair_pubdata_price
             FROM
                 l1_batches
             LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
@@ -1411,7 +1465,10 @@ impl BlocksDal<'_, '_> {
                 local_root,
                 state_diff_hash,
                 data_availability.inclusion_data,
-                data_availability.blob_id AS "blob_id?"
+                data_availability.blob_id AS "blob_id?",
+                l1_gas_price,
+                l2_fair_gas_price,
+                fair_pubdata_price
             FROM
                 l1_batches
             LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
@@ -1501,7 +1558,10 @@ impl BlocksDal<'_, '_> {
                 local_root,
                 state_diff_hash,
                 data_availability.inclusion_data,
-                data_availability.blob_id AS "blob_id?"
+                data_availability.blob_id AS "blob_id?",
+                l1_gas_price,
+                l2_fair_gas_price,
+                fair_pubdata_price
             FROM
                 (
                     SELECT
@@ -1582,7 +1642,10 @@ impl BlocksDal<'_, '_> {
                         local_root,
                         state_diff_hash,
                         data_availability.inclusion_data,
-                        data_availability.blob_id AS "blob_id?"
+                        data_availability.blob_id AS "blob_id?",
+                        l1_gas_price,
+                        l2_fair_gas_price,
+                        fair_pubdata_price
                     FROM
                         l1_batches
                     LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
@@ -1618,6 +1681,30 @@ impl BlocksDal<'_, '_> {
         self.map_l1_batches(raw_batches)
             .await
             .context("map_l1_batches()")
+    }
+
+    pub async fn get_batch_first_priority_op_id(
+        &mut self,
+        batch_number: L1BatchNumber,
+    ) -> DalResult<Option<usize>> {
+        let row = sqlx::query!(
+            r#"
+            SELECT
+                MIN(priority_op_id) AS "id?"
+            FROM
+                transactions
+            WHERE
+                l1_batch_number = $1
+                AND is_priority = TRUE
+            "#,
+            i64::from(batch_number.0),
+        )
+        .instrument("get_batch_first_priority_op_id")
+        .with_arg("batch_number", &batch_number)
+        .fetch_one(self.storage)
+        .await?;
+
+        Ok(row.id.map(|id| id as usize))
     }
 
     async fn raw_ready_for_execute_l1_batches(
@@ -1719,7 +1806,10 @@ impl BlocksDal<'_, '_> {
                     local_root,
                     state_diff_hash,
                     data_availability.inclusion_data,
-                    data_availability.blob_id AS "blob_id?"
+                    data_availability.blob_id AS "blob_id?",
+                    l1_gas_price,
+                    l2_fair_gas_price,
+                    fair_pubdata_price
                 FROM
                     l1_batches
                 LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
@@ -1793,7 +1883,10 @@ impl BlocksDal<'_, '_> {
                 local_root,
                 state_diff_hash,
                 data_availability.inclusion_data,
-                data_availability.blob_id AS "blob_id?"
+                data_availability.blob_id AS "blob_id?",
+                l1_gas_price,
+                l2_fair_gas_price,
+                fair_pubdata_price
             FROM
                 l1_batches
             LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
@@ -1881,7 +1974,10 @@ impl BlocksDal<'_, '_> {
                 local_root,
                 state_diff_hash,
                 data_availability.inclusion_data,
-                data_availability.blob_id AS "blob_id?"
+                data_availability.blob_id AS "blob_id?",
+                l1_gas_price,
+                l2_fair_gas_price,
+                fair_pubdata_price
             FROM
                 l1_batches
             LEFT JOIN commitments ON commitments.l1_batch_number = l1_batches.number
@@ -2894,10 +2990,7 @@ impl BlocksDal<'_, '_> {
     }
 
     pub async fn insert_mock_l1_batch(&mut self, header: &L1BatchHeader) -> anyhow::Result<()> {
-        self.insert_l1_batch(
-            header.to_unsealed_header(BatchFeeInput::pubdata_independent(100, 100, 100)),
-        )
-        .await?;
+        self.insert_l1_batch(header.to_unsealed_header()).await?;
         self.mark_l1_batch_as_sealed(header, &[], &[], &[], Default::default())
             .await
     }
