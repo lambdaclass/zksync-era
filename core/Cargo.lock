@@ -158,7 +158,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74e60b084fe1aef8acecda2743ff2d93c18ff3eb67a2d3b12f62582a1e66ef5e"
 dependencies = [
  "serde",
- "winnow 0.6.25",
+ "winnow 0.6.26",
 ]
 
 [[package]]
@@ -2845,7 +2845,7 @@ dependencies = [
 [[package]]
 name = "eigen-client"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/eigenda-client-rs?branch=client-implementation#3703873d106f7e5377a15402b2ac397091085e73"
+source = "git+https://github.com/lambdaclass/eigenda-client-rs?branch=m0-implementation#1f722784f7282b4ff0791ad98c19a3a8e7149363"
 dependencies = [
  "ark-bn254",
  "async-trait",
@@ -2866,6 +2866,7 @@ dependencies = [
  "serde_json",
  "sha3 0.10.8",
  "subxt-signer",
+ "tempfile",
  "thiserror 1.0.69",
  "tiny-keccak 2.0.2",
  "tokio",
@@ -2925,9 +2926,9 @@ dependencies = [
 
 [[package]]
 name = "elsa"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d98e71ae4df57d214182a2e5cb90230c0192c6ddfcaa05c36453d46a54713e10"
+checksum = "2343daaeabe09879d4ea058bb4f1e63da3fc07dadc6634e01bda1b3d6a9d9d2b"
 dependencies = [
  "stable_deref_trait",
 ]
@@ -3355,7 +3356,7 @@ dependencies = [
  "tokio",
  "tracing",
  "walkdir",
- "winnow 0.6.25",
+ "winnow 0.6.26",
  "yansi",
 ]
 
@@ -6315,30 +6316,28 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.7.2"
+version = "3.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b91c2d9a6a6004e205b7e881856fb1a0f5022d382acc2c01b52185f7b6f65997"
+checksum = "306800abfa29c7f16596b5970a588435e3d5b3149683d00c12b699cc19f895ee"
 dependencies = [
  "arrayvec 0.7.6",
  "bitvec",
  "byte-slice-cast",
- "const_format",
  "impl-trait-for-tuples",
  "parity-scale-codec-derive",
- "rustversion",
  "serde",
 ]
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "3.7.2"
+version = "3.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77555fd9d578b6470470463fded832619a5fec5ad6cbc551fe4d7507ce50cd3a"
+checksum = "d830939c76d294956402033aee57a6da7b438f2294eb94864c37b0569053a42c"
 dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2 1.0.93",
  "quote 1.0.38",
- "syn 2.0.96",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -10178,7 +10177,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.6.25",
+ "winnow 0.6.26",
 ]
 
 [[package]]
@@ -11223,9 +11222,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.6.25"
+version = "0.6.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad699df48212c6cc6eb4435f35500ac6fd3b9913324f938aea302022ce19d310"
+checksum = "1e90edd2ac1aa278a5c4599b1d89cf03074b610800f866d4026dc199d7929a28"
 dependencies = [
  "memchr",
 ]

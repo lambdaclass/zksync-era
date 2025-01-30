@@ -1,6 +1,9 @@
+use std::{error::Error, sync::Arc};
+
 use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
 use zksync_da_client::DataAvailabilityClient;
-use zksync_da_clients::eigen::EigenDAClient;
+use zksync_da_clients::eigen::{EigenDAClient, GetBlobData};
+use zksync_dal::{ConnectionPool, Core, CoreDal};
 use zksync_node_framework_derive::FromContext;
 
 use crate::{
@@ -47,10 +50,10 @@ impl WiringLayer for EigenWiringLayer {
 
     async fn wire(self, input: Self::Input) -> Result<Self::Output, WiringError> {
         let master_pool = input.master_pool.get().await?;
-        // let get_blob_from_db = GetBlobFromDB { pool: master_pool }; // TODO: should be this
-        let client: Box<dyn DataAvailabilityClient> =
-            Box::new(EigenDAClient::new(self.config, self.secrets, master_pool).await?);
-        // Box::new(EigenDAClient::new(self.config, self.secrets, Arc::new(get_blob_from_db)).await?); // TODO: should be this
+        let get_blob_from_db = GetBlobFromDB { pool: master_pool }; // TODO: should be this
+        let client: Box<dyn DataAvailabilityClient> = Box::new(
+            EigenDAClient::new(self.config, self.secrets, Arc::new(get_blob_from_db)).await?,
+        ); // TODO: should be this
 
         Ok(Self::Output {
             client: DAClientResource(client),
@@ -58,25 +61,22 @@ impl WiringLayer for EigenWiringLayer {
     }
 }
 
-// TODO: RE-ADD
-// #[derive(Debug, Clone)]
-// pub struct GetBlobFromDB {
-//     pool: ConnectionPool<Core>,
-// }
+#[derive(Debug, Clone)]
+pub struct GetBlobFromDB {
+    pool: ConnectionPool<Core>,
+}
 
-// TODO: RE-ADD
-// #[async_trait::async_trait]
-// impl GetBlobData for GetBlobFromDB {
-//     async fn get_blob_data(&self, input: &str) -> anyhow::Result<Option<Vec<u8>>> {
-//         let mut conn = self.pool.connection_tagged("eigen_client").await?;
-//         let batch = conn
-//             .data_availability_dal()
-//             .get_blob_data_by_blob_id(input)
-//             .await?;
-//         Ok(batch.map(|b| b.pubdata))
-//     }
-
-//     fn clone_boxed(&self) -> Box<dyn GetBlobData> {
-//         Box::new(self.clone())
-//     }
-// }
+#[async_trait::async_trait]
+impl GetBlobData for GetBlobFromDB {
+    async fn get_blob_data(
+        &self,
+        input: &str,
+    ) -> Result<Option<Vec<u8>>, Box<dyn Error + Send + Sync>> {
+        let mut conn = self.pool.connection_tagged("eigen_client").await?;
+        let batch = conn
+            .data_availability_dal()
+            .get_blob_data_by_blob_id(input)
+            .await?;
+        Ok(batch.map(|b| b.pubdata))
+    }
+}
