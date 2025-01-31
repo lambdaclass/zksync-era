@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "get_all_blobs",
   # Binaries
   "bin/block_reverter",
   "bin/contract-verifier",
