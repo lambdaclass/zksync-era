@@ -26,7 +26,7 @@ impl EigenClientRetriever {
         let blob_index = blob_info.blob_verification_proof.blob_index;
         let batch_header_hash = blob_info
             .blob_verification_proof
-            .batch_medatada
+            .batch_metadata
             .batch_header_hash;
         let get_response = self
             .client

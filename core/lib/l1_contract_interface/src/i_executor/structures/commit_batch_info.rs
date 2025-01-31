@@ -283,7 +283,7 @@ impl Tokenizable for CommitBatchInfo<'_> {
                         &self
                             .l1_batch_with_metadata
                             .metadata
-                            .da_blob_id // do not commit
+                            .da_inclusion_data
                             .clone()
                             .unwrap_or_default(),
                     );

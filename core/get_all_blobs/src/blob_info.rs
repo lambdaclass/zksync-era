@@ -305,7 +305,7 @@ impl TryFrom<DisperserBatchMetadata> for BatchMetadata {
 pub struct BlobVerificationProof {
     pub batch_id: u32,
     pub blob_index: u32,
-    pub batch_medatada: BatchMetadata,
+    pub batch_metadata: BatchMetadata,
     pub inclusion_proof: Vec<u8>,
     pub quorum_indexes: Vec<u8>,
 }
@@ -315,7 +315,7 @@ impl BlobVerificationProof {
         let mut bytes = vec![];
         bytes.extend(&self.batch_id.to_be_bytes());
         bytes.extend(&self.blob_index.to_be_bytes());
-        bytes.extend(self.batch_medatada.to_bytes());
+        bytes.extend(self.batch_metadata.to_bytes());
         bytes.extend(&self.inclusion_proof.len().to_be_bytes());
         bytes.extend(&self.inclusion_proof);
         bytes.extend(&self.quorum_indexes.len().to_be_bytes());
@@ -330,7 +330,7 @@ impl Decodable for BlobVerificationProof {
         Ok(BlobVerificationProof {
             batch_id: rlp.val_at(0)?,
             blob_index: rlp.val_at(1)?,
-            batch_medatada: rlp.val_at(2)?,
+            batch_metadata: rlp.val_at(2)?,
             inclusion_proof: rlp.val_at(3)?,
             quorum_indexes: rlp.val_at(4)?,
         })
@@ -342,7 +342,7 @@ impl Encodable for BlobVerificationProof {
         s.begin_list(5);
         s.append(&self.batch_id);
         s.append(&self.blob_index);
-        s.append(&self.batch_medatada);
+        s.append(&self.batch_metadata);
         s.append(&self.inclusion_proof);
         s.append(&self.quorum_indexes);
     }
@@ -357,7 +357,7 @@ impl TryFrom<DisperserBlobVerificationProof> for BlobVerificationProof {
         Ok(Self {
             batch_id: value.batch_id,
             blob_index: value.blob_index,
-            batch_medatada: BatchMetadata::try_from(value.batch_metadata.unwrap())?,
+            batch_metadata: BatchMetadata::try_from(value.batch_metadata.unwrap())?,
             inclusion_proof: value.inclusion_proof,
             quorum_indexes: value.quorum_indexes,
         })
@@ -454,7 +454,7 @@ mod test {
             blob_verification_proof: BlobVerificationProof {
                 batch_id: 66507,
                 blob_index: 92,
-                batch_medatada: BatchMetadata {
+                batch_metadata: BatchMetadata {
                     batch_header: BatchHeader {
                         batch_root: vec![
                             179, 187, 53, 98, 192, 80, 151, 28, 125, 192, 115, 29, 129, 238, 216,

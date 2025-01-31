@@ -1,16 +1,20 @@
 use std::{fs, str::FromStr};
 
 use alloy::{
-    dyn_abi::JsonAbiExt,
+    dyn_abi::{DynSolValue, JsonAbiExt},
     json_abi::JsonAbi,
     network::Ethereum,
     primitives::Address,
     providers::{Provider, RootProvider},
 };
+use blob_info::{
+    BatchHeader, BatchMetadata, BlobHeader, BlobQuorumParam, BlobVerificationProof, G1Commitment,
+};
 use client::EigenClientRetriever;
-use serde::{Deserialize, Serialize};
 use ethabi::{ParamType, Token};
-use alloy::dyn_abi::{DynSolValue};
+use serde::{Deserialize, Serialize};
+
+use crate::blob_info::BlobInfo;
 
 mod blob_info;
 mod client;
@@ -18,7 +22,7 @@ mod generated;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct BlobData {
-    pub blob_id: String,
+    pub blob_info: String,
     pub blob: String,
 }
 
@@ -27,12 +31,8 @@ const BLOB_DATA_JSON: &str = "blob_data.json";
 const ABI_JSON: &str = "./abi/commitBatchesSharedBridge.json";
 const COMMIT_BATCHES_SELECTOR: &str = "98f81962";
 
-async fn get_blob(blob_id: &str) -> anyhow::Result<Vec<u8>> {
+async fn get_blob(blob_info: BlobInfo) -> anyhow::Result<Vec<u8>> {
     let client = EigenClientRetriever::new(EIGENDA_API_URL).await?;
-    let blob_info = client
-        .get_blob_status(blob_id)
-        .await?
-        .ok_or_else(|| anyhow::anyhow!("Blob not found"))?;
     let data = client
         .get_blob_data(blob_info)
         .await?
@@ -113,15 +113,33 @@ async fn decode_blob_data_input(input: &[u8]) -> anyhow::Result<Vec<BlobData>> {
     };
 
     let param_types = vec![
-        ParamType::Tuple(vec![ParamType::Uint(64), ParamType::FixedBytes(32), ParamType::Uint(64), ParamType::Uint(256),ParamType::FixedBytes(32), ParamType::FixedBytes(32),ParamType::Uint(256),ParamType::FixedBytes(32)]), // StoredBatchInfo
-        ParamType::Array(Box::new(
-            ParamType::Tuple(vec![ParamType::Uint(64),ParamType::Uint(64),ParamType::Uint(64),ParamType::FixedBytes(32),ParamType::Uint(64),ParamType::FixedBytes(32),ParamType::FixedBytes(32),ParamType::FixedBytes(32),ParamType::Bytes,ParamType::Bytes ])
-        )) // CommitBatchInfo
+        ParamType::Tuple(vec![
+            ParamType::Uint(64),
+            ParamType::FixedBytes(32),
+            ParamType::Uint(64),
+            ParamType::Uint(256),
+            ParamType::FixedBytes(32),
+            ParamType::FixedBytes(32),
+            ParamType::Uint(256),
+            ParamType::FixedBytes(32),
+        ]), // StoredBatchInfo
+        ParamType::Array(Box::new(ParamType::Tuple(vec![
+            ParamType::Uint(64),
+            ParamType::Uint(64),
+            ParamType::Uint(64),
+            ParamType::FixedBytes(32),
+            ParamType::Uint(64),
+            ParamType::FixedBytes(32),
+            ParamType::FixedBytes(32),
+            ParamType::FixedBytes(32),
+            ParamType::Bytes,
+            ParamType::Bytes,
+        ]))), // CommitBatchInfo
     ];
 
     let decoded = ethabi::decode(&param_types, &commit_data[1..])?;
 
-    let commit_batch_info = match &decoded[1]{
+    let commit_batch_info = match &decoded[1] {
         Token::Array(commit_batch_info) => commit_batch_info,
         _ => return Err(anyhow::anyhow!("CommitBatchInfo is not a tuple")),
     };
@@ -133,46 +151,177 @@ async fn decode_blob_data_input(input: &[u8]) -> anyhow::Result<Vec<BlobData>> {
                 let operator_da_input = batch_info[9].clone();
                 match operator_da_input {
                     Token::Bytes(operator_da_input) => {
-                        if let Ok(blob_data) = get_blob_from_operator_da_input(operator_da_input).await {
+                        if let Ok(blob_data) =
+                            get_blob_from_operator_da_input(operator_da_input).await
+                        {
                             blobs.push(blob_data)
                         }
-                    },
+                    }
                     _ => return Err(anyhow::anyhow!("Operator DA input is not bytes")),
                 }
-                
-            },
-            _ => return Err(anyhow::anyhow!("CommitBatchInfo components cannot be represented as a tuple")),
+            }
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "CommitBatchInfo components cannot be represented as a tuple"
+                ))
+            }
         }
     }
 
-    /*let commit_batch_info = commit_batch_info.as_array().ok_or(anyhow::anyhow!(
-        "CommitBatchInfo cannot be represented as an array"
-    ))?[0]
-        .as_tuple()
-        .ok_or(anyhow::anyhow!(
-            "CommitBatchInfo components cannot be represented as a tuple"
-        ))?;
-
-    let mut blobs = vec![];
-
-    for pubdata_commitments in commit_batch_info.iter() {
-        let pubdata_commitments_bytes = pubdata_commitments.as_bytes();
-        if let Ok(blob_data) = get_blob_from_pubdata_commitment(pubdata_commitments_bytes).await {
-            blobs.push(blob_data)
-        }
-    }*/
     Ok(blobs)
 }
 
-async fn get_blob_from_operator_da_input(
-    operator_da_input: Vec<u8>,
-) -> anyhow::Result<BlobData> {
-    let blob_id = hex::decode(&operator_da_input[32..])?; // First 32 bytes are state diff hash
+/// Helper functions for safe extraction
+fn extract_tuple(token: &Token) -> anyhow::Result<&Vec<Token>> {
+    match token {
+        Token::Tuple(inner) => Ok(inner),
+        _ => Err(anyhow::anyhow!("Not a tuple")),
+    }
+}
 
-    let blob_id = hex::encode(&blob_id);
-    let blob = get_blob(&blob_id).await?;
+fn extract_array(token: &Token) -> anyhow::Result<Vec<Token>> {
+    match token {
+        Token::Array(tokens) => Ok(tokens.clone()),
+        _ => Err(anyhow::anyhow!("Not a uint")),
+    }
+}
+
+fn extract_uint(token: &Token) -> anyhow::Result<u32> {
+    match token {
+        Token::Uint(value) => Ok(value.as_u32()),
+        _ => Err(anyhow::anyhow!("Not a uint")),
+    }
+}
+
+fn extract_fixed_bytes<const N: usize>(token: &Token) -> anyhow::Result<Vec<u8>> {
+    match token {
+        Token::FixedBytes(bytes) => Ok(bytes.clone()),
+        _ => Err(anyhow::anyhow!("Not fixed bytes")),
+    }
+}
+
+fn extract_bytes(token: &Token) -> anyhow::Result<Vec<u8>> {
+    match token {
+        Token::Bytes(bytes) => Ok(bytes.clone()),
+        _ => Err(anyhow::anyhow!("Not bytes")),
+    }
+}
+
+async fn get_blob_from_operator_da_input(operator_da_input: Vec<u8>) -> anyhow::Result<BlobData> {
+    let param_types = vec![ParamType::Tuple(vec![
+        // BlobHeader
+        ParamType::Tuple(vec![
+            ParamType::Tuple(vec![ParamType::Uint(256), ParamType::Uint(256)]), // G1Commitment
+            ParamType::Uint(32),                                                // data_length
+            ParamType::Array(Box::new(ParamType::Tuple(vec![
+                ParamType::Uint(32),
+                ParamType::Uint(32),
+                ParamType::Uint(32),
+                ParamType::Uint(32),
+            ]))), // BlobQuorumParam
+        ]),
+        // BlobVerificationProof
+        ParamType::Tuple(vec![
+            ParamType::Uint(32), // batch_id
+            ParamType::Uint(32), // blob_index
+            ParamType::Tuple(vec![
+                ParamType::Tuple(vec![
+                    ParamType::FixedBytes(32),
+                    ParamType::Bytes,
+                    ParamType::Bytes,
+                    ParamType::Uint(32),
+                ]), // BatchHeader
+                ParamType::FixedBytes(32), // signatory_record_hash
+                ParamType::Uint(32),       // confirmation_block_number
+                ParamType::Bytes,          // batch_header_hash
+                ParamType::Bytes,          // fee
+            ]), // BatchMetadata
+            ParamType::Bytes,    // inclusion_proof
+            ParamType::Bytes,    // quorum_indexes
+        ]),
+    ])];
+
+    let decoded = ethabi::decode(&param_types, &operator_da_input[32..])?;
+    let blob_info = extract_tuple(&decoded[0])?;
+
+    // Extract BlobHeader
+    let blob_header_tokens = extract_tuple(&blob_info[0])?;
+    let commitment_tokens = extract_tuple(&blob_header_tokens[0])?;
+
+    let x = commitment_tokens[0].clone().into_uint().unwrap();
+    let y = commitment_tokens[1].clone().into_uint().unwrap();
+
+    let mut x_bytes = vec![0u8; 32];
+    let mut y_bytes = vec![0u8; 32];
+    x.to_big_endian(&mut x_bytes);
+    y.to_big_endian(&mut y_bytes);
+
+    let data_length = extract_uint(&blob_header_tokens[1])?;
+    let blob_quorum_params_tokens = extract_array(&blob_header_tokens[2])?;
+
+    let blob_quorum_params: Vec<BlobQuorumParam> = blob_quorum_params_tokens
+        .iter()
+        .map(|param| {
+            let tuple = extract_tuple(param)?;
+            Ok(BlobQuorumParam {
+                quorum_number: extract_uint(&tuple[0])?,
+                adversary_threshold_percentage: extract_uint(&tuple[1])?,
+                confirmation_threshold_percentage: extract_uint(&tuple[2])?,
+                chunk_length: extract_uint(&tuple[3])?,
+            })
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    let blob_header = BlobHeader {
+        commitment: G1Commitment {
+            x: x_bytes,
+            y: y_bytes,
+        },
+        data_length,
+        blob_quorum_params,
+    };
+
+    // Extract BlobVerificationProof
+    let blob_verification_tokens = extract_tuple(&blob_info[1])?;
+
+    let batch_id = extract_uint(&blob_verification_tokens[0])?;
+    let blob_index = extract_uint(&blob_verification_tokens[1])?;
+
+    let batch_metadata_tokens = extract_tuple(&blob_verification_tokens[2])?;
+    let batch_header_tokens = extract_tuple(&batch_metadata_tokens[0])?;
+
+    let batch_header = BatchHeader {
+        batch_root: extract_fixed_bytes::<32>(&batch_header_tokens[0])?,
+        quorum_numbers: extract_bytes(&batch_header_tokens[1])?,
+        quorum_signed_percentages: extract_bytes(&batch_header_tokens[2])?,
+        reference_block_number: extract_uint(&batch_header_tokens[3])?,
+    };
+
+    let batch_metadata = BatchMetadata {
+        batch_header,
+        signatory_record_hash: extract_fixed_bytes::<32>(&batch_metadata_tokens[1])?,
+        confirmation_block_number: extract_uint(&batch_metadata_tokens[2])?,
+        batch_header_hash: extract_bytes(&batch_metadata_tokens[3])?,
+        fee: extract_bytes(&batch_metadata_tokens[4])?,
+    };
+
+    let blob_verification_proof = BlobVerificationProof {
+        batch_id,
+        blob_index,
+        batch_metadata,
+        inclusion_proof: extract_bytes(&blob_verification_tokens[3])?,
+        quorum_indexes: extract_bytes(&blob_verification_tokens[4])?,
+    };
+
+    let blob_info = BlobInfo {
+        blob_header,
+        blob_verification_proof,
+    };
+    let blob = get_blob(blob_info).await?;
+
+    println!("retrieved blob: {:?}", blob);
     Ok(BlobData {
-        blob_id,
+        blob_info: "TODO".to_string(), // hex::encode(&blob_info),
         blob: hex::encode(blob),
     })
 }
