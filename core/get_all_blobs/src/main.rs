@@ -287,6 +287,7 @@ async fn get_blob_from_operator_da_input(operator_da_input: Vec<u8>) -> anyhow::
     let batch_id = extract_uint(&blob_verification_tokens[0])?;
     let blob_index = extract_uint(&blob_verification_tokens[1])?;
 
+
     let batch_metadata_tokens = extract_tuple(&blob_verification_tokens[2])?;
     let batch_header_tokens = extract_tuple(&batch_metadata_tokens[0])?;
 
@@ -319,9 +320,8 @@ async fn get_blob_from_operator_da_input(operator_da_input: Vec<u8>) -> anyhow::
     };
     let blob = get_blob(blob_info).await?;
 
-    println!("retrieved blob: {:?}", blob);
     Ok(BlobData {
-        blob_info: "TODO".to_string(), // hex::encode(&blob_info),
+        blob_info: blob_index.to_string(),
         blob: hex::encode(blob),
     })
 }
