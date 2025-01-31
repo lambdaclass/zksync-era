@@ -176,7 +176,7 @@ impl PointFile {
 /// EigenDA service manager is used to connect to the service manager contract
 #[derive(Debug)]
 pub struct Verifier {
-    kzg: Kzg,
+    kzg: Arc<Kzg>,
     cfg: EigenConfig,
     client: Arc<dyn VerifierClient>,
 }
@@ -268,7 +268,7 @@ impl Verifier {
             .await
             .map_err(|e| VerificationError::Kzg(KzgError::Setup(e.to_string())))??;
 
-        Ok(Self { kzg, cfg, client })
+        Ok(Self { kzg: Arc::new(kzg), cfg, client })
     }
 
     /// Return the commitment from a blob
