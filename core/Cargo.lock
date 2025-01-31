@@ -2845,7 +2845,7 @@ dependencies = [
 [[package]]
 name = "eigen-client"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/eigenda-client-rs?branch=m0-implementation#1f722784f7282b4ff0791ad98c19a3a8e7149363"
+source = "git+https://github.com/lambdaclass/eigenda-client-rs?branch=m0-implementation#4cd5296c8e51948e0d059ed4c6336fcda17dfa78"
 dependencies = [
  "ark-bn254",
  "async-trait",
@@ -4357,7 +4357,7 @@ dependencies = [
  "hyper 1.6.0",
  "hyper-util",
  "log",
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "rustls-native-certs 0.8.1",
  "rustls-pki-types",
  "tokio",
@@ -4900,7 +4900,7 @@ dependencies = [
  "http 1.2.0",
  "jsonrpsee-core 0.23.2",
  "pin-project",
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "rustls-pki-types",
  "rustls-platform-verifier",
  "soketto 0.8.1",
@@ -4999,7 +4999,7 @@ dependencies = [
  "hyper-util",
  "jsonrpsee-core 0.23.2",
  "jsonrpsee-types 0.23.2",
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "rustls-platform-verifier",
  "serde",
  "serde_json",
@@ -6796,7 +6796,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecf48c7ca261d60b74ab1a7b20da18bede46776b2e55535cb958eb595c5fa7b"
 dependencies = [
- "toml_edit 0.22.22",
+ "toml_edit 0.22.23",
 ]
 
 [[package]]
@@ -7128,7 +7128,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash 2.1.0",
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "socket2",
  "thiserror 2.0.11",
  "tokio",
@@ -7146,7 +7146,7 @@ dependencies = [
  "rand 0.8.5",
  "ring",
  "rustc-hash 2.1.0",
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "rustls-pki-types",
  "slab",
  "thiserror 2.0.11",
@@ -7452,7 +7452,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "quinn",
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "rustls-native-certs 0.8.1",
  "rustls-pemfile 2.2.0",
  "rustls-pki-types",
@@ -7797,9 +7797,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.21"
+version = "0.23.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f287924602bf649d949c63dc8ac8b235fa5387d394020705b80c4eb597ce5b8"
+checksum = "9fb9263ab4eb695e42321db096e3b8fbd715a59b154d5c88d82db2175b681ba7"
 dependencies = [
  "aws-lc-rs",
  "log",
@@ -7886,7 +7886,7 @@ dependencies = [
  "jni",
  "log",
  "once_cell",
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "rustls-native-certs 0.7.3",
  "rustls-platform-verifier-android",
  "rustls-webpki 0.102.8",
@@ -10093,7 +10093,7 @@ version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f6d0975eaace0cf0fcadee4e4aaa5da15b5c079146f2cffb67c113be122bf37"
 dependencies = [
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "tokio",
 ]
 
@@ -10144,7 +10144,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.22",
+ "toml_edit 0.22.23",
 ]
 
 [[package]]
@@ -10169,15 +10169,15 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.22"
+version = "0.22.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ae48d6208a266e853d946088ed816055e556cc6028c5e8e2b84d9fa5dd7c7f5"
+checksum = "02a8b472d1a3d7c18e2d61a489aee3453fd9031c33e4f55bd533f4a7adca1bee"
 dependencies = [
  "indexmap 2.7.1",
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.6.26",
+ "winnow 0.7.0",
 ]
 
 [[package]]
@@ -10612,7 +10612,7 @@ dependencies = [
  "log",
  "native-tls",
  "once_cell",
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "rustls-pki-types",
  "url",
  "webpki-roots",
@@ -10964,9 +10964,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "0.26.7"
+version = "0.26.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d642ff16b7e79272ae451b7322067cdc17cadf68c23264be9d94a32319efe7e"
+checksum = "2210b291f7ea53617fbafcc4939f10914214ec15aace5ba62293a668f322c5c9"
 dependencies = [
  "rustls-pki-types",
 ]
@@ -11225,6 +11225,15 @@ name = "winnow"
 version = "0.6.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e90edd2ac1aa278a5c4599b1d89cf03074b610800f866d4026dc199d7929a28"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "winnow"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e49d2d35d3fad69b39b94139037ecfb4f359f08958b9c11e7315ce770462419"
 dependencies = [
  "memchr",
 ]
@@ -12029,7 +12038,7 @@ dependencies = [
  "octocrab",
  "regex",
  "reqwest 0.12.12",
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "semver 1.0.25",
  "serde",
  "serde_json",
@@ -13536,7 +13545,7 @@ dependencies = [
  "pin-project-lite",
  "rand 0.8.5",
  "rlp",
- "rustls 0.23.21",
+ "rustls 0.23.22",
  "serde",
  "serde_json",
  "test-casing",
