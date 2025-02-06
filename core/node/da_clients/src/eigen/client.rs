@@ -95,7 +95,7 @@ mod tests {
     use serial_test::file_serial;
     use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
     use zksync_da_client::{types::DispatchResponse, DataAvailabilityClient};
-    use zksync_types::secrets::PrivateKey;
+    use zksync_types::{secrets::PrivateKey, url::SensitiveUrl, H160};
 
     use crate::eigen::{blob_info::BlobInfo, EigenClient, GetBlobData};
 
@@ -144,6 +144,25 @@ mod tests {
         }
     }
 
+    const DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS: H160 = H160([
+        0xd4, 0xa7, 0xe1, 0xbd, 0x80, 0x15, 0x05, 0x72, 0x93, 0xf0, 0xd0, 0xa5, 0x57, 0x08, 0x8c,
+        0x28, 0x69, 0x42, 0xe8, 0x4b,
+    ]);
+
+    fn test_eigen_config() -> EigenConfig {
+        EigenConfig {
+                disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
+                settlement_layer_confirmation_depth: 0,
+                eigenda_eth_rpc: Some(SensitiveUrl::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap()), // Safe to unwrap, never fails
+                eigenda_svc_manager_address: DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS,
+                wait_for_finalization: false,
+                authenticated: false,
+                points_dir: None,
+                g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
+                g2_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
+            }
+    }
+
     fn test_secrets() -> EigenSecrets {
         EigenSecrets {
             private_key: PrivateKey::from_str(
@@ -157,7 +176,7 @@ mod tests {
     #[tokio::test]
     #[file_serial]
     async fn test_non_auth_dispersal() {
-        let config = EigenConfig::default();
+        let config = test_eigen_config();
         let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
             .await
@@ -184,7 +203,7 @@ mod tests {
     async fn test_auth_dispersal() {
         let config = EigenConfig {
             authenticated: true,
-            ..EigenConfig::default()
+            ..test_eigen_config()
         };
         let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
@@ -213,7 +232,7 @@ mod tests {
         let config = EigenConfig {
             wait_for_finalization: true,
             authenticated: true,
-            ..EigenConfig::default()
+            ..test_eigen_config()
         };
         let secrets = test_secrets();
 
@@ -242,7 +261,7 @@ mod tests {
     async fn test_settlement_layer_confirmation_depth() {
         let config = EigenConfig {
             settlement_layer_confirmation_depth: 5,
-            ..EigenConfig::default()
+            ..test_eigen_config()
         };
         let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
@@ -271,7 +290,7 @@ mod tests {
         let config = EigenConfig {
             settlement_layer_confirmation_depth: 5,
             authenticated: true,
-            ..EigenConfig::default()
+            ..test_eigen_config()
         };
         let secrets = test_secrets();
         let client = EigenClient::new(config.clone(), secrets, Arc::new(MockGetBlobData))
