@@ -1,6 +1,13 @@
 use serde::Deserialize;
 use zksync_basic_types::{secrets::PrivateKey, url::SensitiveUrl, Address};
 
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub enum PointsSource {
+    Path(String),
+    /// g1_url, g2_url
+    Link((String, String)),
+}
+
 /// Configuration for the EigenDA remote disperser client.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct EigenConfig {
@@ -17,12 +24,8 @@ pub struct EigenConfig {
     pub wait_for_finalization: bool,
     /// Authenticated dispersal
     pub authenticated: bool,
-    /// Optional path to downloaded points directory
-    pub points_dir: Option<String>,
-    /// Url to the file containing the G1 point used for KZG
-    pub g1_url: String,
-    /// Url to the file containing the G2 point used for KZG
-    pub g2_url: String,
+    /// Points source
+    pub points_source: PointsSource,
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use ethabi::{ParamType, Token};
-use zksync_config::EigenConfig;
+use zksync_config::{configs::da_client::eigen::PointsSource, EigenConfig};
 use zksync_types::{
     url::SensitiveUrl,
     web3::{Bytes, CallRequest},
@@ -120,9 +120,10 @@ fn test_eigen_config() -> EigenConfig {
             eigenda_svc_manager_address: DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS,
             wait_for_finalization: false,
             authenticated: false,
-            points_dir: None,
-            g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
-            g2_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
+            points_source: PointsSource::Link((
+                "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
+                "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
+            ))
         }
 }
 

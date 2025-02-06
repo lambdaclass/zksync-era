@@ -93,7 +93,10 @@ mod tests {
 
     use backon::{ConstantBuilder, Retryable};
     use serial_test::file_serial;
-    use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
+    use zksync_config::{
+        configs::da_client::eigen::{EigenSecrets, PointsSource},
+        EigenConfig,
+    };
     use zksync_da_client::{types::DispatchResponse, DataAvailabilityClient};
     use zksync_types::{secrets::PrivateKey, url::SensitiveUrl, H160};
 
@@ -157,9 +160,10 @@ mod tests {
                 eigenda_svc_manager_address: DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS,
                 wait_for_finalization: false,
                 authenticated: false,
-                points_dir: None,
-                g1_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
-                g2_url: "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
+                points_source: PointsSource::Link((
+                    "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
+                    "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
+                ))
             }
     }
 
