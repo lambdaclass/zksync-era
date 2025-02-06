@@ -177,9 +177,9 @@ impl RawEigenClient {
             .verifier
             .verify_inclusion_data_against_settlement_layer(&blob_info)
             .await;
-        // in case of an error, the dispatcher will retry, so the need to return None
         if let Err(e) = result {
             match e {
+                // in case of an error, the dispatcher will retry, so the need to return None
                 VerificationError::EmptyHash => return Ok(None),
                 _ => return Err(anyhow::anyhow!("Failed to verify inclusion data: {:?}", e)),
             }
