@@ -5,7 +5,7 @@ use zksync_basic_types::{secrets::PrivateKey, url::SensitiveUrl, Address};
 pub enum PointsSource {
     Path(String),
     /// g1_url, g2_url
-    Link((String, String)),
+    Url((String, String)),
 }
 
 /// Configuration for the EigenDA remote disperser client.

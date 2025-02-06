@@ -82,10 +82,10 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                     Some(proto::eigen_config::PointsSource::Path(path)) => {
                         zksync_config::configs::da_client::eigen::PointsSource::Path(path)
                     }
-                    Some(proto::eigen_config::PointsSource::Link(link)) => {
-                        let g1_url = required(&link.g1_url).context("g1_url")?;
-                        let g2_url = required(&link.g2_url).context("g2_url")?;
-                        zksync_config::configs::da_client::eigen::PointsSource::Link((
+                    Some(proto::eigen_config::PointsSource::Url(url)) => {
+                        let g1_url = required(&url.g1_url).context("g1_url")?;
+                        let g2_url = required(&url.g2_url).context("g2_url")?;
+                        zksync_config::configs::da_client::eigen::PointsSource::Url((
                             g1_url.to_owned(),
                             g2_url.to_owned(),
                         ))
@@ -150,10 +150,10 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                     zksync_config::configs::da_client::eigen::PointsSource::Path(path) => {
                         proto::eigen_config::PointsSource::Path(path.clone())
                     }
-                    zksync_config::configs::da_client::eigen::PointsSource::Link((
+                    zksync_config::configs::da_client::eigen::PointsSource::Url((
                         g1_url,
                         g2_url,
-                    )) => proto::eigen_config::PointsSource::Link(proto::Link {
+                    )) => proto::eigen_config::PointsSource::Url(proto::Url {
                         g1_url: Some(g1_url.clone()),
                         g2_url: Some(g2_url.clone()),
                     }),

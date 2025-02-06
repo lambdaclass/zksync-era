@@ -55,7 +55,7 @@ impl FromEnv for DAClientConfig {
                     "Path" => zksync_config::configs::da_client::eigen::PointsSource::Path(
                         env::var("DA_POINTS_PATH")?,
                     ),
-                    "Link" => zksync_config::configs::da_client::eigen::PointsSource::Link((
+                    "Url" => zksync_config::configs::da_client::eigen::PointsSource::Url((
                         env::var("DA_POINTS_LINK_G1")?,
                         env::var("DA_POINTS_LINK_G2")?,
                     )),

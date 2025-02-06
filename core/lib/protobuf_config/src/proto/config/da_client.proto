@@ -37,11 +37,7 @@ message CelestiaConfig {
   optional uint64 timeout_ms = 4;
 }
 
-message Path {
-  optional string path = 1;
-}
-
-message Link {
+message Url {
   optional string g1_url = 1;
   optional string g2_url = 2;
 }
@@ -55,7 +51,7 @@ message EigenConfig {
   optional bool authenticated = 8;
   oneof points_source {
     string path = 9;
-    Link link = 10;
+    Url url = 10;
   }
   reserved 1,2;
   reserved "rpc_node_url","inclusion_polling_interval_ms";

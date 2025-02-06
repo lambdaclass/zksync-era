@@ -230,7 +230,7 @@ impl Verifier {
                 PointFile::Path(PathBuf::from(format!("{}/{}", path, Self::G1POINT))),
                 PointFile::Path(PathBuf::from(format!("{}/{}", path, Self::G2POINT))),
             )),
-            PointsSource::Link((g1_url, g2_url)) => {
+            PointsSource::Url((g1_url, g2_url)) => {
                 tracing::info!("Downloading points for KZG setup to a temp file");
                 Ok((
                     PointFile::Temp(Self::download_temp_point(g1_url).await?),

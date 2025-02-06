@@ -1,7 +1,6 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use ethabi::{ParamType, Token};
-use zksync_config::{configs::da_client::eigen::PointsSource, EigenConfig};
 use zksync_types::{
     url::SensitiveUrl,
     web3::{Bytes, CallRequest},
@@ -15,6 +14,7 @@ use crate::eigen::{
         BatchHeader, BatchMetadata, BlobHeader, BlobInfo, BlobQuorumParam, BlobVerificationProof,
         G1Commitment,
     },
+    test_eigen_config,
     verifier::{decode_bytes, Verifier, VerifierClient},
 };
 
@@ -105,26 +105,6 @@ fn create_remote_query_client() -> Box<DynClient<L1>> {
     let url = SensitiveUrl::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap();
     let query_client: Client<L1> = Client::http(url).unwrap().build();
     Box::new(query_client) as Box<DynClient<L1>>
-}
-
-const DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS: H160 = H160([
-    0xd4, 0xa7, 0xe1, 0xbd, 0x80, 0x15, 0x05, 0x72, 0x93, 0xf0, 0xd0, 0xa5, 0x57, 0x08, 0x8c, 0x28,
-    0x69, 0x42, 0xe8, 0x4b,
-]);
-
-fn test_eigen_config() -> EigenConfig {
-    EigenConfig {
-            disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
-            settlement_layer_confirmation_depth: 0,
-            eigenda_eth_rpc: Some(SensitiveUrl::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap()), // Safe to unwrap, never fails
-            eigenda_svc_manager_address: DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS,
-            wait_for_finalization: false,
-            authenticated: false,
-            points_source: PointsSource::Link((
-                "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
-                "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
-            ))
-        }
 }
 
 #[ignore = "depends on external RPC"]

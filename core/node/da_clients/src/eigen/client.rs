@@ -93,14 +93,11 @@ mod tests {
 
     use backon::{ConstantBuilder, Retryable};
     use serial_test::file_serial;
-    use zksync_config::{
-        configs::da_client::eigen::{EigenSecrets, PointsSource},
-        EigenConfig,
-    };
+    use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
     use zksync_da_client::{types::DispatchResponse, DataAvailabilityClient};
-    use zksync_types::{secrets::PrivateKey, url::SensitiveUrl, H160};
+    use zksync_types::secrets::PrivateKey;
 
-    use crate::eigen::{blob_info::BlobInfo, EigenClient, GetBlobData};
+    use crate::eigen::{blob_info::BlobInfo, test_eigen_config, EigenClient, GetBlobData};
 
     impl EigenClient {
         async fn get_blob_data(&self, blob_id: BlobInfo) -> anyhow::Result<Vec<u8>> {
@@ -145,26 +142,6 @@ mod tests {
         async fn get_blob_data(&self, _input: &'_ str) -> anyhow::Result<Option<Vec<u8>>> {
             Ok(None)
         }
-    }
-
-    const DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS: H160 = H160([
-        0xd4, 0xa7, 0xe1, 0xbd, 0x80, 0x15, 0x05, 0x72, 0x93, 0xf0, 0xd0, 0xa5, 0x57, 0x08, 0x8c,
-        0x28, 0x69, 0x42, 0xe8, 0x4b,
-    ]);
-
-    fn test_eigen_config() -> EigenConfig {
-        EigenConfig {
-                disperser_rpc: "https://disperser-holesky.eigenda.xyz:443".to_string(),
-                settlement_layer_confirmation_depth: 0,
-                eigenda_eth_rpc: Some(SensitiveUrl::from_str("https://ethereum-holesky-rpc.publicnode.com").unwrap()), // Safe to unwrap, never fails
-                eigenda_svc_manager_address: DEFAULT_EIGENDA_SVC_MANAGER_ADDRESS,
-                wait_for_finalization: false,
-                authenticated: false,
-                points_source: PointsSource::Link((
-                    "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point".to_string(),
-                    "https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2".to_string(),
-                ))
-            }
     }
 
     fn test_secrets() -> EigenSecrets {
