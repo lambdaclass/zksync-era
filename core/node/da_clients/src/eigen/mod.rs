@@ -16,7 +16,7 @@ pub(crate) mod common {
 }
 
 #[cfg(test)]
-pub fn test_eigen_config() -> zksync_config::EigenConfig {
+pub fn test_eigenda_config() -> zksync_config::EigenConfig {
     use std::str::FromStr;
 
     zksync_config::EigenConfig {
