@@ -103,8 +103,9 @@ impl DataAvailabilityDispatcher {
             .await?;
         drop(conn);
 
-        for batch in batches {
+        for batch in &batches {
             let dispatch_latency = METRICS.blob_dispatch_latency.start();
+            METRICS.blobs_pending_dispatch.inc_by(1);
             let dispatch_response = retry(self.config.max_retries(), batch.l1_batch_number, || {
                 self.client
                     .dispatch_blob(batch.l1_batch_number.0, batch.pubdata.clone())
@@ -119,14 +120,14 @@ impl DataAvailabilityDispatcher {
             })?;
             let dispatch_latency_duration = dispatch_latency.observe();
 
-            let sent_at = Utc::now().naive_utc();
+            let sent_at = Utc::now();
 
             let mut conn = self.pool.connection_tagged("da_dispatcher").await?;
             conn.data_availability_dal()
                 .insert_l1_batch_da(
                     batch.l1_batch_number,
                     dispatch_response.blob_id.as_str(),
-                    sent_at,
+                    sent_at.naive_utc(),
                 )
                 .await?;
             drop(conn);
@@ -135,11 +136,40 @@ impl DataAvailabilityDispatcher {
                 .last_dispatched_l1_batch
                 .set(batch.l1_batch_number.0 as usize);
             METRICS.blob_size.observe(batch.pubdata.len());
+            METRICS.blobs_dispatched.inc_by(1);
+            METRICS.blobs_pending_dispatch.dec_by(1);
+            METRICS.sealed_to_dispatched_lag.observe(
+                sent_at
+                    .signed_duration_since(batch.sealed_at)
+                    .to_std()
+                    .context("sent_at has to be higher than sealed_at")?,
+            );
             tracing::info!(
                 "Dispatched a DA for batch_number: {}, pubdata_size: {}, dispatch_latency: {dispatch_latency_duration:?}",
                 batch.l1_batch_number,
                 batch.pubdata.len(),
             );
+        }
+
+        // We don't need to report this metric every iteration, only once when the balance is changed
+        if !batches.is_empty() {
+            let client_arc = Arc::new(self.client.clone_boxed());
+
+            tokio::spawn(async move {
+                let balance = client_arc
+                    .balance()
+                    .await
+                    .with_context(|| "Unable to retrieve DA operator balance");
+
+                match balance {
+                    Ok(balance) => {
+                        METRICS.operator_balance.set(balance);
+                    }
+                    Err(err) => {
+                        tracing::error!("{err}")
+                    }
+                }
+            });
         }
 
         Ok(())
@@ -192,6 +222,7 @@ impl DataAvailabilityDispatcher {
         METRICS
             .last_included_l1_batch
             .set(blob_info.l1_batch_number.0 as usize);
+        METRICS.blobs_included.inc_by(1);
 
         tracing::info!(
             "Received an inclusion data for a batch_number: {}, inclusion_latency_seconds: {}",
@@ -228,7 +259,12 @@ where
                 retries += 1;
                 let sleep_duration = Duration::from_secs(backoff_secs)
                     .mul_f32(rand::thread_rng().gen_range(0.8..1.2));
-                tracing::warn!(%err, "Failed DA dispatch request {retries}/{max_retries} for batch {batch_number}, retrying in {} milliseconds.", sleep_duration.as_millis());
+                tracing::warn!(
+                    %err,
+                    "Failed DA dispatch request {retries}/{} for batch {batch_number}, retrying in {} milliseconds.",
+                    max_retries+1,
+                    sleep_duration.as_millis()
+                );
                 tokio::time::sleep(sleep_duration).await;
 
                 backoff_secs = (backoff_secs * 2).min(128); // cap the back-off at 128 seconds

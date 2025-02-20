@@ -184,7 +184,8 @@ impl DataAvailabilityDal<'_, '_> {
             r#"
             SELECT
                 number,
-                pubdata_input
+                pubdata_input,
+                sealed_at
             FROM
                 l1_batches
             LEFT JOIN
@@ -195,6 +196,7 @@ impl DataAvailabilityDal<'_, '_> {
                 AND number != 0
                 AND data_availability.blob_id IS NULL
                 AND pubdata_input IS NOT NULL
+                AND sealed_at IS NOT NULL
             ORDER BY
                 number
             LIMIT
@@ -213,7 +215,48 @@ impl DataAvailabilityDal<'_, '_> {
                 // `unwrap` is safe here because we have a `WHERE` clause that filters out `NULL` values
                 pubdata: row.pubdata_input.unwrap(),
                 l1_batch_number: L1BatchNumber(row.number as u32),
+                sealed_at: row.sealed_at.unwrap().and_utc(),
             })
             .collect())
+    }
+
+    /// Fetches the pubdata for the L1 batch with a given blob id.
+    pub async fn get_blob_data_by_blob_id(
+        &mut self,
+        blob_id: &str,
+    ) -> DalResult<Option<L1BatchDA>> {
+        let row = sqlx::query!(
+            r#"
+            SELECT
+                number,
+                pubdata_input,
+                sealed_at
+            FROM
+                l1_batches
+            LEFT JOIN
+                data_availability
+                ON data_availability.l1_batch_number = l1_batches.number
+            WHERE
+                number != 0
+                AND data_availability.blob_id = $1
+            ORDER BY
+                number
+            LIMIT
+                1
+            "#,
+            blob_id,
+        )
+        .instrument("get_blob_data_by_blob_id")
+        .with_arg("blob_id", &blob_id)
+        .fetch_optional(self.storage)
+        .await?
+        .map(|row| L1BatchDA {
+            // `unwrap` is safe here because we have a `WHERE` clause that filters out `NULL` values
+            pubdata: row.pubdata_input.unwrap(),
+            l1_batch_number: L1BatchNumber(row.number as u32),
+            sealed_at: row.sealed_at.unwrap().and_utc(),
+        });
+
+        Ok(row)
     }
 }

@@ -1,42 +1,70 @@
 use std::{str::FromStr, sync::Arc};
 
-use async_trait::async_trait;
-use secp256k1::SecretKey;
+use eigenda_client_rs::{
+    client::GetBlobData,
+    config::{PrivateKey, SrsPointsSource},
+    EigenClient,
+};
 use subxt_signer::ExposeSecret;
-use zksync_config::{configs::da_client::eigen::EigenSecrets, EigenConfig};
+use url::Url;
+use zksync_config::{
+    configs::da_client::eigen::{EigenSecrets, PointsSource},
+    EigenConfig,
+};
 use zksync_da_client::{
     types::{DAError, DispatchResponse, InclusionData},
     DataAvailabilityClient,
 };
 
-use super::sdk::RawEigenClient;
-use crate::utils::to_non_retriable_da_error;
+use crate::utils::to_retriable_da_error;
 
+// We can't implement DataAvailabilityClient for an outside struct, so it is needed to defined this intermediate struct
 #[derive(Debug, Clone)]
-pub struct EigenClient {
-    client: Arc<RawEigenClient>,
+pub struct EigenDAClient {
+    client: EigenClient,
 }
 
-impl EigenClient {
-    pub async fn new(config: EigenConfig, secrets: EigenSecrets) -> anyhow::Result<Self> {
-        let private_key = SecretKey::from_str(secrets.private_key.0.expose_secret().as_str())
-            .map_err(|e| anyhow::anyhow!("Failed to parse private key: {}", e))?;
+impl EigenDAClient {
+    pub async fn new(
+        config: EigenConfig,
+        secrets: EigenSecrets,
+        get_blob_data: Arc<dyn GetBlobData>,
+    ) -> anyhow::Result<Self> {
+        let eth_rpc_url = match config.eigenda_eth_rpc {
+            Some(url) => {
+                let url = Url::from_str(url.expose_str())
+                    .map_err(|_| anyhow::anyhow!("Invalid eth rpc url"))?;
+                Some(eigenda_client_rs::config::SecretUrl::new(url))
+            }
+            None => None,
+        };
 
-        Ok(EigenClient {
-            client: Arc::new(
-                RawEigenClient::new(
-                    config.rpc_node_url,
-                    config.inclusion_polling_interval_ms,
-                    private_key,
-                )
-                .await?,
-            ),
-        })
+        let points_source = match config.points_source {
+            PointsSource::Path(path) => SrsPointsSource::Path(path),
+            PointsSource::Url(url) => SrsPointsSource::Url(url),
+        };
+
+        let eigen_config = eigenda_client_rs::config::EigenConfig {
+            disperser_rpc: config.disperser_rpc,
+            settlement_layer_confirmation_depth: config.settlement_layer_confirmation_depth,
+            eth_rpc_url,
+            eigenda_svc_manager_address: config.eigenda_svc_manager_address,
+            wait_for_finalization: config.wait_for_finalization,
+            authenticated: config.authenticated,
+            points_source,
+        };
+        let private_key = PrivateKey::from_str(secrets.private_key.0.expose_secret())
+            .map_err(|e| anyhow::anyhow!("Failed to parse private key: {}", e))?;
+        let eigen_secrets = eigenda_client_rs::config::EigenSecrets { private_key };
+        let client = EigenClient::new(eigen_config, eigen_secrets, get_blob_data)
+            .await
+            .map_err(|e| anyhow::anyhow!("Eigen client Error: {:?}", e))?;
+        Ok(Self { client })
     }
 }
 
-#[async_trait]
-impl DataAvailabilityClient for EigenClient {
+#[async_trait::async_trait]
+impl DataAvailabilityClient for EigenDAClient {
     async fn dispatch_blob(
         &self,
         _: u32, // batch number
@@ -46,13 +74,24 @@ impl DataAvailabilityClient for EigenClient {
             .client
             .dispatch_blob(data)
             .await
-            .map_err(to_non_retriable_da_error)?;
+            .map_err(to_retriable_da_error)?;
 
         Ok(DispatchResponse::from(blob_id))
     }
 
-    async fn get_inclusion_data(&self, _: &str) -> Result<Option<InclusionData>, DAError> {
-        Ok(Some(InclusionData { data: vec![] }))
+    async fn get_inclusion_data(&self, blob_id: &str) -> Result<Option<InclusionData>, DAError> {
+        let inclusion_data = self
+            .client
+            .get_inclusion_data(blob_id)
+            .await
+            .map_err(to_retriable_da_error)?;
+        if let Some(inclusion_data) = inclusion_data {
+            Ok(Some(InclusionData {
+                data: inclusion_data,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     fn clone_boxed(&self) -> Box<dyn DataAvailabilityClient> {
@@ -60,6 +99,10 @@ impl DataAvailabilityClient for EigenClient {
     }
 
     fn blob_size_limit(&self) -> Option<usize> {
-        Some(1920 * 1024) // 2mb - 128kb as a buffer
+        self.client.blob_size_limit()
+    }
+
+    async fn balance(&self) -> Result<u64, DAError> {
+        Ok(0) // TODO fetch from API when payments are enabled in Eigen (PE-305)
     }
 }
