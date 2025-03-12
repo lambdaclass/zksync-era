@@ -1,0 +1,15 @@
+id: 2
+name: eigenda
+chain_id: 273
+prover_version: NoProofs
+configs: /Users/gianlucabelinche/Desktop/zksync/zksync-era/./chains/eigenda/configs/
+rocks_db_path: ./chains/eigenda/db/
+external_node_config_path: null
+artifacts_path: ./chains/eigenda/artifacts/
+l1_batch_commit_data_generator_mode: Validium
+base_token:
+  address: '0x0000000000000000000000000000000000000001'
+  nominator: 1
+  denominator: 1
+wallet_creation: Localhost
+evm_emulator: false
