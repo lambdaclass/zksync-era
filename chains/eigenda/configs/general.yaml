@@ -18,18 +18,18 @@ db:
     state_keeper_db_block_cache_capacity_mb: 128
 api:
   prometheus:
-    listener_port: 3413
+    listener_port: 3412
     pushgateway_url: http://127.0.0.1:9091
     push_interval_ms: 100
   healthcheck:
-    port: 3175
+    port: 3171
   merkle_tree:
-    port: 3176
+    port: 3172
   web3_json_rpc:
-    http_port: 3152
-    http_url: http://127.0.0.1:3152/
-    ws_port: 3153
-    ws_url: ws://127.0.0.1:3153/
+    http_port: 3150
+    http_url: http://127.0.0.1:3150/
+    ws_port: 3151
+    ws_url: ws://127.0.0.1:3151/
     req_entities_limit: 10000
     filters_disabled: false
     filters_limit: 10000
@@ -85,8 +85,8 @@ operations_manager:
   delay_interval: 100
 contract_verifier:
   compilation_timeout: 240
-  prometheus_port: 3419
-  port: 3177
+  prometheus_port: 3418
+  port: 3170
 circuit_breaker:
   sync_interval_ms: 120000
   http_req_max_retry_number: 10
@@ -139,13 +139,13 @@ prover:
       file_backed_base_path: ./chains/eigenda/artifacts/
     max_retries: 10
   setup_data_path: data/keys
-  prometheus_port: 3422
+  prometheus_port: 3415
   max_attempts: 10
   generation_timeout_in_secs: 600
   setup_load_mode: FROM_DISK
   specialized_group_id: 100
   queue_capacity: 10
-  witness_vector_receiver_port: 3423
+  witness_vector_receiver_port: 3416
   availability_check_interval_in_secs: 10000
   zone_read_url: http://metadata.google.internal/computeMetadata/v1/instance/zone
   shall_save_to_public_bucket: true
@@ -154,31 +154,31 @@ witness_generator:
   generation_timeout_in_secs: 900
   max_attempts: 10
   shall_save_to_public_bucket: true
-  prometheus_listener_port: 3217
+  prometheus_listener_port: 3216
   max_circuits_in_flight: 500
 witness_vector_generator:
   prover_instance_wait_timeout_in_secs: 200
   prover_instance_poll_time_in_milli_secs: 250
-  prometheus_listener_port: 3521
+  prometheus_listener_port: 3520
   prometheus_pushgateway_url: http://127.0.0.1:9091
   prometheus_push_interval_ms: 100
   specialized_group_id: 100
   max_prover_reservation_duration_in_secs: 1000
 data_handler:
-  http_port: 3424
+  http_port: 3420
   proof_generation_timeout_in_secs: 18000
   tee_proof_generation_timeout_in_secs: 60
   tee_batch_permanently_ignored_timeout_in_hours: 240
   tee_support: true
 prover_gateway:
-  api_url: http://127.0.0.1:3424
+  api_url: http://127.0.0.1:3420
   api_poll_duration_secs: 15
-  prometheus_listener_port: 3411
+  prometheus_listener_port: 3410
   prometheus_pushgateway_url: http://127.0.0.1:9091
   prometheus_push_interval_ms: 100
 proof_compressor:
   compression_mode: 5
-  prometheus_listener_port: 3425
+  prometheus_listener_port: 3421
   prometheus_pushgateway_url: http://127.0.0.1:9091
   prometheus_push_interval_ms: 100
   generation_timeout_in_secs: 3600
@@ -275,7 +275,7 @@ prover_group:
   - circuit_id: 18
     aggregation_round: 1
 prover_job_monitor:
-  prometheus_port: 3426
+  prometheus_port: 3417
   max_db_connections: 9
   graceful_shutdown_timeout_ms: 5000
   gpu_prover_archiver_run_interval_ms: 86400000
@@ -289,7 +289,7 @@ prover_job_monitor:
   prover_queue_reporter_run_interval_ms: 10000
   witness_generator_queue_reporter_run_interval_ms: 10000
   witness_job_queuer_run_interval_ms: 10000
-  http_port: 3178
+  http_port: 3174
 base_token_adjuster:
   price_polling_interval_ms: 30000
   price_cache_update_interval_ms: 2000
@@ -303,7 +303,7 @@ external_price_api_client:
 house_keeper:
   l1_batch_metrics_reporting_interval_ms: 10000
 prometheus:
-  listener_port: 3427
+  listener_port: 3414
   pushgateway_url: http://127.0.0.1:9091
   push_interval_ms: 100
 observability:
@@ -353,25 +353,25 @@ da_dispatcher:
   max_rows_to_dispatch: 100
   max_retries: 5
 external_proof_integration_api:
-  http_port: 3179
+  http_port: 3173
 timestamp_asserter:
   min_time_till_end_sec: 60
 consensus:
-  port: 3155
-  server_addr: 127.0.0.1:3155
-  public_addr: 127.0.0.1:3155
+  port: 3154
+  server_addr: 127.0.0.1:3154
+  public_addr: 127.0.0.1:3154
   max_payload_size: 2500000
   gossip_dynamic_inbound_limit: 100
   genesis_spec:
     chain_id: 273
     protocol_version: 1
     validators:
-    - key: validator:public:bls12_381:967eec78ecf3df5b127e7d0af74b0ca423a799372978b0b879a0e3f3b94bcf1682c7f4f74fffeb170911490bd64f2b700a818ffa70e62e799da58541a2d8c7b7b6946888e102121dcee124ac25a351a84e6cee2be666bcfb1e7b916a3518fbd6
+    - key: validator:public:bls12_381:870b3295bcff7d768c7a0659bc7b3cc22a66dacfdcf1e13b82ce851f8ecc46c0d8aa215757dd78fca05a7c34a359e5bc12a9f73bf49e18bdba9a54896f9b20ad7171eb430649f450f734ab4d68264ea1467675cad268476dae4a478c4440c832
       weight: 1
     attesters:
-    - key: attester:public:secp256k1:033a437c79f74553e75bbc4ab505933ea355a5e5c3790756c03511771149c94c6b
+    - key: attester:public:secp256k1:0239a1d4c3889660099b8f0e6a2595f02b8db3e76f9739ff82bbd587d29182aeec
       weight: 1
-    leader: validator:public:bls12_381:967eec78ecf3df5b127e7d0af74b0ca423a799372978b0b879a0e3f3b94bcf1682c7f4f74fffeb170911490bd64f2b700a818ffa70e62e799da58541a2d8c7b7b6946888e102121dcee124ac25a351a84e6cee2be666bcfb1e7b916a3518fbd6
+    leader: validator:public:bls12_381:870b3295bcff7d768c7a0659bc7b3cc22a66dacfdcf1e13b82ce851f8ecc46c0d8aa215757dd78fca05a7c34a359e5bc12a9f73bf49e18bdba9a54896f9b20ad7171eb430649f450f734ab4d68264ea1467675cad268476dae4a478c4440c832
 da_client:
   eigen:
     disperser_rpc: http://127.0.0.1:58557
@@ -380,4 +380,4 @@ da_client:
     eigenda_svc_manager_address: 0x1DCc506284Ba920c71bDCC8595cBfa022ed20b95
     wait_for_finalization: false
     authenticated: false
-    points_source_path: ./resources
+    path: ./resources
