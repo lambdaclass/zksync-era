@@ -82,7 +82,8 @@ pub async fn init_configs(
         None
         | Some(ValidiumType::NoDA)
         | Some(ValidiumType::EigenDAV1M0)
-        | Some(ValidiumType::EigenDAV2M0) => {
+        | Some(ValidiumType::EigenDAV2M0)
+        | Some(ValidiumType::EigenDAV2M1) => {
             general_config.remove_da_client();
         }
         Some(ValidiumType::Avail((avail_config, _))) => {
@@ -115,8 +116,9 @@ pub async fn init_configs(
     match &init_args.validium_config {
         None
         | Some(ValidiumType::NoDA)
+        | Some(ValidiumType::EigenDAV1M0)
         | Some(ValidiumType::EigenDAV2M0)
-        | Some(ValidiumType::EigenDAV1M0) => { /* Do nothing */ }
+        | Some(ValidiumType::EigenDAV2M1) => { /* Do nothing */ }
         Some(ValidiumType::Avail((_, avail_secrets))) => {
             secrets.set_avail_secrets(avail_secrets)?;
         }
