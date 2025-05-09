@@ -74,15 +74,24 @@ impl EigenDAClientV2M1 {
     }
 }
 
+#[derive(serde::Deserialize, Debug)]
+struct SidecarResponse {
+    _jsonrpc: String,
+    result: String,
+    _id: u32,
+}
+
 impl EigenDAClientV2M1 {
     async fn send_blob_key(&self, blob_key: String) -> anyhow::Result<()> {
-        let url = format!("{}/generate_proof", self.sidecar_rpc);
         let body = json!({
-            "blob_id": blob_key,
+            "jsonrpc": "2.0",
+            "method": "generate_proof",
+            "params": { "blob_id": blob_key },
+            "id": 1
         });
         let response = self
             .sidecar_client
-            .post(&url)
+            .post(&self.sidecar_rpc)
             .json(&body)
             .send()
             .await
@@ -95,23 +104,27 @@ impl EigenDAClientV2M1 {
     }
 
     async fn get_proof(&self, blob_key: &str) -> anyhow::Result<Option<Vec<u8>>> {
-        let url = format!("{}/get_proof", self.sidecar_rpc);
         let body = json!({
-            "blob_id": blob_key,
+            "jsonrpc": "2.0",
+            "method": "get_proof",
+            "params": { "blob_id": blob_key },
+            "id": 1
         });
         let response = self
             .sidecar_client
-            .post(&url)
+            .post(&self.sidecar_rpc)
             .json(&body)
             .send()
             .await
             .map_err(|_| anyhow::anyhow!("Failed to get proof"))?;
 
         if response.status().is_success() {
-            let proof: Vec<u8> = response
+            let proof: SidecarResponse = response
                 .json()
                 .await
                 .map_err(|_| anyhow::anyhow!("Failed to parse proof"))?;
+            let proof =
+                hex::decode(proof.result).map_err(|_| anyhow::anyhow!("Failed to parse proof"))?;
             return Ok(Some(proof));
         }
 
