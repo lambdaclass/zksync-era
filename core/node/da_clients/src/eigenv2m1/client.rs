@@ -8,7 +8,7 @@ use rust_eigenda_v2_client::{
     utils::SecretUrl,
 };
 use rust_eigenda_v2_common::{Payload, PayloadForm};
-use serde_json::json;
+use serde_json::{json, Value};
 use subxt_signer::ExposeSecret;
 use url::Url;
 use zksync_config::{
@@ -74,13 +74,6 @@ impl EigenDAClientV2M1 {
     }
 }
 
-#[derive(serde::Deserialize, Debug)]
-struct SidecarResponse {
-    _jsonrpc: String,
-    result: String,
-    _id: u32,
-}
-
 impl EigenDAClientV2M1 {
     async fn send_blob_key(&self, blob_key: String) -> anyhow::Result<()> {
         let body = json!({
@@ -96,10 +89,16 @@ impl EigenDAClientV2M1 {
             .send()
             .await
             .map_err(|_| anyhow::anyhow!("Failed to send blob key"))?;
-        if response.status().is_success() {
-            Ok(())
-        } else {
+
+        let json_response: Value = response
+            .json()
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to parse response"))?;
+
+        if let Some(error) = json_response.get("error") {
             Err(anyhow::anyhow!("Failed to send blob key"))
+        } else {
+            Ok(())
         }
     }
 
@@ -118,14 +117,17 @@ impl EigenDAClientV2M1 {
             .await
             .map_err(|_| anyhow::anyhow!("Failed to get proof"))?;
 
-        if response.status().is_success() {
-            let proof: SidecarResponse = response
-                .json()
-                .await
-                .map_err(|_| anyhow::anyhow!("Failed to parse proof"))?;
-            let proof =
-                hex::decode(proof.result).map_err(|_| anyhow::anyhow!("Failed to parse proof"))?;
-            return Ok(Some(proof));
+        let json_response: Value = response
+            .json()
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to parse response"))?;
+
+        if let Some(result) = json_response.get("result") {
+            if let Some(proof) = result.as_str() {
+                let proof =
+                    hex::decode(proof).map_err(|_| anyhow::anyhow!("Failed to parse proof"))?;
+                return Ok(Some(proof));
+            }
         }
 
         Ok(None)
