@@ -10,15 +10,17 @@ pub enum PolynomialForm {
 /// Configuration for the EigenDA remote disperser client.
 ///
 /// This configuration is meant to be used by the EigenDA V2 client.
-/// The M0 stands for Milestone 0, an insecure integration, where the dispersal is not verified.
+/// The M1 stands for Milestone 1, a secure integration, where the dispersal is verified.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-pub struct EigenConfigV2M0 {
+pub struct EigenConfigV2M1 {
     /// URL of the Disperser RPC server
     pub disperser_rpc: String,
     /// URL of the Ethereum RPC server
     pub eigenda_eth_rpc: Option<SensitiveUrl>,
     /// Authenticated dispersal
     pub authenticated: bool,
+    /// Address of the eigenDA registry contract
+    pub eigenda_cert_and_blob_verifier_addr: Address,
     /// Address of the EigenDA cert verifier
     pub cert_verifier_addr: Address,
     /// Blob version
@@ -28,6 +30,6 @@ pub struct EigenConfigV2M0 {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct EigenSecretsV2M0 {
+pub struct EigenSecretsV2M1 {
     pub private_key: PrivateKey,
 }

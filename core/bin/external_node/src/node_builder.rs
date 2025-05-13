@@ -26,7 +26,8 @@ use zksync_node_framework::{
         da_clients::{
             avail::AvailWiringLayer, celestia::CelestiaWiringLayer,
             eigenv1m0::EigenV1M0WiringLayer, eigenv2m0::EigenV2M0WiringLayer,
-            no_da::NoDAClientWiringLayer, object_store::ObjectStorageClientWiringLayer,
+            eigenv2m1::EigenV2M1WiringLayer, no_da::NoDAClientWiringLayer,
+            object_store::ObjectStorageClientWiringLayer,
         },
         data_availability_fetcher::DataAvailabilityFetcherLayer,
         healtcheck_server::HealthCheckLayer,
@@ -357,6 +358,14 @@ impl ExternalNodeBuilder {
 
                 self.node
                     .add_layer(EigenV1M0WiringLayer::new(config, secret));
+            }
+            (DAClientConfig::EigenV2M1(mut config), DataAvailabilitySecrets::EigenV2M1(secret)) => {
+                if config.eigenda_eth_rpc.is_none() {
+                    config.eigenda_eth_rpc = Some(self.config.required.eth_client_url.clone());
+                }
+
+                self.node
+                    .add_layer(EigenV2M1WiringLayer::new(config, secret));
             }
             (DAClientConfig::EigenV2M0(mut config), DataAvailabilitySecrets::EigenV2M0(secret)) => {
                 if config.eigenda_eth_rpc.is_none() {

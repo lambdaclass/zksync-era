@@ -160,4 +160,5 @@ enum PubdataType {
   EigenV1M0 = 4;
   ObjectStore = 5;
   EigenV2M0 = 6;
+  EigenV2M1 = 7;
 }
