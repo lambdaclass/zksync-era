@@ -95,7 +95,7 @@ impl EigenDAClientV2M1 {
             .await
             .map_err(|_| anyhow::anyhow!("Failed to parse response"))?;
 
-        if let Some(error) = json_response.get("error") {
+        if !json_response.get("error").is_none() {
             Err(anyhow::anyhow!("Failed to send blob key"))
         } else {
             Ok(())
