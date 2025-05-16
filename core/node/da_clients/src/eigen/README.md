@@ -78,6 +78,7 @@ da_client:
     v1m0:
       settlement_layer_confirmation_depth: 0
       eigenda_svc_manager_address: 0xD4A7E1Bd8015057293f0D0A557088c286942e84b
+      wait_for_finalization: false
       points_source_url:
         g1_url: https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point
         g2_url: https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2
