@@ -2983,7 +2983,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d162beedaa69905488a8da94f5ac3edb4dd4788b732fadb7bd120b2625c1976"
 dependencies = [
  "data-encoding",
- "syn 1.0.109",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -8498,9 +8498,9 @@ dependencies = [
 
 [[package]]
 name = "rust-eigenda-v2-client"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3e2910c1d0b2e4096f0612de9c436a6f33114407e466714bd98ac1b0026c07d"
+checksum = "697c694f246245671c6ce4bb51550b4f3794715c1ec595243e43c77e804c1869"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -8539,9 +8539,9 @@ dependencies = [
 
 [[package]]
 name = "rust-eigenda-v2-common"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "293c2d8de16f05825985483c3ca84c53828097e5959461b8f0a5b8b2d8affd8b"
+checksum = "b4af6351774442a2fd6cf0c5797070b8ff91c5523cdaae246478a7033bc49c35"
 dependencies = [
  "ark-bn254",
  "ark-ff 0.5.0",

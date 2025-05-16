@@ -49,6 +49,7 @@ pub struct V2Config {
 }
 
 /// Configuration for the EigenDA remote disperser client.
+///
 /// This configuration is meant to be used by both the EigenDA V1 and V2 client.
 /// The M0 stands for Milestone 0, an insecure integration, where the dispersal is not verified.
 #[derive(Clone, Debug, PartialEq, Deserialize)]

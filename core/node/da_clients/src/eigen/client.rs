@@ -175,7 +175,7 @@ impl DataAvailabilityClient for EigenDAClient {
                         .map_err(to_non_retriable_da_error)?,
                 );
                 let eigenda_cert = client
-                    .get_inclusion_data(&blob_key)
+                    .get_cert(&blob_key)
                     .await
                     .map_err(to_retriable_da_error)?;
                 if let Some(eigenda_cert) = eigenda_cert {
