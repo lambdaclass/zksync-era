@@ -2,6 +2,8 @@
 
 If you updated your version of zksync-era, and your EigenDA config looks something like this:
 
+`chains/<YOUR_CHAIN>/configs/general.yaml`
+
 ```yaml
 da_client:
   eigen:
@@ -21,6 +23,8 @@ You need to update the client config to the new format:
 
 ### If you want to migrate to V2
 
+`chains/<YOUR_CHAIN>/configs/general.yaml`
+
 ```yaml
 da_client:
   eigen:
@@ -34,6 +38,8 @@ da_client:
 ```
 
 ### If you prefer to stay on V1
+
+`chains/<YOUR_CHAIN>/configs/general.yaml`
 
 ```yaml
 da_client:
@@ -55,5 +61,5 @@ Check the [README.md](./README.md) for more details on the new fields.
 
 ### Note
 
-- If you were using `authenticated` requests, note that the validation of accounts is different betweeen V1 and V2,
-  contact the EigenDA team for more details on how to migrate your accounts.
+- If you have a private key set on `chains/<YOUR_CHAIN>/configs/secrets.yaml`, be sure that it has the needed
+  permissions set on the V2 client.
