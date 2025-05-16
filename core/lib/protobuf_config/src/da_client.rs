@@ -7,7 +7,7 @@ use zksync_config::{
         da_client::{
             avail::{AvailClientConfig, AvailConfig, AvailDefaultConfig, AvailGasRelayConfig},
             celestia::CelestiaConfig,
-            eigen::{V1M0Config, V2M0Config, VersionSpecificConfig},
+            eigen::{V1Config, V2Config, VersionSpecificConfig},
             DAClientConfig::{Avail, Celestia, Eigen, NoDA, ObjectStore},
         },
     },
@@ -77,8 +77,8 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                     .context("eigenda_eth_rpc")?,
                 authenticated: *required(&conf.authenticated).context("authenticated")?,
                 version_specific: match conf.client_version.clone() {
-                    Some(proto::eigen_config::ClientVersion::V1m0(v1_conf)) => {
-                        VersionSpecificConfig::V1M0(V1M0Config {
+                    Some(proto::eigen_config::ClientVersion::V1(v1_conf)) => {
+                        VersionSpecificConfig::V1(V1Config {
                             custom_quorum_numbers: v1_conf
                                 .custom_quorum_numbers
                                 .iter()
@@ -96,12 +96,12 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                             )
                             .context("settlement_layer_confirmation_depth")?,
                             points_source: match v1_conf.points_source.clone() {
-                                Some(proto::v1m0::PointsSource::PointsSourcePath(
+                                Some(proto::v1::PointsSource::PointsSourcePath(
                                     points_source_path,
                                 )) => zksync_config::configs::da_client::eigen::PointsSource::Path(
                                     points_source_path,
                                 ),
-                                Some(proto::v1m0::PointsSource::PointsSourceUrl(
+                                Some(proto::v1::PointsSource::PointsSourceUrl(
                                     points_source_url,
                                 )) => {
                                     let g1_url =
@@ -119,8 +119,8 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                             },
                         })
                     }
-                    Some(proto::eigen_config::ClientVersion::V2m0(v2_conf)) => {
-                        VersionSpecificConfig::V2M0(V2M0Config {
+                    Some(proto::eigen_config::ClientVersion::V2(v2_conf)) => {
+                        VersionSpecificConfig::V2(V2Config {
                             cert_verifier_addr: required(&v2_conf.cert_verifier_addr)
                                 .and_then(|x| parse_h160(x))
                                 .context("eigenda_cert_and_blob_verifier_addr")?,
@@ -192,9 +192,9 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                     .map(|a| a.expose_str().to_string()),
                 authenticated: Some(config.authenticated),
                 client_version: Some(match &config.version_specific {
-                    zksync_config::configs::da_client::eigen::VersionSpecificConfig::V1M0(
+                    zksync_config::configs::da_client::eigen::VersionSpecificConfig::V1(
                         v1_conf,
-                    ) => proto::eigen_config::ClientVersion::V1m0(proto::V1m0 {
+                    ) => proto::eigen_config::ClientVersion::V1(proto::V1 {
                         settlement_layer_confirmation_depth: Some(
                             v1_conf.settlement_layer_confirmation_depth,
                         ),
@@ -205,12 +205,12 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                         wait_for_finalization: Some(v1_conf.wait_for_finalization),
                         points_source: Some(match &v1_conf.points_source {
                             zksync_config::configs::da_client::eigen::PointsSource::Path(path) => {
-                                proto::v1m0::PointsSource::PointsSourcePath(path.clone())
+                                proto::v1::PointsSource::PointsSourcePath(path.clone())
                             }
                             zksync_config::configs::da_client::eigen::PointsSource::Url((
                                 g1_url,
                                 g2_url,
-                            )) => proto::v1m0::PointsSource::PointsSourceUrl(proto::Url {
+                            )) => proto::v1::PointsSource::PointsSourceUrl(proto::Url {
                                 g1_url: Some(g1_url.clone()),
                                 g2_url: Some(g2_url.clone()),
                             }),
@@ -222,9 +222,9 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                             .map(|x| *x as u32)
                             .collect(),
                     }),
-                    zksync_config::configs::da_client::eigen::VersionSpecificConfig::V2M0(
+                    zksync_config::configs::da_client::eigen::VersionSpecificConfig::V2(
                         v2_conf,
-                    ) => proto::eigen_config::ClientVersion::V2m0(proto::V2m0 {
+                    ) => proto::eigen_config::ClientVersion::V2(proto::V2 {
                         cert_verifier_addr: Some(format!("{:?}", v2_conf.cert_verifier_addr)),
                         blob_version: Some(v2_conf.blob_version as u32),
                         polynomial_form: Some(match v2_conf.polynomial_form {

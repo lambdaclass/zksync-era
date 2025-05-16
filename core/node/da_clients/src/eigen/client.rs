@@ -29,8 +29,8 @@ use crate::utils::{to_non_retriable_da_error, to_retriable_da_error};
 
 #[derive(Debug, Clone)]
 enum InnerClient {
-    V1M0(EigenClient),
-    V2M0(PayloadDisperser),
+    V1(EigenClient),
+    V2(PayloadDisperser),
 }
 
 // We can't implement DataAvailabilityClient for an outside struct, so it is needed to defined this intermediate struct
@@ -56,7 +56,7 @@ impl EigenDAClient {
         let private_key = secrets.private_key.0.expose_secret();
 
         let client = match config.version_specific {
-            VersionSpecificConfig::V1M0(v1_config) => {
+            VersionSpecificConfig::V1(v1_config) => {
                 let srs_points_source = match v1_config.points_source {
                     PointsSource::Path(path) => SrsPointsSource::Path(path),
                     PointsSource::Url(url) => SrsPointsSource::Url(url),
@@ -79,9 +79,9 @@ impl EigenDAClient {
                 let client = EigenClient::new(eigen_config, eigen_secrets, blob_provider)
                     .await
                     .map_err(|e| anyhow::anyhow!("Eigen client Error: {:?}", e))?;
-                InnerClient::V1M0(client)
+                InnerClient::V1(client)
             }
-            VersionSpecificConfig::V2M0(v2_config) => {
+            VersionSpecificConfig::V2(v2_config) => {
                 let payload_form = match v2_config.polynomial_form {
                     PolynomialForm::Coeff => PayloadForm::Coeff,
                     PolynomialForm::Eval => PayloadForm::Eval,
@@ -103,7 +103,7 @@ impl EigenDAClient {
                 let client = PayloadDisperser::new(payload_disperser_config, signer)
                     .await
                     .map_err(|e| anyhow::anyhow!("Eigen client Error: {:?}", e))?;
-                InnerClient::V2M0(client)
+                InnerClient::V2(client)
             }
         };
 
@@ -119,7 +119,7 @@ impl DataAvailabilityClient for EigenDAClient {
         data: Vec<u8>,
     ) -> Result<DispatchResponse, DAError> {
         match &self.client {
-            InnerClient::V1M0(client) => {
+            InnerClient::V1(client) => {
                 let blob_id = client
                     .dispatch_blob(data)
                     .await
@@ -127,7 +127,7 @@ impl DataAvailabilityClient for EigenDAClient {
 
                 Ok(DispatchResponse::from(blob_id))
             }
-            InnerClient::V2M0(client) => {
+            InnerClient::V2(client) => {
                 let payload = Payload::new(data);
                 let blob_key = client
                     .send_payload(payload)
@@ -151,7 +151,7 @@ impl DataAvailabilityClient for EigenDAClient {
 
     async fn get_inclusion_data(&self, blob_id: &str) -> Result<Option<InclusionData>, DAError> {
         match &self.client {
-            InnerClient::V1M0(client) => {
+            InnerClient::V1(client) => {
                 let inclusion_data = client
                     .get_inclusion_data(blob_id)
                     .await
@@ -164,7 +164,7 @@ impl DataAvailabilityClient for EigenDAClient {
                     Ok(None)
                 }
             }
-            InnerClient::V2M0(client) => {
+            InnerClient::V2(client) => {
                 let bytes = hex::decode(blob_id)
                     .map_err(|_| anyhow::anyhow!("Failed to decode blob id: {}", blob_id))
                     .map_err(to_non_retriable_da_error)?;
@@ -199,8 +199,8 @@ impl DataAvailabilityClient for EigenDAClient {
 
     fn blob_size_limit(&self) -> Option<usize> {
         match &self.client {
-            InnerClient::V1M0(client) => client.blob_size_limit(),
-            InnerClient::V2M0(_) => PayloadDisperser::<Signer>::blob_size_limit(),
+            InnerClient::V1(client) => client.blob_size_limit(),
+            InnerClient::V2(_) => PayloadDisperser::<Signer>::blob_size_limit(),
         }
     }
 

@@ -1,8 +1,8 @@
 use serde::Deserialize;
 use zksync_basic_types::{secrets::PrivateKey, url::SensitiveUrl, Address};
 
-pub const EIGEN_V1M0_CLIENT_NAME: &str = "V1M0";
-pub const EIGEN_V2M0_CLIENT_NAME: &str = "V2M0";
+pub const EIGEN_V1_CLIENT_NAME: &str = "V1";
+pub const EIGEN_V2_CLIENT_NAME: &str = "V2";
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub enum PolynomialForm {
@@ -19,12 +19,12 @@ pub enum PointsSource {
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub enum VersionSpecificConfig {
-    V1M0(V1M0Config),
-    V2M0(V2M0Config),
+    V1(V1Config),
+    V2(V2Config),
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-pub struct V1M0Config {
+pub struct V1Config {
     /// Block height needed to reach in order to consider the blob finalized
     /// a value less or equal to 0 means that the disperser will not wait for finalization
     pub settlement_layer_confirmation_depth: u32,
@@ -39,7 +39,7 @@ pub struct V1M0Config {
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-pub struct V2M0Config {
+pub struct V2Config {
     /// Address of the EigenDA cert verifier
     pub cert_verifier_addr: Address,
     /// Blob version

@@ -1,5 +1,3 @@
-TODO: UPDATE THIS FILE WITH CONTENTS OF V1 AND V2 CLIENTS
-
 # EigenDA Client
 
 EigenDA is as a high-throughput data availability layer for rollups. It is an EigenLayer AVS (Actively Validated
@@ -52,7 +50,7 @@ Now continue with the configuration with v1 or v2 specifics:
 
 ### V1 Specific client configuration
 
-A V1 client is configured by adding the `v1m0` field to the `eigen` `da_client`, these are the fields that can be
+A V1 client is configured by adding the `v1` field to the `eigen` `da_client`, these are the fields that can be
 modified:
 
 - `settlement_layer_confirmation_depth` (unsigned number): Block height needed to reach in order to consider the blob
@@ -75,7 +73,7 @@ da_client:
     disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
     eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
     authenticated: true
-    v1m0:
+    v1:
       settlement_layer_confirmation_depth: 0
       eigenda_svc_manager_address: 0xD4A7E1Bd8015057293f0D0A557088c286942e84b
       wait_for_finalization: false
@@ -87,7 +85,7 @@ da_client:
 
 ### V2 specific client configuration
 
-A V2 client is configured by adding the `v2m0` field to the `eigen` `da_client`, these are the fields that can be
+A V2 client is configured by adding the `v2` field to the `eigen` `da_client`, these are the fields that can be
 modified:
 
 - `cert_verifier_addr` Address of the eigenDA cert verifier contract
@@ -104,7 +102,7 @@ da_client:
     disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
     eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
     authenticated: true
-    v2m0:
+    v2:
       cert_verifier_addr: 0xfe52fe1940858dcb6e12153e2104ad0fdfbe1162 #Under CERT_VERIFIER_ADDRESS env variable
       blob_version: 0 #Under BLOB_VERSION env variable
       polynomial_form: COEFF #Either COEFF or EVAL

@@ -11,8 +11,8 @@ use zksync_config::{
             },
             celestia::CelestiaSecrets,
             eigen::{
-                EigenSecrets, V1M0Config, V2M0Config, VersionSpecificConfig,
-                EIGEN_V1M0_CLIENT_NAME, EIGEN_V2M0_CLIENT_NAME,
+                EigenSecrets, V1Config, V2Config, VersionSpecificConfig, EIGEN_V1_CLIENT_NAME,
+                EIGEN_V2_CLIENT_NAME,
             },
             DAClientConfig, AVAIL_CLIENT_CONFIG_NAME, CELESTIA_CLIENT_CONFIG_NAME,
             EIGEN_CLIENT_CONFIG_NAME, NO_DA_CLIENT_CONFIG_NAME, OBJECT_STORE_CLIENT_CONFIG_NAME,
@@ -55,7 +55,7 @@ pub fn da_client_config_from_env(prefix: &str) -> anyhow::Result<DAClientConfig>
             },
             authenticated: env::var(format!("{}AUTHENTICATED", prefix))?.parse()?,
             version_specific: match env::var(format!("{}EIGEN_CLIENT_TYPE", prefix))?.as_str() {
-                EIGEN_V1M0_CLIENT_NAME => VersionSpecificConfig::V1M0(V1M0Config {
+                EIGEN_V1_CLIENT_NAME => VersionSpecificConfig::V1(V1Config {
                     settlement_layer_confirmation_depth: env::var(format!(
                         "{}SETTLEMENT_LAYER_CONFIRMATION_DEPTH",
                         prefix
@@ -88,7 +88,7 @@ pub fn da_client_config_from_env(prefix: &str) -> anyhow::Result<DAClientConfig>
                         Err(_) => vec![],
                     },
                 }),
-                EIGEN_V2M0_CLIENT_NAME => VersionSpecificConfig::V2M0(V2M0Config {
+                EIGEN_V2_CLIENT_NAME => VersionSpecificConfig::V2(V2Config {
                     cert_verifier_addr: H160::from_str(&env::var(format!(
                         "{}CERT_VERIFIER_ADDR",
                         prefix
@@ -325,11 +325,11 @@ mod tests {
     }
 
     #[test]
-    fn from_env_eigen_v1m0_client() {
+    fn from_env_eigen_v1_client() {
         let mut lock = MUTEX.lock();
         let config = r#"
             DA_CLIENT="Eigen"
-            DA_EIGEN_CLIENT_TYPE="V1M0"
+            DA_EIGEN_CLIENT_TYPE="V1"
             DA_DISPERSER_RPC="http://localhost:8080"
             DA_SETTLEMENT_LAYER_CONFIRMATION_DEPTH=0
             DA_EIGENDA_ETH_RPC="http://localhost:8545"
@@ -349,7 +349,7 @@ mod tests {
                 disperser_rpc: "http://localhost:8080".to_string(),
                 eigenda_eth_rpc: Some(SensitiveUrl::from_str("http://localhost:8545").unwrap()),
                 authenticated: false,
-                version_specific: VersionSpecificConfig::V1M0(V1M0Config {
+                version_specific: VersionSpecificConfig::V1(V1Config {
                     settlement_layer_confirmation_depth: 0,
                     eigenda_svc_manager_address: "0x0000000000000000000000000000000000000123"
                         .parse()
@@ -363,11 +363,11 @@ mod tests {
     }
 
     #[test]
-    fn from_env_eigen_v2m0_client() {
+    fn from_env_eigen_v2_client() {
         let mut lock = MUTEX.lock();
         let config = r#"
             DA_CLIENT="Eigen"
-            DA_EIGEN_CLIENT_TYPE="V2M0"
+            DA_EIGEN_CLIENT_TYPE="V2"
             DA_DISPERSER_RPC="http://localhost:8080"
             DA_EIGENDA_ETH_RPC="http://localhost:8545"
             DA_AUTHENTICATED=false
@@ -384,7 +384,7 @@ mod tests {
                 disperser_rpc: "http://localhost:8080".to_string(),
                 eigenda_eth_rpc: Some(SensitiveUrl::from_str("http://localhost:8545").unwrap()),
                 authenticated: false,
-                version_specific: VersionSpecificConfig::V2M0(V2M0Config {
+                version_specific: VersionSpecificConfig::V2(V2Config {
                     cert_verifier_addr: "0x0000000000000000000000000000000000012345"
                         .parse()
                         .unwrap(),
