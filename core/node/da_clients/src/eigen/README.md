@@ -72,8 +72,8 @@ da_dispatcher:
   use_dummy_inclusion_data: true
 da_client:
   eigen:
-    disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz #Under DISPERSER_RPC env variable
-    eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com #Under RPC_URL env variable
+    disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
+    eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
     authenticated: true
     v1m0:
       settlement_layer_confirmation_depth: 0
@@ -100,8 +100,8 @@ da_dispatcher:
   use_dummy_inclusion_data: true
 da_client:
   eigen:
-    disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz #Under DISPERSER_RPC env variable
-    eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com #Under RPC_URL env variable
+    disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
+    eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
     authenticated: true
     v2m0:
       cert_verifier_addr: 0xfe52fe1940858dcb6e12153e2104ad0fdfbe1162 #Under CERT_VERIFIER_ADDRESS env variable
