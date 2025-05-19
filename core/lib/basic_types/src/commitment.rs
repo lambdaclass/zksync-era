@@ -23,7 +23,7 @@ impl From<PubdataType> for L1BatchCommitmentMode {
             PubdataType::NoDA
             | PubdataType::Avail
             | PubdataType::Celestia
-            | PubdataType::Eigen
+            | PubdataType::EigenDA
             | PubdataType::ObjectStore => L1BatchCommitmentMode::Validium,
         }
     }
@@ -78,7 +78,7 @@ pub enum PubdataType {
     NoDA,
     Avail,
     Celestia,
-    Eigen,
+    EigenDA,
     ObjectStore,
 }
 
@@ -91,9 +91,9 @@ impl FromStr for PubdataType {
             "NoDA" => Ok(Self::NoDA),
             "Avail" => Ok(Self::Avail),
             "Celestia" => Ok(Self::Celestia),
-            "Eigen" => Ok(Self::Eigen),
+            "EigenDA" => Ok(Self::EigenDA),
             "ObjectStore" => Ok(Self::ObjectStore),
-            _ => Err("Incorrect DA client type; expected one of `Rollup`, `NoDA`, `Avail`, `Celestia`, `Eigen`, `ObjectStore`"),
+            _ => Err("Incorrect DA client type; expected one of `Rollup`, `NoDA`, `Avail`, `Celestia`, `EigenDA`, `ObjectStore`"),
         }
     }
 }

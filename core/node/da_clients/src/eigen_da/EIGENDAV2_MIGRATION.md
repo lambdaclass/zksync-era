@@ -6,7 +6,7 @@ If you updated your version of zksync-era, and your EigenDA config looks somethi
 
 ```yaml
 da_client:
-  eigen:
+  eigenda:
     disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
     eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
     authenticated: true
@@ -28,7 +28,7 @@ You need to update the client config to the new format:
 
 ```yaml
 da_client:
-  eigen:
+  eigenda:
     disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
     eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
     authenticated: true
@@ -44,7 +44,7 @@ da_client:
 
 ```yaml
 da_client:
-  eigen:
+  eigenda:
     disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
     eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
     authenticated: true

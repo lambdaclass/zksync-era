@@ -29,7 +29,7 @@ This is an example of how the config should be looking like:
 
 ```yaml
 da_client:
-  eigen:
+  eigenda:
     disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz #Under DISPERSER_RPC env variable
     eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com #Under RPC_URL env variable
     authenticated: true
@@ -40,7 +40,7 @@ of the account that will be used. You need to add the following field:
 
 ```yaml
 da:
-  eigen:
+  eigenda:
     private_key: <PRIVATE_KEY>
 ```
 
@@ -69,7 +69,7 @@ So, for example, a client setup that uses the holesky EigenDA V1 client would lo
 da_dispatcher:
   use_dummy_inclusion_data: true
 da_client:
-  eigen:
+  eigenda:
     disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
     eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
     authenticated: true
@@ -98,7 +98,7 @@ So, for example, a client setup that uses the holesky EigenDA V2 client would lo
 da_dispatcher:
   use_dummy_inclusion_data: true
 da_client:
-  eigen:
+  eigenda:
     disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
     eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
     authenticated: true

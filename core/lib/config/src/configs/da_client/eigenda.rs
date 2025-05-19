@@ -53,7 +53,7 @@ pub struct V2Config {
 /// This configuration is meant to be used by both the EigenDA V1 and V2 client.
 /// The M0 stands for Milestone 0, an insecure integration, where the dispersal is not verified.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-pub struct EigenConfig {
+pub struct EigenDAConfig {
     // Shared fields between V1 and V2
     /// URL of the Disperser RPC server
     pub disperser_rpc: String,
@@ -66,6 +66,6 @@ pub struct EigenConfig {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct EigenSecrets {
+pub struct EigenDASecrets {
     pub private_key: PrivateKey,
 }

@@ -15,10 +15,10 @@ use rust_eigenda_v2_common::{Payload, PayloadForm};
 use subxt_signer::ExposeSecret;
 use url::Url;
 use zksync_config::{
-    configs::da_client::eigen::{
-        EigenSecrets, PointsSource, PolynomialForm, VersionSpecificConfig,
+    configs::da_client::eigenda::{
+        EigenDASecrets, PointsSource, PolynomialForm, VersionSpecificConfig,
     },
-    EigenConfig,
+    EigenDAConfig,
 };
 use zksync_da_client::{
     types::{ClientType, DAError, DispatchResponse, FinalityResponse, InclusionData},
@@ -41,8 +41,8 @@ pub struct EigenDAClient {
 
 impl EigenDAClient {
     pub async fn new(
-        config: EigenConfig,
-        secrets: EigenSecrets,
+        config: EigenDAConfig,
+        secrets: EigenDASecrets,
         blob_provider: Arc<dyn BlobProvider>,
     ) -> anyhow::Result<Self> {
         let url = Url::from_str(
@@ -205,7 +205,7 @@ impl DataAvailabilityClient for EigenDAClient {
     }
 
     fn client_type(&self) -> ClientType {
-        ClientType::Eigen
+        ClientType::EigenDA
     }
 
     async fn balance(&self) -> Result<u64, DAError> {

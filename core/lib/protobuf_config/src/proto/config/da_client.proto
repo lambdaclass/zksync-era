@@ -65,7 +65,7 @@ message V2 {
     optional PolynomialForm polynomial_form = 14;
 }
 
-message EigenConfig {
+message EigenDAConfig {
     optional string disperser_rpc = 1;
     optional string eigenda_eth_rpc = 2;
     optional bool authenticated = 3;
@@ -83,7 +83,7 @@ message DataAvailabilityClient {
     AvailConfig avail = 1;
     object_store.ObjectStore object_store = 2;
     CelestiaConfig celestia = 3;
-    EigenConfig eigen = 4;
+    EigenDAConfig eigenDA = 4;
     NoDAConfig no_da = 5;
   }
 }

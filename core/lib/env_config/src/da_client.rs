@@ -10,17 +10,17 @@ use zksync_config::{
                 AVAIL_GAS_RELAY_CLIENT_NAME,
             },
             celestia::CelestiaSecrets,
-            eigen::{
-                EigenSecrets, V1Config, V2Config, VersionSpecificConfig, EIGEN_V1_CLIENT_NAME,
+            eigenda::{
+                EigenDASecrets, V1Config, V2Config, VersionSpecificConfig, EIGEN_V1_CLIENT_NAME,
                 EIGEN_V2_CLIENT_NAME,
             },
             DAClientConfig, AVAIL_CLIENT_CONFIG_NAME, CELESTIA_CLIENT_CONFIG_NAME,
-            EIGEN_CLIENT_CONFIG_NAME, NO_DA_CLIENT_CONFIG_NAME, OBJECT_STORE_CLIENT_CONFIG_NAME,
+            EIGENDA_CLIENT_CONFIG_NAME, NO_DA_CLIENT_CONFIG_NAME, OBJECT_STORE_CLIENT_CONFIG_NAME,
         },
         secrets::DataAvailabilitySecrets,
         AvailConfig,
     },
-    EigenConfig,
+    EigenDAConfig,
 };
 
 use crate::{envy_load, FromEnv};
@@ -44,7 +44,7 @@ pub fn da_client_config_from_env(prefix: &str) -> anyhow::Result<DAClientConfig>
         CELESTIA_CLIENT_CONFIG_NAME => {
             DAClientConfig::Celestia(envy_load("da_celestia_config", prefix)?)
         }
-        EIGEN_CLIENT_CONFIG_NAME => DAClientConfig::Eigen(EigenConfig {
+        EIGENDA_CLIENT_CONFIG_NAME => DAClientConfig::EigenDA(EigenDAConfig {
             disperser_rpc: env::var(format!("{}DISPERSER_RPC", prefix))?,
             eigenda_eth_rpc: match env::var(format!("{}EIGENDA_ETH_RPC", prefix)) {
                 // Use a specific L1 RPC URL for the EigenDA client.
@@ -68,14 +68,14 @@ pub fn da_client_config_from_env(prefix: &str) -> anyhow::Result<DAClientConfig>
                     wait_for_finalization: env::var(format!("{}WAIT_FOR_FINALIZATION", prefix))?
                         .parse()?,
                     points_source: match env::var(format!("{}POINTS_SOURCE", prefix))?.as_str() {
-                        "Path" => zksync_config::configs::da_client::eigen::PointsSource::Path(
+                        "Path" => zksync_config::configs::da_client::eigenda::PointsSource::Path(
                             env::var(format!("{}POINTS_PATH", prefix))?,
                         ),
-                        "Url" => zksync_config::configs::da_client::eigen::PointsSource::Url((
+                        "Url" => zksync_config::configs::da_client::eigenda::PointsSource::Url((
                             env::var(format!("{}POINTS_LINK_G1", prefix))?,
                             env::var(format!("{}POINTS_LINK_G2", prefix))?,
                         )),
-                        _ => anyhow::bail!("Unknown Eigen points type"),
+                        _ => anyhow::bail!("Unknown EigenDA points type"),
                     },
                     custom_quorum_numbers: match env::var(format!(
                         "{}CUSTOM_QUORUM_NUMBERS",
@@ -96,12 +96,14 @@ pub fn da_client_config_from_env(prefix: &str) -> anyhow::Result<DAClientConfig>
                     blob_version: env::var(format!("{}BLOB_VERSION", prefix))?.parse()?,
                     polynomial_form: match env::var(format!("{}POLYNOMIAL_FORM", prefix))?.as_str()
                     {
-                        "Coeff" => zksync_config::configs::da_client::eigen::PolynomialForm::Coeff,
-                        "Poly" => zksync_config::configs::da_client::eigen::PolynomialForm::Eval,
+                        "Coeff" => {
+                            zksync_config::configs::da_client::eigenda::PolynomialForm::Coeff
+                        }
+                        "Poly" => zksync_config::configs::da_client::eigenda::PolynomialForm::Eval,
                         _ => anyhow::bail!("Unknown polynomial form"),
                     },
                 }),
-                _ => anyhow::bail!("Unknown Eigen DA client type"),
+                _ => anyhow::bail!("Unknown EigenDA client type"),
             },
         }),
         OBJECT_STORE_CLIENT_CONFIG_NAME => {
@@ -146,11 +148,11 @@ pub fn da_client_secrets_from_env(prefix: &str) -> anyhow::Result<DataAvailabili
                 .into();
             DataAvailabilitySecrets::Celestia(CelestiaSecrets { private_key })
         }
-        EIGEN_CLIENT_CONFIG_NAME => {
+        EIGENDA_CLIENT_CONFIG_NAME => {
             let private_key = env::var(format!("{}SECRETS_PRIVATE_KEY", prefix))
-                .context("Eigen private key not found")?
+                .context("EigenDA private key not found")?
                 .into();
-            DataAvailabilitySecrets::Eigen(EigenSecrets { private_key })
+            DataAvailabilitySecrets::EigenDA(EigenDASecrets { private_key })
         }
 
         _ => anyhow::bail!("Unknown DA client name: {}", client_tag),
@@ -174,7 +176,7 @@ mod tests {
         configs::{
             da_client::{
                 avail::{AvailClientConfig, AvailDefaultConfig},
-                eigen::PointsSource,
+                eigenda::PointsSource,
                 DAClientConfig::{self, ObjectStore},
             },
             object_store::ObjectStoreMode::GCS,
@@ -328,7 +330,7 @@ mod tests {
     fn from_env_eigen_v1_client() {
         let mut lock = MUTEX.lock();
         let config = r#"
-            DA_CLIENT="Eigen"
+            DA_CLIENT="EigenDA"
             DA_EIGEN_CLIENT_TYPE="V1"
             DA_DISPERSER_RPC="http://localhost:8080"
             DA_SETTLEMENT_LAYER_CONFIRMATION_DEPTH=0
@@ -345,7 +347,7 @@ mod tests {
         let actual = DAClientConfig::from_env().unwrap();
         assert_eq!(
             actual,
-            DAClientConfig::Eigen(EigenConfig {
+            DAClientConfig::EigenDA(EigenDAConfig {
                 disperser_rpc: "http://localhost:8080".to_string(),
                 eigenda_eth_rpc: Some(SensitiveUrl::from_str("http://localhost:8545").unwrap()),
                 authenticated: false,
@@ -366,7 +368,7 @@ mod tests {
     fn from_env_eigen_v2_client() {
         let mut lock = MUTEX.lock();
         let config = r#"
-            DA_CLIENT="Eigen"
+            DA_CLIENT="EigenDA"
             DA_EIGEN_CLIENT_TYPE="V2"
             DA_DISPERSER_RPC="http://localhost:8080"
             DA_EIGENDA_ETH_RPC="http://localhost:8545"
@@ -380,7 +382,7 @@ mod tests {
         let actual = DAClientConfig::from_env().unwrap();
         assert_eq!(
             actual,
-            DAClientConfig::Eigen(EigenConfig {
+            DAClientConfig::EigenDA(EigenDAConfig {
                 disperser_rpc: "http://localhost:8080".to_string(),
                 eigenda_eth_rpc: Some(SensitiveUrl::from_str("http://localhost:8545").unwrap()),
                 authenticated: false,
@@ -390,7 +392,7 @@ mod tests {
                         .unwrap(),
                     blob_version: 0,
                     polynomial_form:
-                        zksync_config::configs::da_client::eigen::PolynomialForm::Coeff,
+                        zksync_config::configs::da_client::eigenda::PolynomialForm::Coeff,
                 })
             })
         );
