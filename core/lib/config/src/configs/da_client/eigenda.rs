@@ -1,8 +1,8 @@
 use serde::Deserialize;
 use zksync_basic_types::{secrets::PrivateKey, url::SensitiveUrl, Address};
 
-pub const EIGEN_V1_CLIENT_NAME: &str = "V1";
-pub const EIGEN_V2_CLIENT_NAME: &str = "V2";
+pub const EIGENDA_V1_CLIENT_NAME: &str = "V1";
+pub const EIGENDA_V2_CLIENT_NAME: &str = "V2";
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub enum PolynomialForm {

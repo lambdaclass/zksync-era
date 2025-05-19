@@ -11,8 +11,8 @@ use zksync_config::{
             },
             celestia::CelestiaSecrets,
             eigenda::{
-                EigenDASecrets, V1Config, V2Config, VersionSpecificConfig, EIGEN_V1_CLIENT_NAME,
-                EIGEN_V2_CLIENT_NAME,
+                EigenDASecrets, V1Config, V2Config, VersionSpecificConfig, EIGENDA_V1_CLIENT_NAME,
+                EIGENDA_V2_CLIENT_NAME,
             },
             DAClientConfig, AVAIL_CLIENT_CONFIG_NAME, CELESTIA_CLIENT_CONFIG_NAME,
             EIGENDA_CLIENT_CONFIG_NAME, NO_DA_CLIENT_CONFIG_NAME, OBJECT_STORE_CLIENT_CONFIG_NAME,
@@ -55,7 +55,7 @@ pub fn da_client_config_from_env(prefix: &str) -> anyhow::Result<DAClientConfig>
             },
             authenticated: env::var(format!("{}AUTHENTICATED", prefix))?.parse()?,
             version_specific: match env::var(format!("{}EIGEN_CLIENT_TYPE", prefix))?.as_str() {
-                EIGEN_V1_CLIENT_NAME => VersionSpecificConfig::V1(V1Config {
+                EIGENDA_V1_CLIENT_NAME => VersionSpecificConfig::V1(V1Config {
                     settlement_layer_confirmation_depth: env::var(format!(
                         "{}SETTLEMENT_LAYER_CONFIRMATION_DEPTH",
                         prefix
@@ -88,7 +88,7 @@ pub fn da_client_config_from_env(prefix: &str) -> anyhow::Result<DAClientConfig>
                         Err(_) => vec![],
                     },
                 }),
-                EIGEN_V2_CLIENT_NAME => VersionSpecificConfig::V2(V2Config {
+                EIGENDA_V2_CLIENT_NAME => VersionSpecificConfig::V2(V2Config {
                     cert_verifier_addr: H160::from_str(&env::var(format!(
                         "{}CERT_VERIFIER_ADDR",
                         prefix

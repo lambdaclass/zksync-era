@@ -78,7 +78,7 @@ impl EigenDAClient {
                 let eigen_secrets = rust_eigenda_client::config::EigenSecrets { private_key };
                 let client = EigenClient::new(eigen_config, eigen_secrets, blob_provider)
                     .await
-                    .map_err(|e| anyhow::anyhow!("Eigen client Error: {:?}", e))?;
+                    .map_err(|e| anyhow::anyhow!("EigenDA client Error: {:?}", e))?;
                 InnerClient::V1(client)
             }
             VersionSpecificConfig::V2(v2_config) => {
@@ -102,7 +102,7 @@ impl EigenDAClient {
                 let signer = Signer::new(private_key);
                 let client = PayloadDisperser::new(payload_disperser_config, signer)
                     .await
-                    .map_err(|e| anyhow::anyhow!("Eigen client Error: {:?}", e))?;
+                    .map_err(|e| anyhow::anyhow!("EigenDA client Error: {:?}", e))?;
                 InnerClient::V2(client)
             }
         };

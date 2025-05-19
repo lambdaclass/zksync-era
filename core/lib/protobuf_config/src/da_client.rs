@@ -65,7 +65,7 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 chain_id: required(&conf.chain_id).context("chain_id")?.clone(),
                 timeout_ms: *required(&conf.timeout_ms).context("timeout_ms")?,
             }),
-            proto::data_availability_client::Config::EigenDa(conf) => EigenDA(EigenDAConfig {
+            proto::data_availability_client::Config::Eigenda(conf) => EigenDA(EigenDAConfig {
                 disperser_rpc: required(&conf.disperser_rpc)
                     .context("disperser_rpc")?
                     .clone(),
@@ -187,7 +187,7 @@ impl ProtoRepr for proto::DataAvailabilityClient {
                 })
             }
             EigenDA(config) => {
-                proto::data_availability_client::Config::EigenDa(proto::EigenDaConfig {
+                proto::data_availability_client::Config::Eigenda(proto::EigenDaConfig {
                     disperser_rpc: Some(config.disperser_rpc.clone()),
                     eigenda_eth_rpc: config
                         .eigenda_eth_rpc

@@ -6,7 +6,7 @@ For more information you can check the [docs](https://docs.eigenda.xyz/).
 
 ## Client configuration
 
-To set up an eigen client, you need to modify `etc/env/file_based/overrides/validium.yaml`:
+To set up an eigenda client, you need to modify `etc/env/file_based/overrides/validium.yaml`:
 
 First you need to set the `use_dummy_inclusion_data` field to `true`. This is a pending solution until the necessary
 contract changes are done (M1 milestone).
@@ -50,7 +50,7 @@ Now continue with the configuration with v1 or v2 specifics:
 
 ### V1 Specific client configuration
 
-A V1 client is configured by adding the `v1` field to the `eigen` `da_client`, these are the fields that can be
+A V1 client is configured by adding the `v1` field to the `eigenda` `da_client`, these are the fields that can be
 modified:
 
 - `settlement_layer_confirmation_depth` (unsigned number): Block height needed to reach in order to consider the blob
@@ -85,7 +85,7 @@ da_client:
 
 ### V2 specific client configuration
 
-A V2 client is configured by adding the `v2` field to the `eigen` `da_client`, these are the fields that can be
+A V2 client is configured by adding the `v2` field to the `eigenda` `da_client`, these are the fields that can be
 modified:
 
 - `cert_verifier_addr` Address of the eigenDA cert verifier contract

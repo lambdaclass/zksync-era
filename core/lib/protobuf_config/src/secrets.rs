@@ -141,7 +141,7 @@ impl ProtoRepr for proto::DataAvailabilitySecrets {
                         .as_str(),
                 ),
             }),
-            DaSecrets::EigenDa(eigen_da) => DataAvailabilitySecrets::EigenDA(EigenDASecrets {
+            DaSecrets::Eigenda(eigen_da) => DataAvailabilitySecrets::EigenDA(EigenDASecrets {
                 private_key: PrivateKey::from(
                     required(&eigen_da.private_key)
                         .context("private_key")?
@@ -195,7 +195,7 @@ impl ProtoRepr for proto::DataAvailabilitySecrets {
                 }))
             }
             DataAvailabilitySecrets::EigenDA(config) => {
-                Some(DaSecrets::EigenDa(proto::EigenDaSecret {
+                Some(DaSecrets::Eigenda(proto::EigenDaSecret {
                     private_key: Some(config.private_key.0.expose_secret().to_string()),
                 }))
             }
