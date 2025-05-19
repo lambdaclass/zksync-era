@@ -95,7 +95,7 @@ impl EigenDAClientV2M1 {
             .await
             .map_err(|_| anyhow::anyhow!("Failed to parse response"))?;
 
-        if !json_response.get("error").is_none() {
+        if json_response.get("error").is_some() {
             Err(anyhow::anyhow!("Failed to send blob key"))
         } else {
             Ok(())
@@ -176,7 +176,7 @@ impl DataAvailabilityClient for EigenDAClientV2M1 {
             .get_inclusion_data(&blob_key)
             .await
             .map_err(to_retriable_da_error)?;
-        if let Some(_) = eigenda_cert {
+        if eigenda_cert.is_some() {
             if let Some(proof) = self
                 .get_proof(blob_id)
                 .await
