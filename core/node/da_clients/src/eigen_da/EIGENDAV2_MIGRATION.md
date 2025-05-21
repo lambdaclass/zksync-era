@@ -17,7 +17,7 @@ da_client:
     source: Url
     g1_url: https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point
     g2_url: https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2
-  custom_quorum_numbers: 2,3
+  # custom_quorum_numbers: 2,3
 ```
 
 You need to update the client config to the new format, this is done by adding the new fields for V2, and specifying the
@@ -38,7 +38,7 @@ da_client:
     source: Url
     g1_url: https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point
     g2_url: https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2
-  custom_quorum_numbers: 2,3
+  # custom_quorum_numbers: 2,3
   version: V2
   cert_verifier_addr: 0xfe52fe1940858dcb6e12153e2104ad0fdfbe1162
   blob_version: 0
