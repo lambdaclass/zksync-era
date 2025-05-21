@@ -39,13 +39,18 @@ da_client:
     g1_url: https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g1.point
     g2_url: https://github.com/Layr-Labs/eigenda-proxy/raw/2fd70b99ef5bf137d7bbca3461cf9e1f2c899451/resources/g2.point.powerOf2
   # custom_quorum_numbers: 2,3
+  # Add this new fields:
   version: V2
   cert_verifier_addr: 0xfe52fe1940858dcb6e12153e2104ad0fdfbe1162
   blob_version: 0
   polynomial_form: coeff #Either coeff or eval
 ```
 
-Whether you are using `V1` or `V2` you still need to specify the fields for the other version.
+Note that the client changed from `Eigen` to `EigenDA`
+
+Whether you are using `V1` or `V2` you still need to specify the fields for the other version. Why do you need to keep
+both config parameters? The idea is to eventually remove the V1 version entirely, with the config like this, this will
+be seamless, since you would only need to remove the V1 specific fields.
 
 Check the [README.md](./README.md) for more details on the new fields.
 

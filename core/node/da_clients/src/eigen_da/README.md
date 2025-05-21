@@ -84,10 +84,10 @@ da_dispatcher:
   use_dummy_inclusion_data: true
 da_client:
   client: EigenDA
+  version: V1
   disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
   eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
   authenticated: true
-  version: V1
   settlement_layer_confirmation_depth: 0
   eigenda_svc_manager_address: 0xD4A7E1Bd8015057293f0D0A557088c286942e84b
   wait_for_finalization: false
@@ -110,10 +110,10 @@ da_dispatcher:
   use_dummy_inclusion_data: true
 da_client:
   client: EigenDA
+  version: V2
   disperser_rpc: https://disperser-testnet-holesky.eigenda.xyz
   eigenda_eth_rpc: https://ethereum-holesky-rpc.publicnode.com
   authenticated: true
-  version: V2
   settlement_layer_confirmation_depth: 0
   eigenda_svc_manager_address: 0xD4A7E1Bd8015057293f0D0A557088c286942e84b
   wait_for_finalization: false
@@ -130,4 +130,5 @@ da_client:
 ```
 
 The only difference is the version field, specifying `V1` or `V2`. The fields specific of the remaining version will not
-be used.
+be used. Why do you need to keep both config parameters? The idea is to eventually remove the V1 version entirely, with
+the config like this, this will be seamless, since you would only need to remove the V1 specific fields.
