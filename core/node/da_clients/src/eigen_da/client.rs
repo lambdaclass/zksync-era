@@ -295,7 +295,7 @@ impl DataAvailabilityClient for EigenDAClient {
                     if let Some(proof) = self
                         .get_proof(blob_id)
                         .await
-                        .map_err(to_retriable_da_error)?
+                        .map_err(to_non_retriable_da_error)?
                     {
                         Ok(Some(InclusionData { data: proof }))
                     } else {
