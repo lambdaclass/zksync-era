@@ -27,7 +27,8 @@ use zksync_da_client::{
 
 use crate::utils::{to_non_retriable_da_error, to_retriable_da_error};
 
-const PROOF_NOT_FOUND_ERROR_CODE: i64 = -32604;
+// The JSON RPC Specification defines for the Server error (Reserved for implementation-defined server-errors) the range of codes -32000 to -32099
+const PROOF_NOT_FOUND_ERROR_CODE: i64 = -32001;
 
 #[derive(Debug, Clone)]
 enum InnerClient {
