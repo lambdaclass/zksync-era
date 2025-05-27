@@ -27,6 +27,8 @@ use zksync_da_client::{
 
 use crate::utils::{to_non_retriable_da_error, to_retriable_da_error};
 
+const PROOF_NOT_FOUND_ERROR_CODE: i64 = -32604;
+
 #[derive(Debug, Clone)]
 enum InnerClient {
     V1(EigenClient),
@@ -169,6 +171,14 @@ impl EigenDAClient {
             .json()
             .await
             .map_err(|_| anyhow::anyhow!("Failed to parse response"))?;
+
+        if let Some(error) = json_response.get("error") {
+            if let Some(error_code) = error.get("code") {
+                if error_code.as_i64() != Some(PROOF_NOT_FOUND_ERROR_CODE) {
+                    return Err(anyhow::anyhow!("Failed to get proof for {:?}", blob_key));
+                }
+            }
+        }
 
         if let Some(result) = json_response.get("result") {
             if let Some(proof) = result.as_str() {
