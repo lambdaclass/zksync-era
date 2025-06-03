@@ -220,14 +220,11 @@ impl DataAvailabilityClient for EigenDAClient {
             }
         };
 
-        match &self.client {
-            InnerClient::V2Secure(_) => {
-                // In V2Secure, we need to send the blob key to the sidecar for proof generation
-                self.send_blob_key(blob_key.clone())
-                    .await
-                    .map_err(to_retriable_da_error)?;
-            }
-            _ => {}
+        if let InnerClient::V2Secure(_) = &self.client {
+            // In V2Secure, we need to send the blob key to the sidecar for proof generation
+            self.send_blob_key(blob_key.clone())
+                .await
+                .map_err(to_retriable_da_error)?;
         }
 
         Ok(DispatchResponse::from(blob_key))
