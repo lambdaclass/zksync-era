@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use chrono::{DateTime, Utc};
+use reqwest::Client;
 use rust_eigenda_client::{
     client::BlobProvider,
     config::SrsPointsSource,
@@ -13,6 +14,7 @@ use rust_eigenda_v2_client::{
     utils::SecretUrl as SecretUrlV2,
 };
 use rust_eigenda_v2_common::{Payload, PayloadForm};
+use serde_json::{json, Value};
 use subxt_signer::ExposeSecret;
 use url::Url;
 use zksync_config::{
@@ -26,16 +28,22 @@ use zksync_da_client::{
 
 use crate::utils::{to_non_retriable_da_error, to_retriable_da_error};
 
+// The JSON RPC Specification defines for the Server error (Reserved for implementation-defined server-errors) the range of codes -32000 to -32099
+const PROOF_NOT_FOUND_ERROR_CODE: i64 = -32001;
+
 #[derive(Debug, Clone)]
 enum InnerClient {
     V1(EigenClient),
     V2(PayloadDisperser),
+    V2Secure(PayloadDisperser),
 }
 
 // We can't implement DataAvailabilityClient for an outside struct, so it is needed to defined this intermediate struct
 #[derive(Debug, Clone)]
 pub struct EigenDAClient {
     client: InnerClient,
+    sidecar_client: Client,
+    sidecar_rpc: String,
 }
 
 impl EigenDAClient {
@@ -83,7 +91,7 @@ impl EigenDAClient {
                     .map_err(|e| anyhow::anyhow!("Eigen client Error: {:?}", e))?;
                 InnerClient::V1(client)
             }
-            Version::V2 => {
+            Version::V2 | Version::V2Secure => {
                 let payload_form = match config.polynomial_form {
                     PolynomialForm::Coeff => PayloadForm::Coeff,
                     PolynomialForm::Eval => PayloadForm::Eval,
@@ -105,11 +113,87 @@ impl EigenDAClient {
                 let client = PayloadDisperser::new(payload_disperser_config, signer)
                     .await
                     .map_err(|e| anyhow::anyhow!("EigenDA client Error: {:?}", e))?;
-                InnerClient::V2(client)
+                match config.version {
+                    Version::V2 => InnerClient::V2(client),
+                    Version::V2Secure => InnerClient::V2Secure(client),
+                    _ => unreachable!("Version should be either V2 or V2Secure"),
+                }
             }
         };
 
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            sidecar_client: Client::new(),
+            sidecar_rpc: config.eigenda_sidecar_rpc,
+        })
+    }
+}
+
+impl EigenDAClient {
+    async fn send_blob_key(&self, blob_key: String) -> anyhow::Result<()> {
+        let body = json!({
+            "jsonrpc": "2.0",
+            "method": "generate_proof",
+            "params": { "blob_id": blob_key },
+            "id": 1
+        });
+        let response = self
+            .sidecar_client
+            .post(&self.sidecar_rpc)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to send blob key"))?;
+
+        let json_response: Value = response
+            .json()
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to parse response"))?;
+
+        if json_response.get("error").is_some() {
+            Err(anyhow::anyhow!("Failed to send blob key"))
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn get_proof(&self, blob_key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        let body = json!({
+            "jsonrpc": "2.0",
+            "method": "get_proof",
+            "params": { "blob_id": blob_key },
+            "id": 1
+        });
+        let response = self
+            .sidecar_client
+            .post(&self.sidecar_rpc)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to get proof"))?;
+
+        let json_response: Value = response
+            .json()
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to parse response"))?;
+
+        if let Some(error) = json_response.get("error") {
+            if let Some(error_code) = error.get("code") {
+                if error_code.as_i64() != Some(PROOF_NOT_FOUND_ERROR_CODE) {
+                    return Err(anyhow::anyhow!("Failed to get proof for {:?}", blob_key));
+                }
+            }
+        }
+
+        if let Some(result) = json_response.get("result") {
+            if let Some(proof) = result.as_str() {
+                let proof =
+                    hex::decode(proof).map_err(|_| anyhow::anyhow!("Failed to parse proof"))?;
+                return Ok(Some(proof));
+            }
+        }
+
+        Ok(None)
     }
 }
 
@@ -120,25 +204,34 @@ impl DataAvailabilityClient for EigenDAClient {
         _: u32, // batch number
         data: Vec<u8>,
     ) -> Result<DispatchResponse, DAError> {
-        match &self.client {
+        let blob_key = match &self.client {
             InnerClient::V1(client) => {
                 let blob_id = client
                     .dispatch_blob(data)
                     .await
                     .map_err(to_retriable_da_error)?;
 
-                Ok(DispatchResponse::from(blob_id))
+                blob_id
             }
-            InnerClient::V2(client) => {
+            InnerClient::V2(client) | InnerClient::V2Secure(client) => {
                 let payload = Payload::new(data);
                 let blob_key = client
                     .send_payload(payload)
                     .await
                     .map_err(to_retriable_da_error)?;
 
-                Ok(DispatchResponse::from(blob_key.to_hex()))
+                blob_key.to_hex()
             }
+        };
+
+        if let InnerClient::V2Secure(_) = &self.client {
+            // In V2Secure, we need to send the blob key to the sidecar for proof generation
+            self.send_blob_key(blob_key.clone())
+                .await
+                .map_err(to_retriable_da_error)?;
         }
+
+        Ok(DispatchResponse::from(blob_key))
     }
 
     async fn ensure_finality(
@@ -160,7 +253,7 @@ impl DataAvailabilityClient for EigenDAClient {
                     Ok(None)
                 }
             }
-            InnerClient::V2(client) => {
+            InnerClient::V2(client) | InnerClient::V2Secure(client) => {
                 let bytes = hex::decode(dispatch_request_id.clone())
                     .map_err(|_| {
                         anyhow::anyhow!("Failed to decode blob id: {}", dispatch_request_id)
@@ -228,6 +321,28 @@ impl DataAvailabilityClient for EigenDAClient {
                     Ok(None)
                 }
             }
+            InnerClient::V2Secure(client) => {
+                let blob_key = BlobKey::from_hex(blob_id)
+                    .map_err(|_| anyhow::anyhow!("Failed to decode blob id: {}", blob_id))
+                    .map_err(to_non_retriable_da_error)?;
+                let eigenda_cert = client
+                    .get_cert(&blob_key)
+                    .await
+                    .map_err(to_retriable_da_error)?;
+                if eigenda_cert.is_some() {
+                    if let Some(proof) = self
+                        .get_proof(blob_id)
+                        .await
+                        .map_err(to_non_retriable_da_error)?
+                    {
+                        Ok(Some(InclusionData { data: proof }))
+                    } else {
+                        Ok(None)
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
         }
     }
 
@@ -238,7 +353,9 @@ impl DataAvailabilityClient for EigenDAClient {
     fn blob_size_limit(&self) -> Option<usize> {
         match &self.client {
             InnerClient::V1(client) => client.blob_size_limit(),
-            InnerClient::V2(_) => PayloadDisperser::<Signer>::blob_size_limit(),
+            InnerClient::V2(_) | InnerClient::V2Secure(_) => {
+                PayloadDisperser::<Signer>::blob_size_limit()
+            }
         }
     }
 
