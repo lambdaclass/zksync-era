@@ -305,6 +305,7 @@ mod tests {
           DA_REGISTRY_COORDINATOR_ADDR="0x0000000000000000000000000000000000000125"
           DA_BLOB_VERSION="0"
           DA_POLYNOMIAL_FORM="coeff"
+          DA_EIGENDA_SIDECAR_RPC="http://localhost:9999"
         "#;
         let env = Environment::from_dotenv("test.env", env)
             .unwrap()
@@ -336,6 +337,8 @@ mod tests {
             "0x0000000000000000000000000000000000000125"
         );
         assert_eq!(config.polynomial_form, PolynomialForm::Coeff);
+
+        assert_eq!(config.eigenda_sidecar_rpc, "http://localhost:9999");
     }
 
     #[test]
@@ -350,6 +353,7 @@ mod tests {
             registry_coordinator_addr: "0x0000000000000000000000000000000000000125"
             blob_version: 0
             polynomial_form: coeff
+            eigenda_sidecar_rpc: http://localhost:9999
         "#;
         let yaml = Yaml::new("test.yml", serde_yaml::from_str(yaml).unwrap()).unwrap();
 
@@ -385,6 +389,8 @@ mod tests {
             "0x0000000000000000000000000000000000000125"
         );
         assert_eq!(config.polynomial_form, PolynomialForm::Coeff);
+
+        assert_eq!(config.eigenda_sidecar_rpc, "http://localhost:9999");
     }
 
     #[test]

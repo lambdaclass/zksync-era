@@ -32,7 +32,12 @@ da_client:
   authenticated: true
   cert_verifier_addr: 0xfe52fe1940858dcb6e12153e2104ad0fdfbe1162
   blob_version: 0
-  polynomial_form: coeff
+  polynomial_form: coeff #Either coeff or eval
+  cert_verifier_router_addr: 0xdd735affe77a5ed5b21ed47219f95ed841f8ffbd
+  operator_state_retriever_addr: 0xB4baAfee917fb4449f5ec64804217bccE9f46C67
+  registry_coordinator_addr: 0x53012C69A189cfA2D9d29eb6F19B32e0A2EA3490
+  version: V2
+  eigenda_sidecar_rpc: http://localhost:9999
 ```
 
 Check the [README.md](./README.md) for more details on the new fields.
