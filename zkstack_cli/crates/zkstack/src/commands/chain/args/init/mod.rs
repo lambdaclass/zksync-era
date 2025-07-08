@@ -100,10 +100,10 @@ impl InitArgs {
                 Some(da_configs::ValidiumTypeInternal::Avail) => panic!(
                     "Avail is not supported via CLI args, use interactive mode" // TODO: Add support for configuration via CLI args
                 ),
-                Some(da_configs::ValidiumTypeInternal::EigenDA) => Some(ValidiumType::EigenDA),
-                Some(da_configs::ValidiumTypeInternal::EigenDAV2Secure) => {
-                    Some(ValidiumType::EigenDAV2Secure)
+                Some(da_configs::ValidiumTypeInternal::EigenDAOLDREMOVE) => {
+                    Some(ValidiumType::EigenDAOLDREMOVE)
                 }
+                Some(da_configs::ValidiumTypeInternal::EigenDA) => Some(ValidiumType::EigenDA),
             },
             _ => None,
         };
