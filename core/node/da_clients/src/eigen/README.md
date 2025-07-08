@@ -48,6 +48,12 @@ da_client:
   blob_version: 0
 ```
 
+Then, when running `zkstack ecosystem init` set the validium parameter as follows:
+
+```bash
+--validium-type no-da
+```
+
 ### V2Secure specific client configuration
 
 A V2 Secure client uses the same fields as the `V2` Version, and adds a new field:
@@ -73,3 +79,9 @@ da_client:
 ```
 
 > Note: The `eigenda_prover_service_rpc` field determines wheter the client will use secure mode or not.
+
+Then, when running `zkstack ecosystem init` set the validium parameter as follows:
+
+```bash
+--validium-type eigen-da
+```
